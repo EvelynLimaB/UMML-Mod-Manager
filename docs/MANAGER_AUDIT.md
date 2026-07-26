@@ -1,8 +1,8 @@
 # UMML Manager code audit
 
-Audit target: `agent/umml-manager-foundation`, manager `0.2.0~alpha14`.
+Audit target: `agent/umml-manager-foundation`, manager `0.2.0~alpha15`.
 
-This document began with the code-level audit performed after the first Bazzite AppImage test and now includes the alpha13 legacy-baseline migration and alpha14 main-promotion verification follow-ups. It separates corrected defects from remaining release and architecture work. A green build is evidence for one revision, not a ceremonial declaration that bugs have become extinct.
+This document began with the code-level audit performed after the first Bazzite AppImage test and now includes the alpha13 legacy-baseline migration, alpha14 main-promotion verification, and alpha15 Manager autodetection wiring follow-ups. It separates corrected defects from remaining release and architecture work. A green build is evidence for one revision, not a ceremonial declaration that bugs have become extinct.
 
 ## Method
 

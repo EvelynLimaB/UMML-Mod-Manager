@@ -363,7 +363,10 @@ class ManagerTests(unittest.TestCase):
                 calls.append((dat_path, meta_path, region))
                 return global_dec
 
-            with patch("umml_platform.detect_installations", return_value=installs):
+            with patch(
+                "umml_manager.platform_bridge.detect_installations",
+                return_value=installs,
+            ):
                 selected = detect_preferred_installation(
                     "global",
                     decryptor=decryptor,
@@ -377,7 +380,10 @@ class ManagerTests(unittest.TestCase):
             )
 
     def test_installation_detection_reports_missing_game(self):
-        with patch("umml_platform.detect_installations", return_value=[]):
+        with patch(
+            "umml_manager.platform_bridge.detect_installations",
+            return_value=[],
+        ):
             with self.assertRaises(InstallationError):
                 detect_preferred_installation("global")
 

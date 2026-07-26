@@ -42,7 +42,7 @@ Decryptor = Callable[[Path, Path, str], Path]
 def detect_installation_candidates() -> list[InstallationCandidate]:
     """Return complete, currently accessible installations without decrypting metadata."""
 
-    from umml_platform import detect_installations
+    from .platform_bridge import detect_installations
 
     candidates: list[InstallationCandidate] = []
     rejected: list[str] = []

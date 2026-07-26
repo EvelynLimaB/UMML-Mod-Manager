@@ -2,14 +2,14 @@
 
 UMML Manager is the full desktop manager and editing workspace for **Umamusume Pretty Derby** mods. It is packaged separately from legacy UMML while preserving the original loader's editing tools through a guarded compatibility Studio.
 
-> **Preview:** `0.2.0~alpha14`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profiles, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
+> **Preview:** `0.2.0~alpha15`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profiles, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
 
 ## Install
 
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha14_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha15_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -18,16 +18,16 @@ The package can coexist with `umml-linux`. It owns `/usr/lib/umml-manager`, `/us
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha14_x86_64.AppImage
-./umml-manager_0.2.0-alpha14_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha15_x86_64.AppImage
+./umml-manager_0.2.0-alpha15_x86_64.AppImage
 ```
 
 The same file exposes the CLI:
 
 ```bash
-./umml-manager_0.2.0-alpha14_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha14_x86_64.AppImage --cli list
-./umml-manager_0.2.0-alpha14_x86_64.AppImage --cli browse --region global
+./umml-manager_0.2.0-alpha15_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha15_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha15_x86_64.AppImage --cli browse --region global
 ```
 
 Both formats use the same data directory:

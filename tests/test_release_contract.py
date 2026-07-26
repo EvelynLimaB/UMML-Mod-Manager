@@ -135,6 +135,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn("      - main\n", workflow)
         for evidence in (
             "scripts/test_manager_source_install.sh",
+            "scripts/test_manager_autodetect_runtime.py",
             "scripts/manager_main_gate.sh",
             "cli self-test",
             "gui --smoke-test",
@@ -164,6 +165,12 @@ class ReleaseContractTests(unittest.TestCase):
             "RESULT: PASS",
         ):
             self.assertIn(command, gate_text)
+
+        autodetect_runtime = (
+            ROOT / "scripts" / "test_manager_autodetect_runtime.py"
+        )
+        self.assertTrue(autodetect_runtime.is_file())
+        self.assertTrue(autodetect_runtime.stat().st_mode & 0o111)
 
         promotion_policy = (
             ROOT / "docs" / "MANAGER_MAIN_PROMOTION.md"

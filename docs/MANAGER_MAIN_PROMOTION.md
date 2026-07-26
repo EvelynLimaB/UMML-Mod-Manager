@@ -2,7 +2,7 @@
 
 This gate decides whether PR #2 can merge the UMML Manager alpha preview into `main`. It does not rename the Manager stable, publish a stable Manager release, or waive the broader [release checklist](MANAGER_RELEASE_CHECKLIST.md).
 
-Evidence is revision-specific. Every automated result and Bazzite report must identify the exact PR head commit and alpha14 artifact. Results from an older artifact do not promote a newer commit.
+Evidence is revision-specific. Every automated result and Bazzite report must identify the exact PR head commit and alpha15 artifact. Results from an older artifact do not promote a newer commit.
 
 ## Required repository and CI evidence
 
@@ -23,7 +23,7 @@ Use the AppImage artifact built by the exact passing workflow. Close Umamusume, 
 
 ```bash
 scripts/manager_main_gate.sh \
-  --appimage /path/to/umml-manager_0.2.0-alpha14_x86_64.AppImage \
+  --appimage /path/to/umml-manager_0.2.0-alpha15_x86_64.AppImage \
   --checksums /path/to/SHA256SUMS \
   --profile Default \
   --output ./umml-manager-main-gate.log

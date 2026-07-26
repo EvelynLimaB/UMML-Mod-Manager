@@ -12,6 +12,8 @@ python3 -m compileall -q \
 
 python3 scripts/audit_manager.py
 python3 -m unittest discover -s tests -p 'test_manager*.py' -v
+python3 scripts/test_manager_autodetect_runtime.py -- \
+  python3 -m umml_manager
 
 bash -n \
   install-manager.sh \

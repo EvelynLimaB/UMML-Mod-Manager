@@ -1,5 +1,15 @@
 # UMML Manager changelog
 
+## 0.2.0~alpha15 - 2026-07-26
+
+### Manager installation detection
+
+- Fixed the Manager GUI, CLI doctor, source install, DEB, and AppImage entry points using the older `umml_platform` discovery path even though the robust Steam/Proton detector was packaged.
+- Manager installation retries now perform a fresh robust scan instead of retaining a failed first-run result.
+- Manager diagnostics now produce one consistent readiness verdict with scored Steam roots, libraries, game candidates, Proton data candidates, selected paths, and actionable incomplete-discovery notes.
+- Added regressions for replacing a legacy Linux detection miss, refreshing after game data becomes available, and exposing robust discovery evidence through diagnostics.
+- Source, frozen, extracted DEB, installed DEB, and AppImage runtimes now have to detect a disposable native Mint/Debian Steam layout that the older Manager path missed.
+
 ## 0.2.0~alpha14 - 2026-07-25
 
 ### Main-promotion verification

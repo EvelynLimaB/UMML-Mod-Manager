@@ -26,6 +26,7 @@ hiddenimports = [
     "umml_manager.legacy_host",
     "umml_manager.locking",
     "umml_manager.network",
+    "umml_manager.platform_bridge",
     "umml_manager.preview_images",
     "umml_manager.providers.base",
     "umml_manager.providers.gamebanana_previews",

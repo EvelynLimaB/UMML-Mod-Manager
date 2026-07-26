@@ -76,7 +76,7 @@ def collect_manager_diagnostics(
 ) -> dict[str, object]:
     """Collect read-only platform, trust, state, and target diagnostics."""
 
-    from umml_platform import format_doctor_report
+    from .platform_bridge import format_doctor_report
 
     from .network import tls_diagnostics
 

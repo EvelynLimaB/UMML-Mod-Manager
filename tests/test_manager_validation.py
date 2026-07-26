@@ -69,7 +69,7 @@ class ManagerValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             missing = Path(temp) / "missing-manager-root"
             with patch(
-                "umml_platform.format_doctor_report",
+                "umml_manager.platform_bridge.format_doctor_report",
                 return_value=("platform unavailable", False),
             ), patch(
                 "umml_manager.network.tls_diagnostics",
@@ -86,7 +86,7 @@ class ManagerValidationTests(unittest.TestCase):
             settings.write_bytes(b"{not-json")
             before = settings.read_bytes()
             with patch(
-                "umml_platform.format_doctor_report",
+                "umml_manager.platform_bridge.format_doctor_report",
                 return_value=("platform unavailable", False),
             ), patch(
                 "umml_manager.network.tls_diagnostics",
@@ -343,7 +343,7 @@ class ManagerValidationTests(unittest.TestCase):
             )
 
             with patch(
-                "umml_platform.format_doctor_report",
+                "umml_manager.platform_bridge.format_doctor_report",
                 return_value=("platform ready", True),
             ), patch(
                 "umml_manager.network.tls_diagnostics",
@@ -359,7 +359,7 @@ class ManagerValidationTests(unittest.TestCase):
 
             store.save_settings({"metadata_fingerprint": "0" * 64})
             with patch(
-                "umml_platform.format_doctor_report",
+                "umml_manager.platform_bridge.format_doctor_report",
                 return_value=("platform ready", True),
             ), patch(
                 "umml_manager.network.tls_diagnostics",

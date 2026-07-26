@@ -32,7 +32,7 @@ Download the DEB or AppImage from [GitHub Releases](https://github.com/EvelynLim
 
 ### UMML Manager preview
 
-Current manager preview: **`0.2.0~alpha14`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
+Current manager preview: **`0.2.0~alpha15`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
 
 Until it becomes a permanent Release asset, open the [manager branch workflow runs](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml?query=branch%3Aagent%2Fumml-manager-foundation) and download:
 
@@ -43,7 +43,7 @@ Until it becomes a permanent Release asset, open the [manager branch workflow ru
 #### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha14_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha15_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -52,15 +52,15 @@ The absolute command is useful when testing upgrades from early source previews.
 #### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha14_x86_64.AppImage
-./umml-manager_0.2.0-alpha14_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha15_x86_64.AppImage
+./umml-manager_0.2.0-alpha15_x86_64.AppImage
 ```
 
 CLI mode is available from the same file:
 
 ```bash
-./umml-manager_0.2.0-alpha14_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha14_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha15_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha15_x86_64.AppImage --cli list
 ```
 
 The DEB and AppImage are built from the same frozen runtime and use the same user data directory, `~/.local/share/umml-manager`. CI extracts both finished packages and compares their complete embedded runtime trees.

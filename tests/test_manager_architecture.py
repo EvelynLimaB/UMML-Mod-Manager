@@ -78,7 +78,10 @@ class ArchitectureTests(unittest.TestCase):
                     detected=True,
                 )
             ]
-            with patch("umml_platform.detect_installations", return_value=detected):
+            with patch(
+                "umml_manager.platform_bridge.detect_installations",
+                return_value=detected,
+            ):
                 candidates = detect_installation_candidates()
             self.assertEqual(len(candidates), 1)
             self.assertEqual(candidates[0].region, "global")

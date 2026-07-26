@@ -204,7 +204,7 @@ class SystemActions:
 
     def run_diagnostics(self):
         try:
-            from umml_platform import format_doctor_report
+            from .platform_bridge import format_doctor_report
 
             report, ready = format_doctor_report()
         except Exception as exc:

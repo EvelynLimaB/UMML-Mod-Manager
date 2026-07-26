@@ -21,6 +21,11 @@
     <category>Utility</category>
   </categories>
   <releases>
+    <release version="0.2.0-alpha.15" date="2026-07-26">
+      <description>
+        <p>Connects every Manager package and entry point to fresh robust Steam/Proton discovery and includes scored detection evidence in Manager diagnostics.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.14" date="2026-07-25">
       <description>
         <p>Adds non-mutating main-promotion diagnostics, disposable package and real-profile deployment tests, native Tk page rendering checks, source/package lifecycle coverage, and Manager CI on main.</p>

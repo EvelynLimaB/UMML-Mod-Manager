@@ -20,6 +20,8 @@ This is the stable Manager release checklist. Merging the alpha preview into `ma
 - [x] Preserve prepared state across identical immutable re-imports and preserve profile bindings across enable/reorder edits.
 - [x] Reject implicitly saved metadata without a recorded fingerprint and distinguish auto-detected saves from later manual edits.
 - [x] Audit the source installer for the complete Manager, auto-detection, and legacy Studio runtime payload.
+- [x] Route Manager source, DEB, and AppImage installation retries and diagnostics through fresh robust Steam/Proton discovery.
+- [x] Exercise native Mint/Debian Steam-root detection through source, frozen, extracted DEB, installed DEB, and AppImage runtimes.
 - [x] Build one frozen runtime and compare it against complete DEB/AppImage runtime trees.
 - [x] Verify bundled certifi data and Pillow's compiled imaging extension in both packages.
 - [x] Exercise disposable import, conflict, apply, switch, restore, external-change, legacy-migration, and interrupted-recovery paths through the packaged CLI.
@@ -107,7 +109,7 @@ This is the stable Manager release checklist. Merging the alpha preview into `ma
 - [x] Version and CLI smoke tests run without FUSE through extraction mode.
 - [x] Complete frozen runtime matches the shared source bundle and Debian payload.
 - [x] Bundled certifi CA data and Pillow imaging support are present.
-- [ ] Launch the alpha14 graphical interface on Bazzite/KDE.
+- [ ] Launch the alpha15 graphical interface on Bazzite/KDE.
 - [ ] Launch on a second supported distribution.
 - [ ] Verify Library, Discover, Studio, Conflicts, Settings, and diagnostics.
 - [ ] Confirm AppImage and DEB see the same XDG manager data.
@@ -129,7 +131,7 @@ This is the stable Manager release checklist. Merging the alpha preview into `ma
 - [ ] Keep runtime/native plugins outside the desktop manager.
 - [ ] Attach sanitized logs and state manifests for release-candidate smoke tests.
 - [x] Generate and verify external SHA-256 checksums for both package artifacts.
-- [x] Update `MANAGER_VERSION`, changelog, READMEs, AppStream metadata, and artifact names together for alpha14.
+- [x] Update `MANAGER_VERSION`, changelog, READMEs, AppStream metadata, and artifact names together for alpha15.
 
 ## Runtime boundary
 

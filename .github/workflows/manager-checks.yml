@@ -23,6 +23,7 @@ on:
       - 'scripts/check_manager.sh'
       - 'scripts/build_manager_*.sh'
       - 'scripts/manager_main_gate.sh'
+      - 'scripts/test_manager_autodetect_runtime.py'
       - 'scripts/test_manager_source_install.sh'
       - 'packaging/pyinstaller/umml-manager.spec'
       - 'packaging/linux/io.github.evelynlimab.ummlmanager.*'
@@ -87,6 +88,8 @@ jobs:
       - name: Exercise source install lifecycle and render every GUI page
         run: |
           bash scripts/test_manager_source_install.sh
+          python scripts/test_manager_autodetect_runtime.py -- \
+            python -m umml_manager
           xvfb-run -a python -m umml_manager.gui --smoke-test
       - name: Upload failed manager test log
         if: failure()
@@ -178,9 +181,14 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli --help >/dev/null
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli self-test
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+            python scripts/test_manager_autodetect_runtime.py -- \
+            "$APPIMAGE" --cli
           APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a "$APPIMAGE" --smoke-test
 
           build/manager-frozen/umml-manager/umml-manager-bin cli self-test
+          python scripts/test_manager_autodetect_runtime.py -- \
+            build/manager-frozen/umml-manager/umml-manager-bin cli
           xvfb-run -a \
             build/manager-frozen/umml-manager/umml-manager-bin \
             gui --smoke-test
@@ -204,6 +212,8 @@ jobs:
             "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager"
           "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
             cli self-test
+          python scripts/test_manager_autodetect_runtime.py -- \
+            "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli
           xvfb-run -a \
             "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
             gui --smoke-test
@@ -228,6 +238,8 @@ jobs:
           HOME="$PACKAGE_HOME/home" \
             XDG_DATA_HOME="$PACKAGE_HOME/data" \
             umml-manager-cli self-test
+          python scripts/test_manager_autodetect_runtime.py -- \
+            umml-manager-cli
           HOME="$PACKAGE_HOME/home" \
             XDG_DATA_HOME="$PACKAGE_HOME/data" \
             umml-manager-cli --root "$PACKAGE_HOME/isolated" list
