@@ -136,11 +136,10 @@ class ReleaseContractTests(unittest.TestCase):
         for evidence in (
             "scripts/test_manager_source_install.sh",
             "scripts/test_manager_autodetect_runtime.py",
+            "scripts/test_manager_theme_runtime.py",
             "scripts/manager_main_gate.sh",
             "cli self-test",
-            "gui --smoke-test",
             "--cli self-test",
-            "--smoke-test",
             'sudo apt-get install -y "./$DEB"',
             "sudo apt-get remove -y umml-manager",
             "package-sentinel",
@@ -171,6 +170,12 @@ class ReleaseContractTests(unittest.TestCase):
         )
         self.assertTrue(autodetect_runtime.is_file())
         self.assertTrue(autodetect_runtime.stat().st_mode & 0o111)
+
+        theme_runtime = ROOT / "scripts" / "test_manager_theme_runtime.py"
+        self.assertTrue(theme_runtime.is_file())
+        theme_text = theme_runtime.read_text(encoding="utf-8")
+        for evidence in ('THEMES = ("light", "dark")', '"--smoke-test"'):
+            self.assertIn(evidence, theme_text)
 
         promotion_policy = (
             ROOT / "docs" / "MANAGER_MAIN_PROMOTION.md"
