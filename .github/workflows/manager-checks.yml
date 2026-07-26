@@ -24,6 +24,7 @@ on:
       - 'scripts/build_manager_*.sh'
       - 'scripts/manager_main_gate.sh'
       - 'scripts/test_manager_autodetect_runtime.py'
+      - 'scripts/test_manager_theme_runtime.py'
       - 'scripts/test_manager_source_install.sh'
       - 'packaging/pyinstaller/umml-manager.spec'
       - 'packaging/linux/io.github.evelynlimab.ummlmanager.*'
@@ -71,7 +72,8 @@ jobs:
             umml_manager \
             umml_manager_packaged.py \
             tests \
-            scripts/audit_manager.py
+            scripts/audit_manager.py \
+            scripts/test_manager_theme_runtime.py
       - name: Audit source structure and dangerous calls
         run: python scripts/audit_manager.py
       - name: Run manager regression tests
@@ -90,7 +92,8 @@ jobs:
           bash scripts/test_manager_source_install.sh
           python scripts/test_manager_autodetect_runtime.py -- \
             python -m umml_manager
-          xvfb-run -a python -m umml_manager.gui --smoke-test
+          xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
+            python -m umml_manager.gui
       - name: Upload failed manager test log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -184,14 +187,15 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN=1 \
             python scripts/test_manager_autodetect_runtime.py -- \
             "$APPIMAGE" --cli
-          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a "$APPIMAGE" --smoke-test
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a \
+            python scripts/test_manager_theme_runtime.py -- \
+            "$APPIMAGE"
 
           build/manager-frozen/umml-manager/umml-manager-bin cli self-test
           python scripts/test_manager_autodetect_runtime.py -- \
             build/manager-frozen/umml-manager/umml-manager-bin cli
-          xvfb-run -a \
-            build/manager-frozen/umml-manager/umml-manager-bin \
-            gui --smoke-test
+          xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
+            build/manager-frozen/umml-manager/umml-manager-bin gui
 
           VERIFY_ROOT="$(mktemp -d)"
           trap 'rm -rf "$VERIFY_ROOT"' EXIT
@@ -214,9 +218,8 @@ jobs:
             cli self-test
           python scripts/test_manager_autodetect_runtime.py -- \
             "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli
-          xvfb-run -a \
-            "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
-            gui --smoke-test
+          xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
+            "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" gui
           find "$VERIFY_ROOT/deb/usr/lib/umml-manager" \
             -type f -path '*/certifi/cacert.pem' -print -quit | grep -q .
           find "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager" \
@@ -245,7 +248,8 @@ jobs:
             umml-manager-cli --root "$PACKAGE_HOME/isolated" list
           HOME="$PACKAGE_HOME/home" \
             XDG_DATA_HOME="$PACKAGE_HOME/data" \
-            xvfb-run -a umml-manager --smoke-test
+            xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
+              umml-manager
           sudo apt-get remove -y umml-manager
           test -f \
             "$PACKAGE_HOME/data/umml-manager/baseline/package-sentinel"
