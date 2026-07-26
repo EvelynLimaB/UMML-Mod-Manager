@@ -3,6 +3,7 @@ name: UMML Manager checks
 on:
   push:
     branches:
+      - main
       - agent/umml-manager-foundation
       - agent/umml-runtime-bridge
   pull_request:
@@ -21,6 +22,8 @@ on:
       - 'scripts/audit_manager.py'
       - 'scripts/check_manager.sh'
       - 'scripts/build_manager_*.sh'
+      - 'scripts/manager_main_gate.sh'
+      - 'scripts/test_manager_source_install.sh'
       - 'packaging/pyinstaller/umml-manager.spec'
       - 'packaging/linux/io.github.evelynlimab.ummlmanager.*'
       - 'packaging/appimage/io.github.evelynlimab.ummlmanager.desktop'
@@ -48,7 +51,12 @@ jobs:
       - name: Install manager runtime dependencies and metadata validators
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils appstream-util
+          sudo apt-get install -y \
+            appstream-util \
+            desktop-file-utils \
+            python3-tk \
+            xauth \
+            xvfb
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip check
@@ -76,6 +84,10 @@ jobs:
             tail -n 180 /tmp/umml-manager-tests.log
           fi
           exit "$status"
+      - name: Exercise source install lifecycle and render every GUI page
+        run: |
+          bash scripts/test_manager_source_install.sh
+          xvfb-run -a python -m umml_manager.gui --smoke-test
       - name: Upload failed manager test log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -94,6 +106,8 @@ jobs:
               scripts/build_manager_frozen.sh \
               scripts/build_manager_deb.sh \
               scripts/build_manager_appimage.sh \
+              scripts/manager_main_gate.sh \
+              scripts/test_manager_source_install.sh \
               scripts/check_manager.sh
             desktop-file-validate \
               packaging/linux/io.github.evelynlimab.ummlmanager.desktop \
@@ -132,7 +146,9 @@ jobs:
             desktop-file-utils \
             dpkg-dev \
             file \
-            python3-tk
+            python3-tk \
+            xauth \
+            xvfb
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install -r requirements.txt -r requirements-build.txt
           python -m pip check
@@ -161,6 +177,13 @@ jobs:
           file "$APPIMAGE" | grep -q 'ELF 64-bit'
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli --help >/dev/null
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli self-test
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a "$APPIMAGE" --smoke-test
+
+          build/manager-frozen/umml-manager/umml-manager-bin cli self-test
+          xvfb-run -a \
+            build/manager-frozen/umml-manager/umml-manager-bin \
+            gui --smoke-test
 
           VERIFY_ROOT="$(mktemp -d)"
           trap 'rm -rf "$VERIFY_ROOT"' EXIT
@@ -179,6 +202,11 @@ jobs:
           diff -qr \
             "$VERIFY_ROOT/deb/usr/lib/umml-manager" \
             "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager"
+          "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
+            cli self-test
+          xvfb-run -a \
+            "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
+            gui --smoke-test
           find "$VERIFY_ROOT/deb/usr/lib/umml-manager" \
             -type f -path '*/certifi/cacert.pem' -print -quit | grep -q .
           find "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager" \
@@ -188,6 +216,31 @@ jobs:
           find "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager" \
             -type f -path '*/PIL/_imaging*.so' -print -quit | grep -q .
           rm -rf "$VERIFY_ROOT"
+          trap - EXIT
+
+          PACKAGE_HOME="$(mktemp -d)"
+          trap 'rm -rf "$PACKAGE_HOME"' EXIT
+          mkdir -p "$PACKAGE_HOME/data/umml-manager/baseline"
+          printf 'preserve\n' \
+            > "$PACKAGE_HOME/data/umml-manager/baseline/package-sentinel"
+          sudo apt-get install -y "./$DEB"
+          test "$(umml-manager-cli --version)" = "$VERSION"
+          HOME="$PACKAGE_HOME/home" \
+            XDG_DATA_HOME="$PACKAGE_HOME/data" \
+            umml-manager-cli self-test
+          HOME="$PACKAGE_HOME/home" \
+            XDG_DATA_HOME="$PACKAGE_HOME/data" \
+            umml-manager-cli --root "$PACKAGE_HOME/isolated" list
+          HOME="$PACKAGE_HOME/home" \
+            XDG_DATA_HOME="$PACKAGE_HOME/data" \
+            xvfb-run -a umml-manager --smoke-test
+          sudo apt-get remove -y umml-manager
+          test -f \
+            "$PACKAGE_HOME/data/umml-manager/baseline/package-sentinel"
+          test "$(cat \
+            "$PACKAGE_HOME/data/umml-manager/baseline/package-sentinel")" \
+            = preserve
+          rm -rf "$PACKAGE_HOME"
           trap - EXIT
 
           (

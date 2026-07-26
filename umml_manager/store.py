@@ -81,9 +81,10 @@ class ManagerPaths:
 
 
 class ManagerStore:
-    def __init__(self, root: str | Path):
+    def __init__(self, root: str | Path, *, create: bool = True):
         self.paths = ManagerPaths.at(root)
-        self.paths.root.mkdir(parents=True, exist_ok=True)
+        if create:
+            self.paths.root.mkdir(parents=True, exist_ok=True)
         self.settings_warning = ""
 
     def list_mods(self) -> list[ModRecord]:
@@ -241,8 +242,11 @@ class ManagerStore:
         except LockError as exc:
             raise StoreError(str(exc)) from exc
 
-    def load_settings(self) -> dict[str, Any]:
-        data, warning = _read_settings(self.paths.settings)
+    def load_settings(self, *, repair: bool = True) -> dict[str, Any]:
+        data, warning = _read_settings(
+            self.paths.settings,
+            repair=repair,
+        )
         self.settings_warning = warning
         return data
 
@@ -776,12 +780,21 @@ def _read_json_object(
     return data
 
 
-def _read_settings(path: Path) -> tuple[dict[str, Any], str]:
+def _read_settings(
+    path: Path,
+    *,
+    repair: bool = True,
+) -> tuple[dict[str, Any], str]:
     if not path.is_file():
         return {"version": SETTINGS_VERSION}, ""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
+        if not repair:
+            return (
+                {"version": SETTINGS_VERSION},
+                f"Settings are unreadable and were not changed: {path}: {exc}",
+            )
         preserved = _quarantine_file(path)
         return (
             {"version": SETTINGS_VERSION},
@@ -789,6 +802,11 @@ def _read_settings(path: Path) -> tuple[dict[str, Any], str]:
             f"{preserved}: {exc}",
         )
     if not isinstance(data, dict):
+        if not repair:
+            return (
+                {"version": SETTINGS_VERSION},
+                f"Settings do not contain an object and were not changed: {path}",
+            )
         preserved = _quarantine_file(path)
         return (
             {"version": SETTINGS_VERSION},
@@ -803,6 +821,12 @@ def _read_settings(path: Path) -> tuple[dict[str, Any], str]:
             path=path,
         )
     except StoreError as exc:
+        if not repair:
+            return (
+                {"version": SETTINGS_VERSION},
+                f"Settings use an unsupported schema and were not changed: "
+                f"{path}: {exc}",
+            )
         preserved = _quarantine_file(path)
         return (
             {"version": SETTINGS_VERSION},

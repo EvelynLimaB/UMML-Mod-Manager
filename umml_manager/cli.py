@@ -33,6 +33,44 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list")
 
+    self_test = sub.add_parser(
+        "self-test",
+        help="run a disposable import, deployment, restoration, and recovery test",
+    )
+    self_test.add_argument("--json", action="store_true")
+
+    doctor = sub.add_parser(
+        "doctor",
+        help="run read-only platform, HTTPS, target, and Manager-state checks",
+    )
+    doctor.add_argument("--json", action="store_true")
+
+    network_smoke = sub.add_parser(
+        "network-smoke",
+        help="verify live GameBanana browse, detail, file, and preview responses",
+    )
+    network_smoke.add_argument(
+        "--region",
+        choices=("global", "japan"),
+        default="global",
+    )
+    network_smoke.add_argument("--json", action="store_true")
+
+    verify = sub.add_parser(
+        "verify-profile",
+        help=(
+            "apply and restore a real profile on disposable copies of its "
+            "target files"
+        ),
+    )
+    verify.add_argument("profile")
+    verify.add_argument("--dat", default="")
+    verify.add_argument("--game-dir", default="")
+    verify.add_argument("--meta", default="")
+    verify.add_argument("--region", choices=REGIONS, default="")
+    verify.add_argument("--installation-key", default="")
+    verify.add_argument("--json", action="store_true")
+
     imported = sub.add_parser("import")
     imported.add_argument("path")
     imported.add_argument("--id")
@@ -123,8 +161,69 @@ def _add_target_options(
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    store = ManagerStore(args.root)
     try:
+        if args.command == "self-test":
+            from .validation import run_disposable_self_test
+
+            report = run_disposable_self_test()
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                for check in report["checks"]:
+                    print(f"[PASS] {check}")
+                print(
+                    "RESULT: PASS — disposable data only; "
+                    "no real game files were changed"
+                )
+            return 0
+
+        if args.command == "network-smoke":
+            from .validation import run_live_network_smoke
+
+            report = run_live_network_smoke(region=args.region)
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(
+                    f"[PASS] GameBanana {report['region']}: "
+                    f"{report['catalog_records']} catalog record(s); "
+                    f"submission {report['submission_id']} exposed "
+                    f"{report['downloadable_files']} file(s)"
+                )
+                print(
+                    f"[PASS] Preview: {report['preview_content_type']}, "
+                    f"{report['preview_bytes']} byte(s), "
+                    f"{report['preview_size'][0]}×{report['preview_size'][1]}"
+                )
+                print(
+                    "RESULT: PASS — verified live metadata and preview only; "
+                    "nothing was downloaded into the library or game"
+                )
+            return 0
+
+        store = ManagerStore(
+            args.root,
+            create=args.command not in {"doctor", "verify-profile"},
+        )
+        if args.command == "doctor":
+            from .validation import collect_manager_diagnostics
+
+            report = collect_manager_diagnostics(store)
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                for check in report["checks"]:
+                    marker = "OK" if check["passed"] else "CHECK"
+                    detail = str(check["detail"])
+                    lines = detail.splitlines() or [""]
+                    print(f"[{marker}] {check['name']}: {lines[0]}")
+                    for line in lines[1:]:
+                        print(f"    {line}")
+                print(
+                    "RESULT: "
+                    + ("READY" if report["ready"] else "CHECK REQUIRED")
+                )
+            return 0 if report["ready"] else 2
         if args.command == "list":
             for mod in store.list_mods():
                 status = (
@@ -135,6 +234,65 @@ def main(argv: list[str] | None = None) -> int:
                 print(
                     f"{mod.id}\t{mod.version}\t{mod.package_type}\t"
                     f"{status}\t{mod.name}"
+                )
+        elif args.command == "verify-profile":
+            from .validation import verify_profile_on_disposable_copy
+
+            settings = store.load_settings(repair=False)
+            if store.settings_warning:
+                raise StoreError(store.settings_warning)
+            profile = store.get_profile(args.profile)
+            dat_path = (
+                str(args.dat).strip()
+                or str(settings.get("dat_path", "")).strip()
+            )
+            if not dat_path:
+                raise StoreError(
+                    "Profile verification requires --dat or a saved detected "
+                    "game data path"
+                )
+            game_dir = (
+                str(args.game_dir).strip()
+                or str(settings.get("game_dir", "")).strip()
+            )
+            fingerprint = _metadata_fingerprint(
+                args.meta,
+                store=store,
+                settings=settings,
+                required=True,
+            )
+            target_key = _target_installation_key(
+                args.installation_key,
+                store=store,
+                dat_path=dat_path,
+                settings=settings,
+            )
+            region = (
+                str(args.region).strip()
+                or profile.region
+                or str(settings.get("region", "")).strip()
+            )
+            report = verify_profile_on_disposable_copy(
+                store,
+                profile,
+                dat_path=dat_path,
+                game_dir=game_dir or None,
+                target_region=region,
+                target_installation_key=target_key,
+                metadata_fingerprint=fingerprint,
+            )
+            if args.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(
+                    f"[PASS] {report['profile']}: verified "
+                    f"{report['files']} winner(s), "
+                    f"{report['conflicts']} conflict(s), "
+                    f"{report['affected_files']} affected target(s)"
+                )
+                print(
+                    "RESULT: PASS — applied and restored disposable copies; "
+                    "real game and Manager state were unchanged"
                 )
         elif args.command == "import":
             path = Path(args.path)
@@ -261,6 +419,7 @@ def _metadata_fingerprint(
     value: str,
     *,
     store: ManagerStore | None = None,
+    settings: dict | None = None,
     required: bool = False,
 ) -> str:
     if value:
@@ -269,11 +428,17 @@ def _metadata_fingerprint(
             raise StoreError(f"Metadata database not found: {path}")
         return hash_file(path)
 
-    settings = store.load_settings() if store is not None else {}
-    saved_meta = str(settings.get("meta_path", "")).strip()
+    current_settings = (
+        settings
+        if settings is not None
+        else store.load_settings() if store is not None else {}
+    )
+    saved_meta = str(current_settings.get("meta_path", "")).strip()
     saved_path = Path(saved_meta).expanduser() if saved_meta else None
     if saved_path is not None and saved_path.is_file():
-        recorded = str(settings.get("metadata_fingerprint", "")).strip()
+        recorded = str(
+            current_settings.get("metadata_fingerprint", "")
+        ).strip()
         if not recorded:
             if required:
                 raise StoreError(
@@ -309,17 +474,22 @@ def _target_installation_key(
     *,
     store: ManagerStore,
     dat_path: str = "",
+    settings: dict | None = None,
 ) -> str:
     explicit = str(value or "").strip()
     if explicit:
         return explicit
-    settings = store.load_settings()
-    saved_key = str(settings.get("installation_key", "")).strip()
+    current_settings = (
+        settings if settings is not None else store.load_settings()
+    )
+    saved_key = str(
+        current_settings.get("installation_key", "")
+    ).strip()
     if not saved_key:
         return ""
     if not dat_path:
         return saved_key
-    saved_dat = str(settings.get("dat_path", "")).strip()
+    saved_dat = str(current_settings.get("dat_path", "")).strip()
     if not saved_dat:
         return ""
     try:

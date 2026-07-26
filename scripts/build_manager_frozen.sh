@@ -31,5 +31,6 @@ ACTUAL_VERSION="$("$BINARY" --version)"
   exit 1
 }
 "$BINARY" cli --help >/dev/null
+"$BINARY" cli self-test >/dev/null
 
 printf 'Built frozen UMML Manager runtime: %s\n' "$BUNDLE"

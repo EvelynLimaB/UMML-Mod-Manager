@@ -35,12 +35,9 @@ def main(argv: list[str] | None = None) -> int:
         from umml_manager.cli import main as cli_main
 
         return cli_main(args)
-    if args:
-        raise SystemExit(f"unexpected GUI arguments: {' '.join(args)}")
     from umml_manager.gui import main as gui_main
 
-    gui_main()
-    return 0
+    return gui_main(args)
 
 
 if __name__ == "__main__":

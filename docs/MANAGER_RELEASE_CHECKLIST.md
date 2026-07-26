@@ -1,6 +1,6 @@
 # UMML Manager release checklist
 
-PR #2 remains draft until these real-machine checks are completed. CI proves that the source, tests, frozen runtime, Debian package, and AppImage build reproducibly; it does not prove compatibility with every current game update, desktop, network, or mod archive.
+This is the stable Manager release checklist. Merging the alpha preview into `main` does not claim these larger real-game, destructive-recovery, platform, and corpus gates are complete. PR #2 follows the smaller, explicit [main-promotion gate](MANAGER_MAIN_PROMOTION.md); stable DEB/AppImage release advertising still requires every applicable item below to pass or be explicitly excluded.
 
 ## Automated verification
 
@@ -22,6 +22,11 @@ PR #2 remains draft until these real-machine checks are completed. CI proves tha
 - [x] Audit the source installer for the complete Manager, auto-detection, and legacy Studio runtime payload.
 - [x] Build one frozen runtime and compare it against complete DEB/AppImage runtime trees.
 - [x] Verify bundled certifi data and Pillow's compiled imaging extension in both packages.
+- [x] Exercise disposable import, conflict, apply, switch, restore, external-change, legacy-migration, and interrupted-recovery paths through the packaged CLI.
+- [x] Render every native Manager page against disposable state from source, the frozen runtime, the DEB payload, the installed DEB, and the AppImage under Xvfb.
+- [x] Exercise historical source-install migration plus install/uninstall state preservation in an isolated XDG home.
+- [x] Install and remove the real Debian package in CI while verifying Manager user data survives.
+- [x] Configure the Manager workflow to run for Manager changes pushed to `main`.
 
 ## Real mod corpus
 
@@ -102,7 +107,7 @@ PR #2 remains draft until these real-machine checks are completed. CI proves tha
 - [x] Version and CLI smoke tests run without FUSE through extraction mode.
 - [x] Complete frozen runtime matches the shared source bundle and Debian payload.
 - [x] Bundled certifi CA data and Pillow imaging support are present.
-- [ ] Launch the alpha13 graphical interface on Bazzite/KDE.
+- [ ] Launch the alpha14 graphical interface on Bazzite/KDE.
 - [ ] Launch on a second supported distribution.
 - [ ] Verify Library, Discover, Studio, Conflicts, Settings, and diagnostics.
 - [ ] Confirm AppImage and DEB see the same XDG manager data.
@@ -124,7 +129,7 @@ PR #2 remains draft until these real-machine checks are completed. CI proves tha
 - [ ] Keep runtime/native plugins outside the desktop manager.
 - [ ] Attach sanitized logs and state manifests for release-candidate smoke tests.
 - [x] Generate and verify external SHA-256 checksums for both package artifacts.
-- [x] Update `MANAGER_VERSION`, changelog, READMEs, AppStream metadata, and artifact names together for alpha13.
+- [x] Update `MANAGER_VERSION`, changelog, READMEs, AppStream metadata, and artifact names together for alpha14.
 
 ## Runtime boundary
 

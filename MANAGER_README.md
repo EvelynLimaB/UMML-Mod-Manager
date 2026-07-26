@@ -2,14 +2,14 @@
 
 UMML Manager is the full desktop manager and editing workspace for **Umamusume Pretty Derby** mods. It is packaged separately from legacy UMML while preserving the original loader's editing tools through a guarded compatibility Studio.
 
-> **Preview:** `0.2.0~alpha13`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profiles, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
+> **Preview:** `0.2.0~alpha14`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profiles, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
 
 ## Install
 
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha13_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha14_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -18,16 +18,16 @@ The package can coexist with `umml-linux`. It owns `/usr/lib/umml-manager`, `/us
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha13_x86_64.AppImage
-./umml-manager_0.2.0-alpha13_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha14_x86_64.AppImage
+./umml-manager_0.2.0-alpha14_x86_64.AppImage
 ```
 
 The same file exposes the CLI:
 
 ```bash
-./umml-manager_0.2.0-alpha13_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha13_x86_64.AppImage --cli list
-./umml-manager_0.2.0-alpha13_x86_64.AppImage --cli browse --region global
+./umml-manager_0.2.0-alpha14_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha14_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha14_x86_64.AppImage --cli browse --region global
 ```
 
 Both formats use the same data directory:
@@ -219,6 +219,10 @@ Native Studio pages may replace legacy editors incrementally, but the compatibil
 
 ```bash
 umml-manager-cli list
+umml-manager-cli self-test
+umml-manager-cli doctor
+umml-manager-cli network-smoke --region global
+umml-manager-cli verify-profile Default
 umml-manager-cli scan ~/Downloads
 umml-manager-cli browse --region global --sort updated
 umml-manager-cli workspace creator.mod
@@ -239,6 +243,8 @@ CLI apply requires explicit metadata or a saved metadata path whose actual hash 
 
 The GUI prompts before legacy-baseline migration. CLI callers must make the same decision explicitly by adding `--import-legacy-baselines` to `apply`.
 
+`self-test` uses synthetic temporary files. `doctor` inspects the saved target and Manager state without repairing or changing it. `network-smoke` checks current GameBanana catalogue, detail, file metadata, and preview decoding without downloading a mod. `verify-profile` reads a real prepared profile but performs its apply, legacy-baseline migration, and restoration only on temporary copies; it also rechecks the live target hashes before reporting success.
+
 For AppImage use, prefix CLI arguments with the AppImage filename and `--cli`.
 
 ## Development and packaging
@@ -257,7 +263,7 @@ bash scripts/build_manager_appimage.sh
 
 CI compiles every manager file, audits architecture and dangerous calls, runs adversarial and failure-injection tests, validates desktop/AppStream metadata, builds one frozen runtime, compares complete DEB/AppImage payloads, checks certifi and Pillow, and verifies external checksums.
 
-Read `CONTRIBUTING.md`, `docs/MANAGER_ARCHITECTURE.md`, `docs/MANAGER_DEVELOPMENT.md`, `docs/MANAGER_AUDIT.md`, `docs/MANAGER_FEATURE_ROADMAP.md`, and `docs/PACKAGING.md` before changing state, providers, deployment, recovery, or packaging.
+Read `CONTRIBUTING.md`, `docs/MANAGER_ARCHITECTURE.md`, `docs/MANAGER_DEVELOPMENT.md`, `docs/MANAGER_AUDIT.md`, `docs/MANAGER_FEATURE_ROADMAP.md`, `docs/MANAGER_MAIN_PROMOTION.md`, and `docs/PACKAGING.md` before changing state, providers, deployment, recovery, or packaging.
 
 ## Remaining alpha release gates
 

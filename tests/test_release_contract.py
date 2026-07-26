@@ -118,10 +118,58 @@ class ReleaseContractTests(unittest.TestCase):
             / "linux"
             / "io.github.evelynlimab.ummlmanager.metainfo.xml"
         ).read_text(encoding="utf-8")
+        changelog = (ROOT / "MANAGER_CHANGELOG.md").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn(version, readme)
         self.assertIn(version, manager_readme)
         self.assertIn(appstream_version, metainfo)
+        self.assertIn(version, changelog)
+
+    def test_manager_checks_protect_main_and_exercise_finished_packages(self):
+        workflow = (
+            ROOT / ".github" / "workflows" / "manager-checks.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("      - main\n", workflow)
+        for evidence in (
+            "scripts/test_manager_source_install.sh",
+            "scripts/manager_main_gate.sh",
+            "cli self-test",
+            "gui --smoke-test",
+            "--cli self-test",
+            "--smoke-test",
+            'sudo apt-get install -y "./$DEB"',
+            "sudo apt-get remove -y umml-manager",
+            "package-sentinel",
+        ):
+            self.assertIn(evidence, workflow)
+
+        source_smoke = ROOT / "scripts" / "test_manager_source_install.sh"
+        self.assertTrue(source_smoke.is_file())
+        self.assertTrue(source_smoke.stat().st_mode & 0o111)
+
+        promotion_gate = ROOT / "scripts" / "manager_main_gate.sh"
+        self.assertTrue(promotion_gate.is_file())
+        self.assertTrue(promotion_gate.stat().st_mode & 0o111)
+        gate_text = promotion_gate.read_text(encoding="utf-8")
+        for command in (
+            "self-test",
+            "doctor",
+            "network-smoke",
+            "--checksums",
+            "--smoke-test",
+            "verify-profile",
+            "RESULT: PASS",
+        ):
+            self.assertIn(command, gate_text)
+
+        promotion_policy = (
+            ROOT / "docs" / "MANAGER_MAIN_PROMOTION.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("stable Manager release", promotion_policy)
+        self.assertIn("self-installing executable patch", promotion_policy)
 
 
 if __name__ == "__main__":

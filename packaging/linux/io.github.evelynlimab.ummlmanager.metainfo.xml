@@ -21,6 +21,11 @@
     <category>Utility</category>
   </categories>
   <releases>
+    <release version="0.2.0-alpha.14" date="2026-07-25">
+      <description>
+        <p>Adds non-mutating main-promotion diagnostics, disposable package and real-profile deployment tests, native Tk page rendering checks, source/package lifecycle coverage, and Manager CI on main.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.13" date="2026-07-23">
       <description>
         <p>Adds explicit all-or-nothing migration from legacy dat.backup originals, prevents legacy-modded files from becoming vanilla baselines, and replaces opaque first-apply failures with actionable recovery.</p>

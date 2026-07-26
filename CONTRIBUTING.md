@@ -123,6 +123,7 @@ Read these first:
 - `docs/MANAGER_ARCHITECTURE.md`;
 - `docs/MANAGER_DEVELOPMENT.md`;
 - `docs/PACKAGING.md` for package changes;
+- `docs/MANAGER_MAIN_PROMOTION.md` for merging the alpha preview into `main`;
 - `docs/MANAGER_RELEASE_CHECKLIST.md` for unfinished real-machine gates.
 
 ### Manager invariants

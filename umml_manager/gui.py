@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import tempfile
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
@@ -7,6 +9,7 @@ from tkinter import ttk
 from .discovery import default_search_roots
 from .models import PACKAGE_UMML_ASSETS
 from .providers.gamebanana import GameBananaMod
+from .safety import hash_file
 from .store import ManagerStore, default_root
 from .ui_auto_prepare_actions import AutoPrepareActions
 from .ui_discover import DiscoverPage
@@ -497,11 +500,83 @@ class ManagerGUI(
         widget.configure(state="disabled")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="umml-manager")
+    parser.add_argument(
+        "--root",
+        default="",
+        help="override the Manager data directory",
+    )
+    parser.add_argument(
+        "--smoke-test",
+        action="store_true",
+        help=(
+            "construct and render every page using disposable data, then exit; "
+            "no real Manager or game files are touched"
+        ),
+    )
+    return parser
+
+
+def run_gui_smoke_test() -> None:
+    """Render every page against disposable state and return without mainloop."""
+
+    with tempfile.TemporaryDirectory(prefix="umml-manager-gui-smoke-") as temp:
+        base = Path(temp)
+        game = base / "game"
+        dat = game / "UmamusumePrettyDerby_Data" / "Persistent" / "dat"
+        meta = base / "meta.db"
+        dat.mkdir(parents=True)
+        meta.write_bytes(b"disposable-gui-smoke-metadata")
+        store = ManagerStore(base / "manager")
+        store.save_settings(
+            {
+                "dat_path": str(dat),
+                "meta_path": str(meta),
+                "game_dir": str(game),
+                "region": "global",
+                "installation_key": "gui-smoke",
+                "metadata_fingerprint": hash_file(meta),
+            }
+        )
+
+        root = tk.Tk()
+        app = ManagerGUI(root, store)
+        try:
+            root.update_idletasks()
+            root.update()
+            for page in ("library", "discover", "studio", "conflicts", "settings"):
+                app.show_page(page)
+                root.update_idletasks()
+                root.update()
+            if set(app.pages) != {
+                "library",
+                "discover",
+                "studio",
+                "conflicts",
+                "settings",
+            }:
+                raise RuntimeError("GUI smoke test did not construct every page")
+        finally:
+            app.close()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.smoke_test:
+        run_gui_smoke_test()
+        print(
+            "GUI smoke test passed: every page rendered with disposable data; "
+            "no real game files were changed"
+        )
+        return 0
+
     root = tk.Tk()
-    ManagerGUI(root)
+    store = ManagerStore(args.root) if args.root else None
+    ManagerGUI(root, store)
     root.mainloop()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

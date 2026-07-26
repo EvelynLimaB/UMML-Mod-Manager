@@ -124,6 +124,17 @@ bash scripts/build_manager_deb.sh
 bash scripts/build_manager_appimage.sh
 ```
 
+For an exact AppImage candidate on the real Bazzite desktop, close the game and run:
+
+```bash
+scripts/manager_main_gate.sh \
+  --appimage dist/umml-manager_<DISPLAY_VERSION>_x86_64.AppImage \
+  --checksums dist/SHA256SUMS \
+  --profile Default
+```
+
+The gate identifies the package, runs its disposable deployment/recovery self-test, inspects the real saved target and Manager state without repairing them, checks current GameBanana metadata and preview decoding, renders every Tk page, and applies/restores the selected real profile only on copied game files. It exits nonzero if any required check is skipped or fails. Its log can contain local paths and must be sanitized before publication.
+
 Package validation must confirm:
 
 - exact expected filenames, package name, version, and architecture;

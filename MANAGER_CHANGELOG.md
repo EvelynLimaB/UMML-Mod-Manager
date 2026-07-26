@@ -1,5 +1,23 @@
 # UMML Manager changelog
 
+## 0.2.0~alpha14 - 2026-07-25
+
+### Main-promotion verification
+
+- Added a package-level disposable self-test covering folder and ZIP imports, conflict winners, profile switching, exact restoration, external-change refusal, legacy-baseline migration, and interrupted-transaction recovery.
+- Added a read-only `doctor` command for platform detection, HTTPS trust, target identity, metadata integrity, registry, transaction, active-state, and baseline checks.
+- Added a live GameBanana metadata/detail/preview smoke test that never installs a download or writes to the game.
+- Added a real-profile verifier that reads the selected profile and prepared payloads, copies only affected targets and trusted baselines into temporary storage, applies and restores there, and confirms the live target files remain unchanged.
+- Added a native Tk smoke mode that constructs and renders Library, Discover, Studio, Conflicts, and Settings against disposable data.
+- Added one Bazzite-ready promotion script that records package identity and runs all of these checks without deploying to the live game.
+
+### Packaging and branch protection
+
+- The Manager workflow now runs on pushes to `main`, not only on feature branches.
+- CI exercises source install/upgrade/uninstall preservation, every frozen GUI page under Xvfb, the AppImage and extracted DEB runtimes, and a real Debian package install/remove cycle that preserves user data.
+- Frozen, DEB, and AppImage entry points run the same disposable deployment self-test.
+- The promotion policy now separates the requirements for merging this alpha preview into `main` from the larger real-game and destructive test matrix required for a stable Manager release.
+
 ## 0.2.0~alpha13 - 2026-07-23
 
 ### Legacy takeover and baseline safety

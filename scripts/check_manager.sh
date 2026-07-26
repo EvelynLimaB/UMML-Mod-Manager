@@ -19,7 +19,11 @@ bash -n \
   scripts/build_manager_frozen.sh \
   scripts/build_manager_deb.sh \
   scripts/build_manager_appimage.sh \
+  scripts/manager_main_gate.sh \
+  scripts/test_manager_source_install.sh \
   scripts/check_manager.sh
+
+bash scripts/test_manager_source_install.sh
 
 if command -v desktop-file-validate >/dev/null 2>&1; then
   desktop-file-validate \
