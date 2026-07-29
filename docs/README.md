@@ -20,6 +20,7 @@ This repository contains two separately packaged desktop applications and one op
 | --- | --- |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Contribution rules, required checks, fixtures, and review expectations |
 | [`MANAGER_ARCHITECTURE.md`](MANAGER_ARCHITECTURE.md) | Manager library, resolver, deployment engine, providers, and safety boundaries |
+| [`MANAGER_BSTAR_REVIEW.md`](MANAGER_BSTAR_REVIEW.md) | Comparative product and architecture review, adopted ideas, rejected patterns, and future acceptance rules |
 | [`MANAGER_DEVELOPMENT.md`](MANAGER_DEVELOPMENT.md) | Manager setup, tests, debugging, and extension guidance |
 | [`MANAGER_MAIN_PROMOTION.md`](MANAGER_MAIN_PROMOTION.md) | Exact code, CI, package, and Bazzite evidence required before merging the Manager preview into `main` |
 | [`MANAGER_RELEASE_CHECKLIST.md`](MANAGER_RELEASE_CHECKLIST.md) | Real-machine gates before publishing stable DEB/AppImage manager packages |
