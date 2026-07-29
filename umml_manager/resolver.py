@@ -46,6 +46,9 @@ class Resolution:
 
     @property
     def blocking_issues(self) -> list[str]:
+        # Option failures are also mirrored into invalid so existing GUI/CLI plan
+        # renderers show them under Invalid manifests without a second counting
+        # path. invalid_options remains structured evidence for callers/tests.
         return (
             self.missing
             + self.unprepared
@@ -54,7 +57,6 @@ class Resolution:
             + self.incompatible
             + self.wrong_installation
             + self.invalid
-            + self.invalid_options
             + self.missing_dependencies
             + self.incompatibility_conflicts
         )
@@ -196,13 +198,15 @@ def resolve_profile(
                     for source in selected_sources
                 }
             except (OptionError, SafetyError) as exc:
-                resolution.invalid_options.append(f"{mod_id}: {exc}")
+                _record_option_error(resolution, mod_id, str(exc))
                 continue
             missing_targets = sorted(selected_targets - set(record.files))
             if missing_targets:
-                resolution.invalid_options.append(
-                    f"{mod_id}: selected option target(s) are missing from the prepared cache: "
-                    + ", ".join(missing_targets[:5])
+                _record_option_error(
+                    resolution,
+                    mod_id,
+                    "selected option target(s) are missing from the prepared cache: "
+                    + ", ".join(missing_targets[:5]),
                 )
                 continue
 
@@ -217,8 +221,10 @@ def resolve_profile(
             resolution.invalid.append(f"{mod_id}: {exc}")
             continue
         if record.option_groups and not validated:
-            resolution.invalid_options.append(
-                f"{mod_id}: selected options produced no deployable assets"
+            _record_option_error(
+                resolution,
+                mod_id,
+                "selected options produced no deployable assets",
             )
             continue
         for relative, sha256 in validated:
@@ -246,6 +252,16 @@ def resolve_profile(
             )
     resolution.conflicts.sort(key=lambda item: item.path)
     return resolution
+
+
+def _record_option_error(
+    resolution: Resolution,
+    mod_id: str,
+    message: str,
+) -> None:
+    detail = f"{mod_id}: profile options: {message}"
+    resolution.invalid_options.append(detail)
+    resolution.invalid.append(detail)
 
 
 def _deduplicate_profile(
