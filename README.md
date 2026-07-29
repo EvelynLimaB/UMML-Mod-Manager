@@ -14,7 +14,7 @@ Linux, Steam Proton, packaging, and mod-management work for **Umamusume Pretty D
 
 They can coexist and do not own the same application files or backup state.
 
-> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, and conflict planning may happen while it runs.
+> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, configuring profiles, creating package workspaces, and conflict planning may happen while it runs.
 
 ## Downloads
 
@@ -82,7 +82,10 @@ sha256sum -c SHA256SUMS
 - safe normalization of provider-confirmed loose legacy UMML asset archives, including deeply nested layouts;
 - context-aware buttons that follow selection, paging, background-task, profile-blocker, metadata-verification, and live game-process state;
 - named profiles with explicit load order and preserved installation identity, plus an explicit verified-target rebinding action;
-- blockers for missing dependencies, declared incompatibilities, wrong regions, wrong or unverified installations, unsupported backends, stale or unverified prepared caches, and invalid manifests;
+- native profile-scoped single-choice and multi-choice mod options declared in `umml-mod.json`;
+- source-to-target option mapping during preparation, so choices never rename or mutate immutable imported files;
+- a guided **New package** workspace builder with an optional configurable variant template;
+- blockers for missing dependencies, declared incompatibilities, invalid profile options, wrong regions, wrong or unverified installations, unsupported backends, stale or unverified prepared caches, and invalid manifests;
 - fail-closed GUI and CLI deployment through one guarded public engine boundary;
 - path-contained, hash-verified deployment with target-scoped active state and vanilla baselines;
 - explicit first-run migration that copies legacy `dat.backup` originals into protected manager baselines before taking ownership;
@@ -98,14 +101,14 @@ sha256sum -c SHA256SUMS
 - a standard-library AST audit, visible-button callback audit, and adversarial regression/failure-injection tests;
 - manager tests run against the same pinned runtime dependencies bundled into one matching DEB/AppImage runtime.
 
-Read [MANAGER_README.md](MANAGER_README.md) for the user workflow, [docs/MANAGER_AUDIT.md](docs/MANAGER_AUDIT.md) for the code audit, and [docs/MANAGER_FEATURE_ROADMAP.md](docs/MANAGER_FEATURE_ROADMAP.md) for planned work.
+Read [MANAGER_README.md](MANAGER_README.md) for the user workflow, [docs/MANAGER_MOD_MANIFEST.md](docs/MANAGER_MOD_MANIFEST.md) for package configuration, [docs/MANAGER_BSTAR_REVIEW.md](docs/MANAGER_BSTAR_REVIEW.md) for the comparative design pass, [docs/MANAGER_AUDIT.md](docs/MANAGER_AUDIT.md) for the code audit, and [docs/MANAGER_FEATURE_ROADMAP.md](docs/MANAGER_FEATURE_ROADMAP.md) for planned work.
 
 ## Basic manager workflow
 
 1. Open the manager and let **Settings** detect the installation and prepare metadata.
 2. Browse GameBanana or scan Downloads/custom folders in **Discover**.
-3. Import a compatible mod; the manager prepares it automatically when metadata is ready.
-4. Enable and order mods in a profile bound to the intended installation. Use **Settings → Bind profile here** only when intentionally moving a profile to the currently detected target.
+3. Import a compatible mod; the manager prepares it automatically when metadata is ready. Mod creators can start from **Library → New package**.
+4. Enable and order mods in a profile bound to the intended installation. Use **Configure** for package-declared choices and **Settings → Bind profile here** only when intentionally moving a profile to the currently detected target.
 5. Inspect **Conflicts** for file winners and every deployment blocker.
 6. Close the game and apply the profile.
 7. Use **Studio** for the original loader's editing tools.
