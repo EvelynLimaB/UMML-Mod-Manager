@@ -57,6 +57,24 @@ class ManagerStore(_BaseManagerStore):
         source: SourceSpec | None = None,
         metadata_overrides: dict[str, Any] | None = None,
     ) -> ModRecord:
+        selected = Path(folder).expanduser().resolve()
+        if selected.is_dir() and not _store.is_mod_root(selected):
+            selected = find_mod_root(selected)
+
+        # Validate creator-facing policy before the low-level store copies or
+        # registers anything. An invalid options manifest must not leave behind
+        # a half-imported immutable record.
+        metadata = _store.read_mod_metadata(selected) if selected.is_dir() else {}
+        if metadata_overrides:
+            metadata.update(
+                {
+                    key: value
+                    for key, value in metadata_overrides.items()
+                    if value not in (None, "")
+                }
+            )
+        option_groups = normalize_option_groups(metadata.get("option_groups", {}))
+
         with _IMPORT_MUTEX:
             try:
                 with FileLock(
@@ -64,27 +82,14 @@ class ManagerStore(_BaseManagerStore):
                     purpose="allocating and importing an immutable mod version",
                 ):
                     record = super().import_folder(
-                        folder,
+                        selected,
                         mod_id=mod_id,
                         source=source,
                         metadata_overrides=metadata_overrides,
                     )
                     # The low-level store intentionally understands only common
-                    # metadata. Enrich the immutable record at the public library
-                    # boundary so creator-facing options remain policy-owned and
-                    # old callers still receive a normal ModRecord.
-                    metadata = _store.read_mod_metadata(Path(record.source_path))
-                    if metadata_overrides:
-                        metadata.update(
-                            {
-                                key: value
-                                for key, value in metadata_overrides.items()
-                                if value not in (None, "")
-                            }
-                        )
-                    option_groups = normalize_option_groups(
-                        metadata.get("option_groups", {})
-                    )
+                    # metadata. Enrich the record at the public library boundary
+                    # after the whole import has succeeded.
                     if record.option_groups != option_groups:
                         record = replace(record, option_groups=option_groups)
                         self.save_mod(record)
