@@ -3,6 +3,8 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from .options import OptionError, normalize_profile_options, option_summary
+from .ui_mod_options import configure_mod_options
 from .ui_theme import SURFACE_2, TEXT
 
 
@@ -33,6 +35,7 @@ class LibraryPage(ttk.Frame):
         def profile_selected(_event):
             app.refresh()
             app.save_settings(silent=True)
+            self.refresh_option_state()
 
         self.profile_box.bind(
             "<<ComboboxSelected>>",
@@ -107,7 +110,7 @@ class LibraryPage(ttk.Frame):
         scroll.grid(row=0, column=1, sticky="ns")
         self.tree.bind(
             "<<TreeviewSelect>>",
-            lambda _event: app.show_selected_mod(),
+            self._selected_changed,
         )
         self.tree.bind(
             "<Double-1>",
@@ -143,8 +146,16 @@ class LibraryPage(ttk.Frame):
             row=2,
             column=0,
             sticky="w",
-            pady=(0, 10),
+            pady=(0, 8),
         )
+        self.option_state = ttk.Label(
+            details,
+            text="",
+            style="SurfaceMuted.TLabel",
+            wraplength=430,
+            justify="left",
+        )
+        self.option_state.grid(row=3, column=0, sticky="ew", pady=(0, 8))
         self.description = tk.Text(
             details,
             wrap="word",
@@ -184,13 +195,20 @@ class LibraryPage(ttk.Frame):
             state="disabled",
         )
         self.move_down_button.pack(side="left", padx=2)
+        self.configure_button = ttk.Button(
+            buttons,
+            text="Configure",
+            command=lambda: configure_mod_options(app, self),
+            state="disabled",
+        )
+        self.configure_button.pack(side="left", padx=(8, 2))
         self.prepare_button = ttk.Button(
             buttons,
             text="Prepare",
             command=app.prepare_selected,
             state="disabled",
         )
-        self.prepare_button.pack(side="left", padx=(8, 2))
+        self.prepare_button.pack(side="left", padx=2)
         self.workspace_button = ttk.Button(
             buttons,
             text="Edit copy",
@@ -223,6 +241,10 @@ class LibraryPage(ttk.Frame):
         )
         self.apply_button.pack(side="right")
 
+    def _selected_changed(self, _event=None) -> None:
+        self.app.show_selected_mod()
+        self.refresh_option_state()
+
     def selected_id(self):
         selected = self.tree.selection()
         return selected[0] if selected else None
@@ -231,6 +253,8 @@ class LibraryPage(ttk.Frame):
         self.mod_title.configure(text="Select a mod")
         self.mod_meta.configure(text="")
         self.mod_state.configure(text="")
+        self.option_state.configure(text="")
+        self.configure_button.configure(state="disabled")
         self.set_description("")
 
     def set_description(self, value: str) -> None:
@@ -238,3 +262,35 @@ class LibraryPage(ttk.Frame):
         self.description.delete("1.0", "end")
         self.description.insert("1.0", value)
         self.description.configure(state="disabled")
+        self.after_idle(self.refresh_option_state)
+
+    def refresh_option_state(self, *, record=None, profile=None) -> None:
+        mod_id = self.selected_id()
+        if not mod_id:
+            self.option_state.configure(text="")
+            self.configure_button.configure(state="disabled")
+            return
+        try:
+            record = record or self.app.store.get_mod(mod_id)
+            if not record.option_groups:
+                self.option_state.configure(text="")
+                self.configure_button.configure(state="disabled")
+                return
+            profile = profile or self.app.profile()
+            selections = normalize_profile_options(
+                record.option_groups,
+                profile.options.get(mod_id, {}),
+            )
+            summary = option_summary(record.option_groups, selections)
+            if record.files and not record.source_files:
+                summary += " • Re-prepare required for option mapping"
+            self.option_state.configure(text="Profile options • " + summary)
+            self.configure_button.configure(
+                state="disabled" if getattr(self.app, "_busy", False) else "normal"
+            )
+        except OptionError as exc:
+            self.option_state.configure(text=f"Invalid profile options: {exc}")
+            self.configure_button.configure(state="normal")
+        except Exception as exc:
+            self.option_state.configure(text=f"Could not load options: {exc}")
+            self.configure_button.configure(state="disabled")
