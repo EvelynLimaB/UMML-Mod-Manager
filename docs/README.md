@@ -8,6 +8,7 @@ This repository contains two separately packaged desktop applications and one op
 | --- | --- |
 | [`../README.md`](../README.md) | Repository overview, DEB/AppImage downloads, installation, and product comparison |
 | [`../MANAGER_README.md`](../MANAGER_README.md) | Complete UMML Manager user guide, package formats, profiles, conflicts, recovery, and CLI |
+| [`MANAGER_MOD_MANIFEST.md`](MANAGER_MOD_MANIFEST.md) | Creator metadata, profile-scoped option groups, path rules, and configurable-package validation |
 | [`MANAGER_THEMES.md`](MANAGER_THEMES.md) | Persistent Light/System/Dark behavior, desktop detection, widget coverage, and package smoke tests |
 | [`LINUX.md`](LINUX.md) | Linux port details and source-install notes |
 | [`AUTODETECTION.md`](AUTODETECTION.md) | Steam, Proton, Wine-prefix, and Persistent-data discovery |
