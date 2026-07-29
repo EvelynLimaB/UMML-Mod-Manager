@@ -5,6 +5,7 @@ from tkinter import ttk
 
 from .options import OptionError, normalize_profile_options, option_summary
 from .ui_mod_options import configure_mod_options
+from .ui_package_builder import launch_package_builder
 from .ui_theme import SURFACE_2, TEXT
 
 
@@ -19,11 +20,7 @@ class LibraryPage(ttk.Frame):
         toolbar = ttk.Frame(self, padding=(0, 0, 0, 10))
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
         toolbar.columnconfigure(1, weight=1)
-        ttk.Label(toolbar, text="Profile").grid(
-            row=0,
-            column=0,
-            padx=(0, 7),
-        )
+        ttk.Label(toolbar, text="Profile").grid(row=0, column=0, padx=(0, 7))
         self.profile_box = ttk.Combobox(
             toolbar,
             textvariable=app.profile_name,
@@ -37,47 +34,34 @@ class LibraryPage(ttk.Frame):
             app.save_settings(silent=True)
             self.refresh_option_state()
 
-        self.profile_box.bind(
-            "<<ComboboxSelected>>",
-            profile_selected,
-        )
+        self.profile_box.bind("<<ComboboxSelected>>", profile_selected)
         self.new_profile_button = ttk.Button(
-            toolbar,
-            text="New profile",
-            command=app.new_profile,
+            toolbar, text="New profile", command=app.new_profile
         )
         self.new_profile_button.grid(row=0, column=2, padx=4)
         self.search_entry = ttk.Entry(
-            toolbar,
-            textvariable=app.search_library,
-            width=26,
+            toolbar, textvariable=app.search_library, width=26
         )
         self.search_entry.grid(row=0, column=3, padx=(14, 4))
         self.search_entry.bind("<Return>", lambda _event: app.refresh())
-        self.search_button = ttk.Button(
-            toolbar,
-            text="Search",
-            command=app.refresh,
-        )
+        self.search_button = ttk.Button(toolbar, text="Search", command=app.refresh)
         self.search_button.grid(row=0, column=4)
+        self.new_package_button = ttk.Button(
+            toolbar,
+            text="New package",
+            command=lambda: launch_package_builder(app),
+        )
+        self.new_package_button.grid(row=0, column=5, padx=(14, 4))
         self.import_folder_button = ttk.Button(
-            toolbar,
-            text="Import folder",
-            command=app.import_folder,
+            toolbar, text="Import folder", command=app.import_folder
         )
-        self.import_folder_button.grid(row=0, column=5, padx=(14, 4))
+        self.import_folder_button.grid(row=0, column=6, padx=4)
         self.import_archive_button = ttk.Button(
-            toolbar,
-            text="Import archive",
-            command=app.import_archive,
+            toolbar, text="Import archive", command=app.import_archive
         )
-        self.import_archive_button.grid(row=0, column=6, padx=4)
+        self.import_archive_button.grid(row=0, column=7, padx=4)
 
-        left = ttk.Frame(
-            self,
-            style="Surface.TFrame",
-            padding=10,
-        )
+        left = ttk.Frame(self, style="Surface.TFrame", padding=10)
         left.grid(row=1, column=0, sticky="nsew", padx=(0, 7))
         left.columnconfigure(0, weight=1)
         left.rowconfigure(0, weight=1)
@@ -100,54 +84,25 @@ class LibraryPage(ttk.Frame):
                 width=width,
                 anchor="center" if column != "#0" else "w",
             )
-        scroll = ttk.Scrollbar(
-            left,
-            orient="vertical",
-            command=self.tree.yview,
-        )
+        scroll = ttk.Scrollbar(left, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scroll.set)
         self.tree.grid(row=0, column=0, sticky="nsew")
         scroll.grid(row=0, column=1, sticky="ns")
-        self.tree.bind(
-            "<<TreeviewSelect>>",
-            self._selected_changed,
-        )
-        self.tree.bind(
-            "<Double-1>",
-            lambda _event: app.toggle_mod(),
-        )
+        self.tree.bind("<<TreeviewSelect>>", self._selected_changed)
+        self.tree.bind("<Double-1>", lambda _event: app.toggle_mod())
 
-        details = ttk.Frame(
-            self,
-            style="Surface.TFrame",
-            padding=16,
-        )
+        details = ttk.Frame(self, style="Surface.TFrame", padding=16)
         details.grid(row=1, column=1, sticky="nsew", padx=(7, 0))
         details.columnconfigure(0, weight=1)
         details.rowconfigure(4, weight=1)
         self.mod_title = ttk.Label(
-            details,
-            text="Select a mod",
-            style="CardTitle.TLabel",
+            details, text="Select a mod", style="CardTitle.TLabel"
         )
         self.mod_title.grid(row=0, column=0, sticky="w")
-        self.mod_meta = ttk.Label(
-            details,
-            text="",
-            style="SurfaceMuted.TLabel",
-        )
+        self.mod_meta = ttk.Label(details, text="", style="SurfaceMuted.TLabel")
         self.mod_meta.grid(row=1, column=0, sticky="w", pady=(3, 10))
-        self.mod_state = ttk.Label(
-            details,
-            text="",
-            style="Badge.TLabel",
-        )
-        self.mod_state.grid(
-            row=2,
-            column=0,
-            sticky="w",
-            pady=(0, 8),
-        )
+        self.mod_state = ttk.Label(details, text="", style="Badge.TLabel")
+        self.mod_state.grid(row=2, column=0, sticky="w", pady=(0, 8))
         self.option_state = ttk.Label(
             details,
             text="",
@@ -173,10 +128,7 @@ class LibraryPage(ttk.Frame):
         buttons = ttk.Frame(details, style="Surface.TFrame")
         buttons.grid(row=5, column=0, sticky="ew", pady=(12, 0))
         self.toggle_button = ttk.Button(
-            buttons,
-            text="Enable",
-            command=app.toggle_mod,
-            state="disabled",
+            buttons, text="Enable", command=app.toggle_mod, state="disabled"
         )
         self.toggle_button.pack(side="left")
         self.move_up_button = ttk.Button(
@@ -228,9 +180,7 @@ class LibraryPage(ttk.Frame):
         actions = ttk.Frame(self, padding=(0, 10, 0, 0))
         actions.grid(row=2, column=0, columnspan=2, sticky="ew")
         self.preview_conflicts_button = ttk.Button(
-            actions,
-            text="Preview conflicts",
-            command=app.show_plan,
+            actions, text="Preview conflicts", command=app.show_plan
         )
         self.preview_conflicts_button.pack(side="left")
         self.apply_button = ttk.Button(
