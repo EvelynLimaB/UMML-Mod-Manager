@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .models import PACKAGE_UMML_ASSETS, ModRecord, Profile
+from .options import OptionError, normalize_profile_options, select_source_paths
 from .regions import normalize_region
 from .safety import SafetyError, normalize_relative_path, validate_sha256
 
@@ -39,6 +40,7 @@ class Resolution:
     incompatible: list[str] = field(default_factory=list)
     wrong_installation: list[str] = field(default_factory=list)
     invalid: list[str] = field(default_factory=list)
+    invalid_options: list[str] = field(default_factory=list)
     missing_dependencies: list[str] = field(default_factory=list)
     incompatibility_conflicts: list[str] = field(default_factory=list)
 
@@ -52,6 +54,7 @@ class Resolution:
             + self.incompatible
             + self.wrong_installation
             + self.invalid
+            + self.invalid_options
             + self.missing_dependencies
             + self.incompatibility_conflicts
         )
@@ -171,17 +174,52 @@ def resolve_profile(
             )
             continue
 
+        selected_targets: set[str] | None = None
+        if record.option_groups:
+            if not record.source_files:
+                resolution.unprepared.append(
+                    f"{mod_id} needs option-aware re-preparation"
+                )
+                continue
+            try:
+                selected = normalize_profile_options(
+                    record.option_groups,
+                    profile.options.get(mod_id, {}),
+                )
+                selected_sources = select_source_paths(
+                    record.option_groups,
+                    selected,
+                    record.source_files.keys(),
+                )
+                selected_targets = {
+                    normalize_relative_path(record.source_files[source])
+                    for source in selected_sources
+                }
+            except (OptionError, SafetyError) as exc:
+                resolution.invalid_options.append(f"{mod_id}: {exc}")
+                continue
+            missing_targets = sorted(selected_targets - set(record.files))
+            if missing_targets:
+                resolution.invalid_options.append(
+                    f"{mod_id}: selected option target(s) are missing from the prepared cache: "
+                    + ", ".join(missing_targets[:5])
+                )
+                continue
+
         validated: list[tuple[str, str]] = []
         try:
             for relative, sha256 in sorted(record.files.items()):
-                validated.append(
-                    (
-                        normalize_relative_path(relative),
-                        validate_sha256(sha256),
-                    )
-                )
+                canonical = normalize_relative_path(relative)
+                if selected_targets is not None and canonical not in selected_targets:
+                    continue
+                validated.append((canonical, validate_sha256(sha256)))
         except SafetyError as exc:
             resolution.invalid.append(f"{mod_id}: {exc}")
+            continue
+        if record.option_groups and not validated:
+            resolution.invalid_options.append(
+                f"{mod_id}: selected options produced no deployable assets"
+            )
             continue
         for relative, sha256 in validated:
             claims.setdefault(relative, []).append(
