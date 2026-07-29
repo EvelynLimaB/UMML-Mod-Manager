@@ -2,14 +2,14 @@
 
 UMML Manager is the full desktop manager and editing workspace for **Umamusume Pretty Derby** mods. It is packaged separately from legacy UMML while preserving the original loader's editing tools through a guarded compatibility Studio.
 
-> **Preview:** `0.2.0~alpha15`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profiles, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
+> **Preview:** `0.2.0~alpha16`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profile-scoped configurable mods, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
 
 ## Install
 
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha15_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha16_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -18,16 +18,16 @@ The package can coexist with `umml-linux`. It owns `/usr/lib/umml-manager`, `/us
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha15_x86_64.AppImage
-./umml-manager_0.2.0-alpha15_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha16_x86_64.AppImage
+./umml-manager_0.2.0-alpha16_x86_64.AppImage
 ```
 
 The same file exposes the CLI:
 
 ```bash
-./umml-manager_0.2.0-alpha15_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha15_x86_64.AppImage --cli list
-./umml-manager_0.2.0-alpha15_x86_64.AppImage --cli browse --region global
+./umml-manager_0.2.0-alpha16_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha16_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha16_x86_64.AppImage --cli browse --region global
 ```
 
 Both formats use the same data directory:
@@ -55,15 +55,15 @@ update-desktop-database ~/.local/share/applications 2>/dev/null || true
 hash -r
 ```
 
-The current source installer stores the complete Manager and legacy Studio source runtime in `~/.local/share/umml-manager-app` and state in `~/.local/share/umml-manager`. It requires Tk and Pillow and reports when optional preparation/Studio dependencies are unavailable. Its source-specific launchers do not replace an installed Debian package.
+The current source installer stores the complete Manager and legacy Studio source runtime in `~/.local/share/umml-manager-app` and state in `~/.local/share/umml-manager`. It requires Tk and Pillow and reports when optional preparation or Studio dependencies are unavailable. Its source-specific launchers do not replace an installed Debian package.
 
 ## Interface
 
-- **Library:** immutable versions, profiles, load order, preparation provenance, editable copies, and deployment.
+- **Library:** immutable versions, profiles, load order, configurable choices, preparation provenance, editable copies, package creation, and deployment.
 - **Discover:** Global/Japan GameBanana browsing and bounded local package discovery.
 - **Studio:** the complete legacy editor and loader interface behind process guards.
 - **Conflicts:** exact file winners and every deployment blocker.
-- **Settings:** installation detection, target paths, prepared metadata, diagnostics, manager data, and workspaces.
+- **Settings:** installation detection, target paths, prepared metadata, appearance, diagnostics, manager data, and workspaces.
 
 ### Context-aware controls
 
@@ -72,6 +72,7 @@ Visible controls follow actual prerequisites instead of silently doing nothing:
 - selection actions require a valid Library or local-discovery row;
 - **Enable** changes to **Disable** for enabled mods;
 - load-order arrows follow the selected mod's real position;
+- **Configure** appears for packages declaring profile options;
 - **Prepare now** and **Re-prepare** reflect package and metadata state;
 - **Apply profile** explains whether target data, metadata verification, blocker resolution, or closing the game is required;
 - GameBanana paging and installation states survive background tasks;
@@ -90,13 +91,13 @@ Backend validation remains authoritative. Disabled-state logic improves the inte
 4. When detection does not complete, use **Settings → Auto-detect installation**, then **Run diagnostics**.
 5. Browse GameBanana or scan local folders from **Discover**.
 6. Import a compatible package. Legacy UMML assets prepare automatically when readable metadata is available.
-7. Enable prepared mods and arrange load order.
+7. Enable prepared mods, configure package choices when available, and arrange load order.
 8. Inspect **Conflicts**. The plan must have zero blockers.
 9. Close the game and apply explicitly.
 
 Manual path changes clear verified installation identity and metadata fingerprints. Run auto-detection again before deploying enabled mods.
 
-Enabling, disabling, and reordering mods never changes an existing profile binding. To intentionally move a profile to the currently detected installation, use **Settings → Bind profile here** and confirm the rebind.
+Enabling, disabling, reordering, and configuring mods never changes an existing profile binding. To intentionally move a profile to the currently detected installation, use **Settings → Bind profile here** and confirm the rebind.
 
 If the old UMML already installed enabled assets, the first **Apply profile** checks the sibling `dat.backup` tree before taking ownership. When all needed originals are present, Manager offers to copy them into its protected, target-bound baseline and continue. It never moves or deletes the old backup. If any original is unavailable, no game file changes and the dialog directs you to legacy restore or Steam file verification.
 
@@ -106,17 +107,32 @@ The three target paths are:
 - UMML's prepared `meta_decrypted_*.db`, not the encrypted file named `meta`;
 - the game installation directory containing its executable.
 
-## Import, preparation, and deployment
+## Import, preparation, configuration, and deployment
 
-The manager separates three operations:
+The manager separates four operations:
 
 1. **Import** preserves an immutable source version.
-2. **Prepare** resolves source assets into hash-addressed targets using readable metadata.
-3. **Apply** writes the enabled profile to the game through a verified transaction.
+2. **Prepare** resolves creator-facing source assets into hash-addressed targets using readable metadata.
+3. **Configure** stores a package's selected choices in one profile.
+4. **Apply** writes the resolved enabled profile to the game through a verified transaction.
 
 Import commits before automatic preparation. A preparation failure therefore preserves the downloaded archive and immutable source in Library with a retryable **Prepare now** action.
 
-Prepared records retain file hashes, preparation time, and the metadata fingerprint used to build them. When current metadata is known, a missing or mismatched preparation fingerprint blocks deployment and requires re-preparation.
+Prepared records retain file hashes, preparation time, the metadata fingerprint used to build them, and a source-path-to-target-hash map. When current metadata is known, a missing or mismatched preparation fingerprint blocks deployment and requires re-preparation.
+
+### Configurable packages
+
+Packages may declare `option_groups` in `umml-mod.json`. Single-choice groups use radio-button semantics; multiple-choice groups use checkbox semantics. Selections belong to the active profile, so two profiles may use different variants from the same immutable imported version.
+
+UMML does not rename imported files to enable or disable choices. Preparation records the complete source mapping once, and the resolver includes only the targets selected by the profile. Files not controlled by any option remain shared and enabled.
+
+Configuration fails closed for unsafe patterns, unknown choices, patterns that match no prepared source, one file controlled by multiple choices or groups, or an old prepared cache with no source mapping. The latter is fixed with one **Re-prepare**.
+
+See `docs/MANAGER_MOD_MANIFEST.md` for the schema and examples.
+
+### New package workspace
+
+**Library → New package** creates a timestamped editable workspace containing `umml-mod.json`, `assets/`, instructions, and optionally a valid two-choice variant template. Creation does not import, prepare, enable, or deploy anything. Populate and validate the workspace, then import it deliberately as a normal immutable version.
 
 ## Immutable library and concurrency
 
@@ -128,7 +144,7 @@ The public library boundary serializes the complete identity-selection, source-c
 
 ## GameBanana and loose legacy packages
 
-Discover supports paging, search, sorting, authors, versions, statistics, file selection, original-page links, verified downloads, and bounded preview images.
+Discover supports paging, search, sorting, authors, versions, statistics, exact file selection, original-page links, verified downloads, and bounded preview images.
 
 Catalogue rows do not always contain full file lists. The manager offers **Install latest** while details load and replaces it with the real selector when available. Stale detail responses are ignored after selection or page changes.
 
@@ -157,7 +173,7 @@ Hachimi packages may be discovered and preserved, but remain deployment blockers
 
 ## Profiles and planning
 
-Profiles are ordered lists; later mods win overlapping paths. Profiles retain target region and installation identity.
+Profiles are ordered lists; later mods win overlapping paths. Profiles retain target region, installation identity, and per-mod option selections.
 
 The resolver blocks:
 
@@ -167,6 +183,7 @@ The resolver blocks:
 - wrong-region mods;
 - wrong or unverified installation identity for a bound profile;
 - invalid paths or hashes;
+- invalid or ambiguous profile options;
 - missing declared dependencies;
 - declared incompatibilities.
 
@@ -261,18 +278,19 @@ bash scripts/build_manager_deb.sh
 bash scripts/build_manager_appimage.sh
 ```
 
-CI compiles every manager file, audits architecture and dangerous calls, runs adversarial and failure-injection tests, validates desktop/AppStream metadata, builds one frozen runtime, compares complete DEB/AppImage payloads, checks certifi and Pillow, and verifies external checksums.
+CI compiles every manager file, audits architecture and dangerous calls, audits visible callbacks including configuration and package-builder dialogs, runs adversarial and failure-injection tests, validates desktop/AppStream metadata, builds one frozen runtime, compares complete DEB/AppImage payloads, checks certifi and Pillow, and verifies external checksums.
 
-Read `CONTRIBUTING.md`, `docs/MANAGER_ARCHITECTURE.md`, `docs/MANAGER_DEVELOPMENT.md`, `docs/MANAGER_AUDIT.md`, `docs/MANAGER_FEATURE_ROADMAP.md`, `docs/MANAGER_MAIN_PROMOTION.md`, and `docs/PACKAGING.md` before changing state, providers, deployment, recovery, or packaging.
+Read `CONTRIBUTING.md`, `docs/MANAGER_ARCHITECTURE.md`, `docs/MANAGER_BSTAR_REVIEW.md`, `docs/MANAGER_DEVELOPMENT.md`, `docs/MANAGER_AUDIT.md`, `docs/MANAGER_FEATURE_ROADMAP.md`, `docs/MANAGER_MAIN_PROMOTION.md`, and `docs/PACKAGING.md` before changing state, providers, deployment, recovery, or packaging.
 
 ## Remaining alpha release gates
 
 - live Bazzite GameBanana browse, preview, detail hydration, deep loose-package normalization, automatic preparation, and import without certificate overrides;
-- real-desktop state and diagnostics smoke testing across every page;
-- a broader current-mod corpus;
-- packaged apply/disable/restore/update tests on disposable game data;
+- real-desktop state, configuration-dialog, package-builder, and diagnostics smoke testing;
+- a broader current-mod corpus, including real configurable packages;
+- packaged apply, disable, restore, update, and profile-option tests on disposable game data;
 - deliberate process-kill recovery drills at transaction boundaries;
 - explicit multi-installation target UI and separately scoped state directories;
+- provider-neutral update/version-history UI;
 - native Hachimi deployment;
 - native Studio service extraction and generated local mods;
 - exact-build runtime/in-game integration as a separate optional component.
