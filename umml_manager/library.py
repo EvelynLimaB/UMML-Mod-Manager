@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from . import store as _store
 from .locking import FileLock, LockError
 from .models import ModRecord, SourceSpec
+from .options import normalize_option_groups
 
 
 class UnrecognizedModError(_store.StoreError):
@@ -61,12 +63,32 @@ class ManagerStore(_BaseManagerStore):
                     self.paths.locks / "imports.lock",
                     purpose="allocating and importing an immutable mod version",
                 ):
-                    return super().import_folder(
+                    record = super().import_folder(
                         folder,
                         mod_id=mod_id,
                         source=source,
                         metadata_overrides=metadata_overrides,
                     )
+                    # The low-level store intentionally understands only common
+                    # metadata. Enrich the immutable record at the public library
+                    # boundary so creator-facing options remain policy-owned and
+                    # old callers still receive a normal ModRecord.
+                    metadata = _store.read_mod_metadata(Path(record.source_path))
+                    if metadata_overrides:
+                        metadata.update(
+                            {
+                                key: value
+                                for key, value in metadata_overrides.items()
+                                if value not in (None, "")
+                            }
+                        )
+                    option_groups = normalize_option_groups(
+                        metadata.get("option_groups", {})
+                    )
+                    if record.option_groups != option_groups:
+                        record = replace(record, option_groups=option_groups)
+                        self.save_mod(record)
+                    return record
             except LockError as exc:
                 raise _store.StoreError(str(exc)) from exc
 
