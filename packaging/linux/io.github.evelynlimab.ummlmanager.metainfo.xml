@@ -6,8 +6,8 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <description>
-    <p>UMML Manager provides an immutable mod library, profiles, load order, conflict previews, and verified transactional deployment.</p>
-    <p>It detects supported game installations, browses Global and Japan Umamusume GameBanana mods with bounded preview images, automatically prepares compatible imports, finds compatible local packages, creates editable copies, and rejects stale or incompatible profile plans.</p>
+    <p>UMML Manager provides an immutable mod library, profiles, load order, configurable package choices, conflict previews, and verified transactional deployment.</p>
+    <p>It detects supported game installations, browses Global and Japan Umamusume GameBanana mods with bounded preview images, automatically prepares compatible imports, finds compatible local packages, creates editable package workspaces, and rejects stale or incompatible profile plans.</p>
     <p>The built-in Studio preserves the legacy loader's character, dress, training, story, model-swap, translation, cleanup, database, preview, manual-load, and restore tools.</p>
   </description>
   <launchable type="desktop-id">io.github.evelynlimab.ummlmanager.desktop</launchable>
@@ -21,6 +21,11 @@
     <category>Utility</category>
   </categories>
   <releases>
+    <release version="0.2.0-alpha.16" date="2026-07-29">
+      <description>
+        <p>Adds profile-scoped configurable mod choices, source-to-target option mapping, a guided new-package workspace, expanded UI callback auditing, and the full comparative manager review.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.15" date="2026-07-26">
       <description>
         <p>Connects every Manager package and entry point to fresh robust Steam/Proton discovery and includes scored detection evidence in Manager diagnostics.</p>
