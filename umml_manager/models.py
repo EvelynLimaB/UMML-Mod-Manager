@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .options import normalize_option_groups
+
 PACKAGE_UMML_ASSETS = "umml-assets"
 PACKAGE_HACHIMI = "hachimi"
 PACKAGE_UNKNOWN = "unknown"
@@ -56,6 +58,12 @@ class ModRecord:
     source_path: str = ""
     prepared_path: str = ""
     files: dict[str, str] = field(default_factory=dict)
+    # Maps the creator-facing source asset path to the final hashed target path.
+    # This lets profile options select prepared files without mutating the
+    # immutable source or creating one prepared cache per option combination.
+    source_files: dict[str, str] = field(default_factory=dict)
+    # Canonical option-group manifest stored with the immutable library record.
+    option_groups: dict[str, dict[str, Any]] = field(default_factory=dict)
     imported_at: str = ""
     update_policy: str = "notify"
     package_type: str = PACKAGE_UMML_ASSETS
@@ -92,6 +100,11 @@ class ModRecord:
                 str(key): str(value)
                 for key, value in _mapping(data.get("files", {})).items()
             },
+            source_files={
+                str(key): str(value)
+                for key, value in _mapping(data.get("source_files", {})).items()
+            },
+            option_groups=normalize_option_groups(data.get("option_groups", {})),
             imported_at=str(data.get("imported_at", "")),
             update_policy=update_policy,
             package_type=package_type,
