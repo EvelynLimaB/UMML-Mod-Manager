@@ -24,6 +24,8 @@ UI_FILES = {
     ROOT / "umml_manager/ui_discover.py",
     ROOT / "umml_manager/ui_settings.py",
     ROOT / "umml_manager/ui_studio.py",
+    ROOT / "umml_manager/ui_mod_options.py",
+    ROOT / "umml_manager/ui_package_builder.py",
 }
 ACTION_CLASS_NAMES = {
     "ManagerGUI",
@@ -33,7 +35,10 @@ ACTION_CLASS_NAMES = {
     "LibraryActions",
     "DiscoverActions",
     "SystemActions",
+    "ModOptionsDialog",
+    "PackageBuilderDialog",
 }
+WIDGET_METHOD_CALLBACKS = {"destroy"}
 
 FORBIDDEN_CALLS = {
     "eval": "dynamic eval is not permitted",
@@ -49,6 +54,8 @@ FORBIDDEN_CALLS = {
 
 LAYER_RULES = {
     "umml_manager.models": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
+    "umml_manager.options": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
+    "umml_manager.package_builder": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
     "umml_manager.safety": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
     "umml_manager.locking": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
     "umml_manager.engine": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
@@ -186,7 +193,7 @@ def _duplicate_definitions(path: Path, tree: ast.Module) -> list[Finding]:
 
 
 def _action_methods(files: list[Path]) -> set[str]:
-    methods: set[str] = set()
+    methods: set[str] = set(WIDGET_METHOD_CALLBACKS)
     for path in files:
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -244,7 +251,7 @@ def audit_button_callbacks(files: list[Path]) -> list[Finding]:
                     Finding(
                         path,
                         node.lineno,
-                        f"button callback {callback!r} is not implemented by ManagerGUI or its action mixins",
+                        f"button callback {callback!r} is not implemented by ManagerGUI, a dialog, or an action mixin",
                     )
                 )
     return findings
