@@ -54,8 +54,9 @@ class ModOptionsDialog(tk.Toplevel):
         ttk.Label(
             content,
             text=(
-                "Selections are stored in this profile. Changing them does not "
-                "modify the imported source; Apply resolves the matching prepared files."
+                "Selections are stored in this profile. Changing them does not modify the "
+                "imported source. Apply resolves only the prepared files owned by the selected "
+                "variant, character, dress, audio, or other option."
             ),
             style="Muted.TLabel",
             wraplength=650,
@@ -64,9 +65,14 @@ class ModOptionsDialog(tk.Toplevel):
         row += 1
 
         for group_id, group in groups.items():
+            kind = str(group.get("kind") or "generic")
+            kind_label = _kind_label(kind)
+            title = str(group.get("name") or group_id)
+            if kind_label and kind != "generic":
+                title += f" • {kind_label}"
             frame = ttk.LabelFrame(
                 content,
-                text=str(group.get("name") or group_id),
+                text=title,
                 padding=12,
             )
             frame.grid(row=row, column=0, sticky="ew", pady=(0, 10))
@@ -86,16 +92,16 @@ class ModOptionsDialog(tk.Toplevel):
             selected = set(current.get(group_id, []))
             choices = dict(group.get("choices", {}))
             if group.get("type") == "single":
+                default = list(group.get("default", [""]))
                 variable = tk.StringVar(
-                    value=next(iter(selected), str(group.get("default", [""])[0]))
+                    value=next(iter(selected), str(default[0] if default else ""))
                 )
                 self.single_vars[group_id] = variable
                 for choice_id, choice in choices.items():
-                    label = str(choice.get("name") or choice_id)
-                    detail = str(choice.get("description") or "").strip()
+                    label = _choice_label(choice_id, choice)
                     ttk.Radiobutton(
                         frame,
-                        text=label + (f" — {detail}" if detail else ""),
+                        text=label,
                         variable=variable,
                         value=choice_id,
                     ).grid(row=item_row, column=0, sticky="w", pady=2)
@@ -106,11 +112,9 @@ class ModOptionsDialog(tk.Toplevel):
                 for choice_id, choice in choices.items():
                     variable = tk.BooleanVar(value=choice_id in selected)
                     variables[choice_id] = variable
-                    label = str(choice.get("name") or choice_id)
-                    detail = str(choice.get("description") or "").strip()
                     ttk.Checkbutton(
                         frame,
-                        text=label + (f" — {detail}" if detail else ""),
+                        text=_choice_label(choice_id, choice),
                         variable=variable,
                     ).grid(row=item_row, column=0, sticky="w", pady=2)
                     item_row += 1
@@ -201,4 +205,31 @@ def configure_mod_options(app, page) -> None:
         page.tree.see(mod_id)
         app.show_selected_mod()
         page.refresh_option_state(record=record, profile=profile)
-    app.status.set(f"Saved options for {record.name}: {option_summary(record.option_groups, dialog.result)}")
+    app.status.set(
+        f"Saved options for {record.name}: "
+        f"{option_summary(record.option_groups, dialog.result)}"
+    )
+
+
+def _kind_label(value: str) -> str:
+    return {
+        "character": "Character",
+        "dress": "Dress / costume",
+        "color": "Colour",
+        "audio": "Audio",
+        "quality": "Quality",
+        "variant": "Variant",
+        "feature": "Feature",
+        "generic": "",
+    }.get(value, value.replace("-", " ").replace("_", " ").title())
+
+
+def _choice_label(choice_id: str, choice: dict[str, Any]) -> str:
+    label = str(choice.get("name") or choice_id)
+    target = str(choice.get("target") or "").strip()
+    detail = str(choice.get("description") or "").strip()
+    if target and target.casefold() != label.casefold():
+        label += f" [{target}]"
+    if detail:
+        label += f" — {detail}"
+    return label
