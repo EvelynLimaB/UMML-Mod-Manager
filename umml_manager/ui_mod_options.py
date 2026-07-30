@@ -5,6 +5,7 @@ from tkinter import messagebox, ttk
 from typing import Any
 
 from .options import OptionError, normalize_profile_options, option_summary
+from .ui_windows import present_toplevel
 
 
 class ModOptionsDialog(tk.Toplevel):
@@ -20,7 +21,7 @@ class ModOptionsDialog(tk.Toplevel):
         self.title(f"Configure {mod_name}")
         self.transient(parent.winfo_toplevel())
         self.resizable(True, True)
-        self.minsize(520, 360)
+        self.minsize(560, 400)
         self.result: dict[str, list[str]] | None = None
         self.groups = groups
         self.single_vars: dict[str, tk.StringVar] = {}
@@ -29,7 +30,7 @@ class ModOptionsDialog(tk.Toplevel):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
-        outer = ttk.Frame(self, padding=14)
+        outer = ttk.Frame(self, padding=16)
         outer.grid(row=0, column=0, sticky="nsew")
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(0, weight=1)
@@ -54,12 +55,11 @@ class ModOptionsDialog(tk.Toplevel):
         ttk.Label(
             content,
             text=(
-                "Selections are stored in this profile. Changing them does not modify the "
-                "imported source. Apply resolves only the prepared files owned by the selected "
-                "variant, character, dress, audio, or other option."
+                "Selections are stored only in this profile. Changing them does not modify the "
+                "imported package. The Manager resolves and applies the selected source bundles automatically."
             ),
             style="Muted.TLabel",
-            wraplength=650,
+            wraplength=700,
             justify="left",
         ).grid(row=row, column=0, sticky="ew", pady=(0, 12))
         row += 1
@@ -70,11 +70,7 @@ class ModOptionsDialog(tk.Toplevel):
             title = str(group.get("name") or group_id)
             if kind_label and kind != "generic":
                 title += f" • {kind_label}"
-            frame = ttk.LabelFrame(
-                content,
-                text=title,
-                padding=12,
-            )
+            frame = ttk.LabelFrame(content, text=title, padding=12)
             frame.grid(row=row, column=0, sticky="ew", pady=(0, 10))
             frame.columnconfigure(0, weight=1)
             description = str(group.get("description") or "").strip()
@@ -84,7 +80,7 @@ class ModOptionsDialog(tk.Toplevel):
                     frame,
                     text=description,
                     style="SurfaceMuted.TLabel",
-                    wraplength=620,
+                    wraplength=660,
                     justify="left",
                 ).grid(row=item_row, column=0, sticky="w", pady=(0, 8))
                 item_row += 1
@@ -98,13 +94,12 @@ class ModOptionsDialog(tk.Toplevel):
                 )
                 self.single_vars[group_id] = variable
                 for choice_id, choice in choices.items():
-                    label = _choice_label(choice_id, choice)
                     ttk.Radiobutton(
                         frame,
-                        text=label,
+                        text=_choice_label(choice_id, choice),
                         variable=variable,
                         value=choice_id,
-                    ).grid(row=item_row, column=0, sticky="w", pady=2)
+                    ).grid(row=item_row, column=0, sticky="w", pady=3)
                     item_row += 1
             else:
                 variables: dict[str, tk.BooleanVar] = {}
@@ -116,7 +111,7 @@ class ModOptionsDialog(tk.Toplevel):
                         frame,
                         text=_choice_label(choice_id, choice),
                         variable=variable,
-                    ).grid(row=item_row, column=0, sticky="w", pady=2)
+                    ).grid(row=item_row, column=0, sticky="w", pady=3)
                     item_row += 1
             row += 1
 
@@ -133,11 +128,7 @@ class ModOptionsDialog(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.bind("<Escape>", lambda _event: self.destroy())
         self.bind("<Return>", lambda _event: self._save())
-        self.grab_set()
-        self.update_idletasks()
-        x = parent.winfo_rootx() + max(20, (parent.winfo_width() - self.winfo_width()) // 2)
-        y = parent.winfo_rooty() + max(20, (parent.winfo_height() - self.winfo_height()) // 2)
-        self.geometry(f"+{x}+{y}")
+        present_toplevel(self, parent)
 
     def _save(self) -> None:
         raw: dict[str, Any] = {}
@@ -152,11 +143,7 @@ class ModOptionsDialog(tk.Toplevel):
         try:
             self.result = normalize_profile_options(self.groups, raw)
         except OptionError as exc:
-            messagebox.showerror(
-                "Invalid mod options",
-                str(exc),
-                parent=self,
-            )
+            messagebox.showerror("Invalid mod options", str(exc), parent=self)
             return
         self.destroy()
 
@@ -231,5 +218,5 @@ def _choice_label(choice_id: str, choice: dict[str, Any]) -> str:
     if target and target.casefold() != label.casefold():
         label += f" [{target}]"
     if detail:
-        label += f" — {detail}"
+        label += f" · {detail}"
     return label
