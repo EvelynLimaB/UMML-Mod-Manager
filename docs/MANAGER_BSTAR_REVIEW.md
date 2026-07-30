@@ -18,17 +18,36 @@ UMML's implementation deliberately differs:
 - invalid, ambiguous, or stale configuration is a deployment blocker;
 - uncontrolled files remain shared and enabled.
 
-### Creator workspace entry point
+### Semantic character and package targeting
 
-Library now exposes **New package**, which creates a timestamped editable workspace with a valid `umml-mod.json`, `assets/`, metadata fields, and an optional two-choice configuration template. It does not silently import, enable, prepare, or apply the draft.
+Option groups may declare semantic kinds such as character, dress, colour, audio, quality, variant, or feature. Choices may carry target labels, and packages may describe affected characters, dresses, content types, and tags.
+
+This remains honest about what metadata can do. A character selector chooses among character-specific assets already authored inside the package. Merely naming a different character does not rewrite arbitrary Unity bundle internals. That transformation belongs to a separately tested generated-mod backend.
+
+### Creator workspace and manifest editor
+
+Library exposes **New package**, which creates a timestamped editable workspace with a valid `umml-mod.json`, `assets/`, metadata fields, and optional generic or character-selectable templates. It does not silently import, enable, prepare, or apply the draft.
+
+**Edit package** creates a workspace copy of an imported version and opens a native editor covering:
+
+- identity and version;
+- affected characters and dresses;
+- content types and tags;
+- regions;
+- dependencies and incompatibilities;
+- relative load-before/load-after rules;
+- compatibility notes;
+- advanced option-group JSON.
+
+Saving edits only the workspace. Save-and-import still passes through validation and creates a normal immutable version.
 
 ### Explicit configuration UI
 
-Configurable Library records expose **Configure**. The modal editor uses radio buttons for single-choice groups and checkboxes for multiple-choice groups, validates selections, and stores them only in the active profile.
+Configurable Library records expose **Configure**. The modal editor uses radio buttons for single-choice groups and checkboxes for multiple-choice groups, labels semantic targets, validates selections, and stores them only in the active profile.
 
 ### Stronger structural coverage
 
-The static UI callback audit now includes the package-builder and mod-options dialogs. The new option and package-builder cores are subject to the same architecture restrictions as other non-UI Manager layers.
+The static UI callback audit now includes package-builder, mod-options, and manifest-editor dialogs. The manifest, option, and package-builder cores are subject to the same architecture restrictions as other non-UI Manager layers.
 
 ## Already stronger in UMML
 
@@ -57,11 +76,11 @@ A future `umml:` desktop protocol can accept exact provider submission/file refe
 
 ### Library organization
 
-Add cosmetic sections/tags separately from profile membership and load order. Moving a visual section must never alter conflict precedence.
+Add cosmetic sections separately from profile membership and load order. Tags now exist as package metadata, but moving a visual section must never alter conflict precedence.
 
-### Rich package builder
+### Visual path and compatibility previews
 
-Expand the new-package workspace into a full manifest editor for dependencies, incompatibilities, regions, option groups, choice path previews, validation, and export.
+The native editor validates policy and exposes advanced option JSON. A later preview should display which real source paths each choice controls, what targets they prepare into, and how a proposed compatibility change affects every profile before import.
 
 ### Version history
 
@@ -86,4 +105,4 @@ Show every immutable imported version, current profile selection, prepared statu
 4. Profile options must be deterministic and visible in the plan.
 5. UI grouping must not invent load-order semantics.
 6. Package tools create editable workspaces, never mutate immutable imports.
-7. Finished DEB and AppImage runtimes must exercise every added page or dialog.
+7. Finished packages must exercise every added page or dialog on each advertised operating system.
