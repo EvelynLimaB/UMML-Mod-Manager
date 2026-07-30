@@ -11,6 +11,13 @@ from .ui_package_builder import launch_package_builder
 from .ui_theme import SURFACE_2, TEXT
 
 
+class _HiddenAction:
+    """Compatibility shim for actions intentionally removed from the visible UI."""
+
+    def configure(self, **_kwargs) -> None:
+        return None
+
+
 class LibraryPage(ttk.Frame):
     def __init__(self, parent, app):
         super().__init__(parent)
@@ -172,6 +179,7 @@ class LibraryPage(ttk.Frame):
             state="disabled",
         )
         self.configure_button.grid(row=0, column=3, sticky="ew", padx=(4, 0))
+        self.prepare_button = _HiddenAction()
 
         source_buttons = ttk.Frame(details, style="Surface.TFrame")
         source_buttons.grid(row=7, column=0, sticky="ew", pady=(8, 0))
