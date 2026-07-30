@@ -5,6 +5,7 @@ from tkinter import messagebox, ttk
 
 from .package_builder import PackageDraft, create_package_workspace
 from .ui_manifest_editor import launch_manifest_editor
+from .ui_windows import present_toplevel
 
 
 class PackageBuilderDialog(tk.Toplevel):
@@ -15,7 +16,7 @@ class PackageBuilderDialog(tk.Toplevel):
         self.transient(app.root)
         self.resizable(True, True)
         self.minsize(700, 560)
-        self.geometry("780x650")
+        self.geometry("820x680")
 
         self.mod_id = tk.StringVar()
         self.title_value = tk.StringVar()
@@ -41,11 +42,11 @@ class PackageBuilderDialog(tk.Toplevel):
         ttk.Label(
             frame,
             text=(
-                "Create an editable package workspace. Nothing is imported, prepared, enabled, "
-                "or applied until you explicitly save and import it."
+                "Create an editable package workspace. Nothing is imported, enabled, or applied "
+                "until you explicitly save it as a package version. Asset preparation is automatic."
             ),
             style="Muted.TLabel",
-            wraplength=720,
+            wraplength=760,
             justify="left",
         ).grid(row=0, column=0, sticky="ew", pady=(0, 10))
 
@@ -74,7 +75,6 @@ class PackageBuilderDialog(tk.Toplevel):
 
         self.bind("<Escape>", lambda _event: self.destroy())
         self.protocol("WM_DELETE_WINDOW", self.destroy)
-        self.grab_set()
 
     def _build_identity(self, page: ttk.Frame) -> None:
         page.columnconfigure(1, weight=1)
@@ -132,7 +132,7 @@ class PackageBuilderDialog(tk.Toplevel):
                 "It does not rewrite an arbitrary bundle from one character ID to another."
             ),
             style="Muted.TLabel",
-            wraplength=620,
+            wraplength=660,
             justify="left",
         ).grid(row=6, column=0, columnspan=2, sticky="ew", pady=(12, 0))
 
@@ -204,7 +204,8 @@ def launch_package_builder(app) -> None:
     if getattr(app, "_busy", False):
         app.status.set("Wait for the current Manager task to finish")
         return
-    PackageBuilderDialog(app)
+    dialog = PackageBuilderDialog(app)
+    present_toplevel(dialog, app.root)
 
 
 def _split(value: str) -> list[str]:
