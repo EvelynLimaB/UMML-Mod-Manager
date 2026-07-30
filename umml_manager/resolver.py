@@ -43,6 +43,7 @@ class Resolution:
     invalid_options: list[str] = field(default_factory=list)
     missing_dependencies: list[str] = field(default_factory=list)
     incompatibility_conflicts: list[str] = field(default_factory=list)
+    load_order_conflicts: list[str] = field(default_factory=list)
 
     @property
     def blocking_issues(self) -> list[str]:
@@ -59,6 +60,7 @@ class Resolution:
             + self.invalid
             + self.missing_dependencies
             + self.incompatibility_conflicts
+            + self.load_order_conflicts
         )
 
 
@@ -114,6 +116,7 @@ def resolve_profile(
             )
     enabled = _deduplicate_profile(profile.enabled, resolution)
     enabled_set = set(enabled)
+    enabled_order = {mod_id: index for index, mod_id in enumerate(enabled)}
 
     for mod_id in enabled:
         record = records.get(mod_id)
@@ -158,6 +161,29 @@ def resolve_profile(
                 f"{mod_id} conflicts with {', '.join(conflicts)}"
             )
             continue
+
+        current_index = enabled_order[mod_id]
+        must_follow = [
+            other
+            for other in record.load_after
+            if other in enabled_order and current_index <= enabled_order[other]
+        ]
+        must_precede = [
+            other
+            for other in record.load_before
+            if other in enabled_order and current_index >= enabled_order[other]
+        ]
+        if must_follow or must_precede:
+            details: list[str] = []
+            if must_follow:
+                details.append("must load after " + ", ".join(must_follow))
+            if must_precede:
+                details.append("must load before " + ", ".join(must_precede))
+            resolution.load_order_conflicts.append(
+                f"{mod_id} " + "; ".join(details)
+            )
+            continue
+
         if not record.prepared_path or not record.files:
             resolution.unprepared.append(mod_id)
             continue
