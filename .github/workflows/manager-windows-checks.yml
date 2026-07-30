@@ -81,8 +81,10 @@ jobs:
           $stage = Join-Path $stageRoot "UMML-Manager-$version-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force 'build/windows-dist/umml-manager/*' $stage
-          Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value '@echo off`r`n"%~dp0umml-manager-bin.exe" gui %*'
-          Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value '@echo off`r`n"%~dp0umml-manager-bin.exe" cli %*'
+          $guiLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" gui %*"
+          $cliLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" cli %*"
+          Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
+          Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
           Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
           UMML Manager Windows portable preview
 
