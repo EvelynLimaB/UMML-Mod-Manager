@@ -26,6 +26,8 @@ def launch_veterans_window(app) -> None:
     window.rowconfigure(0, weight=1)
 
     page = VeteransPage(window, app)
+    page.rowconfigure(2, weight=0)
+    page.rowconfigure(3, weight=1)
     page.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
 
     def close() -> None:
