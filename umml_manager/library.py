@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -53,7 +54,7 @@ def find_mod_root(extracted: Path) -> Path:
 def default_root() -> Path:
     """Return the platform-native Manager state root without stranding previews."""
 
-    if os.name != "nt":
+    if not sys.platform.startswith("win"):
         return _base_default_root()
     local_app_data = str(os.environ.get("LOCALAPPDATA") or "").strip()
     preferred = (
