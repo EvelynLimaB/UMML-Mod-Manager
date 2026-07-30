@@ -195,8 +195,9 @@ class ManagerOptionResolverTests(unittest.TestCase):
             set(result.winners),
             {"aa/aaaaaaaa", "cc/cccccccc", "ee/eeeeeeee"},
         )
-        self.assertTrue(
-            result.winners["cc/cccccccc"].source_path.endswith("sources/3")
+        self.assertEqual(
+            Path(result.winners["cc/cccccccc"].source_path).parts[-2:],
+            ("sources", "3"),
         )
 
     def test_invalid_profile_choice_is_a_visible_blocker(self):
