@@ -26,6 +26,7 @@ UI_FILES = {
     ROOT / "umml_manager/ui_studio.py",
     ROOT / "umml_manager/ui_mod_options.py",
     ROOT / "umml_manager/ui_package_builder.py",
+    ROOT / "umml_manager/ui_manifest_editor.py",
 }
 ACTION_CLASS_NAMES = {
     "ManagerGUI",
@@ -37,6 +38,7 @@ ACTION_CLASS_NAMES = {
     "SystemActions",
     "ModOptionsDialog",
     "PackageBuilderDialog",
+    "ManifestEditorDialog",
 }
 WIDGET_METHOD_CALLBACKS = {"destroy"}
 
@@ -54,6 +56,7 @@ FORBIDDEN_CALLS = {
 
 LAYER_RULES = {
     "umml_manager.models": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
+    "umml_manager.manifest": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
     "umml_manager.options": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
     "umml_manager.package_builder": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
     "umml_manager.safety": {"tkinter", "umml_manager.gui", "umml_manager.providers"},
