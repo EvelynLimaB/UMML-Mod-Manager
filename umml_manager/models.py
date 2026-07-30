@@ -57,12 +57,14 @@ class ModRecord:
     source: SourceSpec = field(default_factory=SourceSpec)
     source_path: str = ""
     prepared_path: str = ""
+    # Non-configurable packages and the default configurable selection expose a
+    # conventional target -> SHA map for status, compatibility, and migration.
     files: dict[str, str] = field(default_factory=dict)
-    # Maps the creator-facing source asset path to the final hashed target path.
-    # This lets profile options select prepared files without mutating the
-    # immutable source or creating one prepared cache per option combination.
+    # Configurable packages retain one prepared payload per creator-facing source
+    # so two authored variants may safely resolve to the same game target.
     source_files: dict[str, str] = field(default_factory=dict)
-    # Canonical option-group manifest stored with the immutable library record.
+    source_hashes: dict[str, str] = field(default_factory=dict)
+    source_roots: dict[str, str] = field(default_factory=dict)
     option_groups: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Creator-declared informational targeting. Character/dress entries describe
     # authored compatibility; they do not rewrite arbitrary bundle internals.
@@ -114,6 +116,14 @@ class ModRecord:
             source_files={
                 str(key): str(value)
                 for key, value in _mapping(data.get("source_files", {})).items()
+            },
+            source_hashes={
+                str(key): str(value)
+                for key, value in _mapping(data.get("source_hashes", {})).items()
+            },
+            source_roots={
+                str(key): str(value)
+                for key, value in _mapping(data.get("source_roots", {})).items()
             },
             option_groups=policy.option_groups,
             targets=policy.targets,
