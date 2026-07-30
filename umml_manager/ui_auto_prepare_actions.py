@@ -26,6 +26,53 @@ class AutoPrepareActions(MaintenanceActions):
             enabled=bool(selected) and not busy,
         )
 
+    def show_selected_mod(self):
+        result = super().show_selected_mod()
+        mod_id = self.library.selected_id() if hasattr(self, "library") else None
+        if not mod_id:
+            return result
+        try:
+            record = self.store.get_mod(mod_id)
+            current = self.library.description.get("1.0", "end").strip()
+        except Exception:
+            return result
+
+        extra: list[str] = []
+        if record.targets:
+            rendered = []
+            for category, values in sorted(record.targets.items()):
+                label = category.replace("_", " ").replace("-", " ").title()
+                rendered.append(f"{label}: {', '.join(values)}")
+            extra.append("Authored targets\n" + "\n".join(rendered))
+        if record.tags:
+            extra.append("Tags: " + ", ".join(record.tags))
+        if record.load_after:
+            extra.append("Load after: " + ", ".join(record.load_after))
+        if record.load_before:
+            extra.append("Load before: " + ", ".join(record.load_before))
+        if record.compatibility_notes:
+            extra.append("Compatibility notes\n" + record.compatibility_notes)
+        if extra:
+            self.library.set_description(current + "\n\n" + "\n\n".join(extra))
+        return result
+
+    def render_plan(self):
+        result = super().render_plan()
+        try:
+            resolution = self.current_resolution()
+            if not resolution.load_order_conflicts:
+                return result
+            current = self.plan_text.get("1.0", "end").rstrip()
+            heading = "Relative load-order constraints"
+            addition = "\n\n" + heading + "\n" + "-" * len(heading)
+            addition += "\n" + "\n".join(
+                f"• {value}" for value in resolution.load_order_conflicts
+            )
+            self._set_text(self.plan_text, current + addition)
+        except Exception:
+            return result
+        return result
+
     def _finish_import(self, record):
         super()._finish_import(record)
         if not should_prepare_automatically(record, self.meta_path.get()):
