@@ -180,6 +180,7 @@ class AutomaticPreparationPolicyTests(unittest.TestCase):
                 "prepared",
                 "Prepared",
                 package_type="umml-assets",
+                prepared_path=str(Path(temp) / "prepared"),
                 files={"aa/hash": "0" * 64},
             )
             unsupported = ModRecord(
