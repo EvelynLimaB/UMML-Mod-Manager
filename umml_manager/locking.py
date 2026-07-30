@@ -24,6 +24,11 @@ class FileLock:
             if os.name == "nt":
                 import msvcrt
 
+                # msvcrt locks an existing byte range. Create one stable sentinel
+                # byte before taking the lock, then leave the file completely
+                # unchanged until unlock. Truncating or rewriting any portion of
+                # this file while the byte-range lock was active caused Windows
+                # to reject LK_UNLCK with PermissionError on real CI runners.
                 stream.seek(0)
                 if stream.read(1) == b"":
                     stream.write(b"0")
@@ -34,21 +39,18 @@ class FileLock:
                 import fcntl
 
                 fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                stream.seek(0)
+                stream.truncate()
+                stream.write(
+                    f"pid={os.getpid()} purpose={self.purpose}\n".encode("utf-8")
+                )
+                stream.flush()
         except (OSError, BlockingIOError) as exc:
             stream.close()
             raise LockError(
                 f"Another UMML Manager process is already {self.purpose}. "
                 f"Close it or wait for it to finish. Lock: {self.path}"
             ) from exc
-
-        # Windows msvcrt locks a byte range rather than the whole file. Keep the
-        # sentinel byte at offset zero intact and write human-readable ownership
-        # metadata after it. Truncating the locked byte made LK_UNLCK fail with
-        # PermissionError even though the same process still owned the handle.
-        stream.seek(1 if os.name == "nt" else 0)
-        stream.truncate()
-        stream.write(f"pid={os.getpid()} purpose={self.purpose}\n".encode("utf-8"))
-        stream.flush()
         self._stream = stream
         return self
 
