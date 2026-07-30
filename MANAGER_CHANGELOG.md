@@ -1,5 +1,27 @@
 # UMML Manager changelog
 
+## 0.2.0~alpha18 - 2026-07-30
+
+### Automatic preparation and source inspection
+
+- Removed the visible Prepare/Re-prepare maintenance action from Library; imports, stale metadata, and older prepared records are queued and refreshed automatically.
+- Added isolated source-bundle indexing during preparation so one authored Unity bundle may safely own several final game targets.
+- Added multi-target configurable payloads while preserving the older one-source/one-target registry fields for migration compatibility.
+- Preparation failures remain non-destructive, do not stop the remaining queue, and are shown in the selected mod details instead of demanding a manual retry ritual.
+
+### Visual mod editing
+
+- Replaced the ambiguous edit-copy flow with a focused **Inspect & edit** window.
+- Added detected source bundles, game targets, likely content types, parts, character IDs, and dress IDs.
+- Added simple package, compatibility, dependency, incompatibility, and load-order fields without requiring JSON editing.
+- Added optional per-profile component controls at the source-bundle boundary. Non-overlapping bundles become checkboxes; overlapping targets become mutually exclusive variants.
+- Detection remains evidence-based: names and metadata may suggest a target, but the Manager does not claim to retarget arbitrary Unity bundles automatically.
+
+### Window and Library UX
+
+- Added reliable transient-window centering, raising, focus, and temporary topmost handling for the primary editing and configuration flows.
+- Enlarged and clarified Library actions, removed tiny arrow-only load-order controls, and made automatic preparation status explicit.
+
 ## 0.2.0~alpha17 - 2026-07-30
 
 ### Package targeting and compatibility
