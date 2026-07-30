@@ -23,6 +23,11 @@ def normalize_option_groups(value: object) -> dict[str, dict[str, Any]]:
     patterns. Preparation records the source-to-target mapping; profile
     resolution then selects the appropriate prepared hashes without modifying
     the immutable source tree.
+
+    ``kind`` and choice ``target`` are semantic labels. They let the interface
+    present a group as a character, dress, colour, audio, quality, or custom
+    selector without pretending that metadata alone can rewrite an arbitrary
+    Unity bundle.
     """
 
     if value in (None, ""):
@@ -50,6 +55,11 @@ def normalize_option_groups(value: object) -> dict[str, dict[str, Any]]:
             raise OptionError(
                 f"option group {group_id!r} has unsupported type {option_type!r}"
             )
+        kind = str(raw_group.get("kind") or "generic").strip().casefold()
+        if not _OPTION_ID.fullmatch(kind):
+            raise OptionError(
+                f"option group {group_id!r} kind {kind!r} must use letters, digits, dots, underscores, or hyphens"
+            )
 
         raw_choices = raw_group.get("choices", {})
         if not isinstance(raw_choices, dict) or not raw_choices:
@@ -76,9 +86,15 @@ def normalize_option_groups(value: object) -> dict[str, dict[str, Any]]:
                 raise OptionError(
                     f"choice {group_id}.{choice_id} must include at least one assets path"
                 )
+            target = str(raw_choice.get("target") or "").strip()
+            if len(target) > 256:
+                raise OptionError(
+                    f"choice {group_id}.{choice_id} target is longer than 256 characters"
+                )
             choices[choice_id] = {
                 "name": str(raw_choice.get("name") or choice_id),
                 "description": str(raw_choice.get("description") or ""),
+                "target": target,
                 "include": include,
             }
 
@@ -98,6 +114,7 @@ def normalize_option_groups(value: object) -> dict[str, dict[str, Any]]:
         groups[group_id] = {
             "name": str(raw_group.get("name") or group_id),
             "description": str(raw_group.get("description") or ""),
+            "kind": kind,
             "type": option_type,
             "required": required,
             "default": default,
