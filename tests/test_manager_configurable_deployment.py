@@ -112,6 +112,10 @@ class ManagerConfigurableDeploymentTests(unittest.TestCase):
                 prepared.source_roots["characters/special-week/body"],
                 prepared.source_roots["characters/silence-suzuka/body"],
             )
+            self.assertEqual(
+                prepared.source_payloads["characters/special-week/body"],
+                {character_target: prepared.source_hashes["characters/special-week/body"]},
+            )
 
             dat = root / "game" / "Persistent" / "dat"
             common_game = dat / common_target
@@ -183,6 +187,95 @@ class ManagerConfigurableDeploymentTests(unittest.TestCase):
                 if path.is_file()
             }
             self.assertEqual(current_source_bytes, original_source_bytes)
+
+    def test_one_source_bundle_can_prepare_and_deploy_multiple_targets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "package"
+            assets = package / "assets" / "bdy109165"
+            assets.mkdir(parents=True)
+            source = assets / "asset_body.bundle"
+            source.write_bytes(b"authored bundle")
+            (package / "umml-mod.json").write_text(
+                json.dumps(
+                    {
+                        "id": "creator.multi-target-bundle",
+                        "title": "Multi-target bundle",
+                        "mod_version": "1",
+                        "option_groups": {
+                            "components": {
+                                "name": "Components",
+                                "type": "multiple",
+                                "default": ["body"],
+                                "choices": {
+                                    "body": {
+                                        "name": "Body bundle",
+                                        "include": ["bdy109165/asset_body.bundle"],
+                                    }
+                                },
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            meta = root / "meta.db"
+            connection = sqlite3.connect(meta)
+            try:
+                connection.execute("CREATE TABLE a (n TEXT, h TEXT, e INTEGER)")
+                connection.commit()
+            finally:
+                connection.close()
+
+            first_name = "aa" + "1" * 62
+            second_name = "bb" + "2" * 62
+            first_target = f"aa/{first_name}"
+            second_target = f"bb/{second_name}"
+
+            class FakeDecoder:
+                def decrypt_assets_internal(self, _input, output, **_kwargs):
+                    destination = Path(output)
+                    destination.mkdir(parents=True, exist_ok=True)
+                    (destination / first_name).write_bytes(b"first payload")
+                    (destination / second_name).write_bytes(b"second payload")
+                    return 2, 0
+
+            class TestAdapter(LegacyAssetAdapter):
+                def _decoder(self):
+                    return FakeDecoder()
+
+            store = ManagerStore(root / "manager")
+            imported = store.import_folder(package)
+            prepared = TestAdapter(store, meta).prepare(imported)
+            payload = prepared.source_payloads["bdy109165/asset_body.bundle"]
+            self.assertEqual(set(payload), {first_target, second_target})
+            self.assertEqual(set(prepared.files), {first_target, second_target})
+
+            dat = root / "game" / "Persistent" / "dat"
+            for target, vanilla in (
+                (first_target, b"vanilla first"),
+                (second_target, b"vanilla second"),
+            ):
+                path = dat / target
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(vanilla)
+
+            resolution = resolve_profile(
+                Profile("Default", [prepared.id]),
+                [prepared],
+                metadata_fingerprint=hash_file(meta),
+            )
+            self.assertFalse(resolution.blocking_issues)
+            self.assertEqual(set(resolution.winners), {first_target, second_target})
+            engine = ApplyEngine(
+                store,
+                dat,
+                game_dir=root / "game",
+                process_check=lambda _game_dir: (),
+            )
+            engine.apply(resolution)
+            self.assertEqual((dat / first_target).read_bytes(), b"first payload")
+            self.assertEqual((dat / second_target).read_bytes(), b"second payload")
 
 
 if __name__ == "__main__":
