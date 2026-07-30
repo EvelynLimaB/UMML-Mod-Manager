@@ -94,6 +94,17 @@ class AutoPrepareActions(MaintenanceActions):
             ]
         ).casefold()
 
+    def _mod_status(self, mod) -> str:
+        """Replace maintenance jargon with the actual automatic queue state."""
+
+        if mod.package_type != PACKAGE_UMML_ASSETS:
+            return f"{mod.package_type}; backend needed"
+        if self._auto_prepare_errors().get(mod.id):
+            return "automatic preparation issue"
+        if self._record_needs_auto_prepare(mod):
+            return "preparing automatically"
+        return "ready"
+
     def refresh_action_states(self) -> None:
         super().refresh_action_states()
         if self._closing or not hasattr(self, "library"):
@@ -324,8 +335,14 @@ class AutoPrepareActions(MaintenanceActions):
 
 
 def should_prepare_automatically(record, meta_path: str) -> bool:
+    """Import-time policy only; background source indexing has a separate queue."""
+
     try:
         metadata_ready = Path(meta_path).expanduser().is_file()
     except (OSError, ValueError):
         metadata_ready = False
-    return bool(record.package_type == PACKAGE_UMML_ASSETS and metadata_ready)
+    return bool(
+        record.package_type == PACKAGE_UMML_ASSETS
+        and metadata_ready
+        and (not record.prepared_path or not record.files)
+    )
