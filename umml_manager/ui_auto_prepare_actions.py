@@ -11,6 +11,92 @@ from .ui_maintenance_actions import MaintenanceActions
 class AutoPrepareActions(MaintenanceActions):
     """Automatically prepare compatible imports while keeping apply explicit."""
 
+    def refresh(self):
+        """Extend Library search without duplicating its ordering and UI logic."""
+
+        if not hasattr(self, "search_library") or not hasattr(self, "library"):
+            return super().refresh()
+        query = self.search_library.get()
+        needle = query.casefold().strip()
+        if not needle:
+            return super().refresh()
+
+        # The historical Library refresh filters only common metadata. Populate
+        # its normal ordered rows with an empty query, then apply the richer
+        # package-policy corpus. This keeps one source of truth for ordering,
+        # status, selection, and profile counts while making targets and choices
+        # genuinely searchable rather than merely documented as such.
+        self.search_library.set("")
+        try:
+            result = super().refresh()
+        finally:
+            self.search_library.set(query)
+
+        tree = self.library.tree
+        for mod_id in tuple(tree.get_children()):
+            try:
+                record = self.store.get_mod(mod_id)
+                matches = needle in self._package_search_text(record)
+            except Exception:
+                matches = False
+            if not matches:
+                tree.delete(mod_id)
+        visible = len(tree.get_children())
+        profile = self.profile()
+        self.status.set(
+            f"{visible} matching mod(s); {len(profile.enabled)} enabled in "
+            f"{profile.name}"
+        )
+        if not tree.selection():
+            self.library.clear_details()
+        self.refresh_action_states()
+        return result
+
+    @staticmethod
+    def _package_search_text(record) -> str:
+        target_terms = [*record.targets.keys()]
+        target_terms.extend(
+            value
+            for values in record.targets.values()
+            for value in values
+        )
+        option_terms: list[str] = []
+        for group_id, group in record.option_groups.items():
+            option_terms.extend(
+                [
+                    group_id,
+                    str(group.get("name") or ""),
+                    str(group.get("kind") or ""),
+                ]
+            )
+            for choice_id, choice in dict(group.get("choices", {})).items():
+                option_terms.extend(
+                    [
+                        choice_id,
+                        str(choice.get("name") or ""),
+                        str(choice.get("target") or ""),
+                        str(choice.get("description") or ""),
+                    ]
+                )
+        return " ".join(
+            [
+                record.name,
+                record.author,
+                record.id,
+                record.description,
+                record.package_type,
+                *record.regions,
+                *record.tags,
+                *target_terms,
+                *record.dependencies,
+                *record.incompatibilities,
+                *record.load_after,
+                *record.load_before,
+                record.compatibility_notes,
+                *option_terms,
+            ]
+        ).casefold()
+
     def refresh_action_states(self) -> None:
         super().refresh_action_states()
         if self._closing or not hasattr(self, "library"):
