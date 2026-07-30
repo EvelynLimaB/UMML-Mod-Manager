@@ -16,9 +16,13 @@ class ManagerModInspectionTests(unittest.TestCase):
                 "aa/aaaaaaaa": "a" * 64,
                 "bb/bbbbbbbb": "b" * 64,
             },
-            source_files={
-                "chara/chr1007/accessory/glasses_model": "aa/aaaaaaaa",
-                "chara/chr1007/accessory/glasses_texture": "bb/bbbbbbbb",
+            source_payloads={
+                "chara/chr1007/accessory/glasses_model": {
+                    "aa/aaaaaaaa": "a" * 64,
+                },
+                "chara/chr1007/accessory/glasses_texture": {
+                    "bb/bbbbbbbb": "b" * 64,
+                },
             },
         )
         inspection = inspect_mod(record)
@@ -27,15 +31,43 @@ class ManagerModInspectionTests(unittest.TestCase):
         self.assertIn("model", inspection.content_types)
         self.assertIn("textures", inspection.content_types)
         self.assertEqual(inspection.target_count, 2)
+        self.assertTrue(inspection.configurable_safe)
 
-    def test_unique_targets_become_optional_component_choices(self):
+    def test_one_source_bundle_can_own_multiple_targets(self):
+        record = ModRecord(
+            id="creator.bundle",
+            name="Bundle",
+            files={
+                "aa/aaaaaaaa": "a" * 64,
+                "bb/bbbbbbbb": "b" * 64,
+            },
+            source_payloads={
+                "chara/chr1001/body/bdy100101.bundle": {
+                    "aa/aaaaaaaa": "a" * 64,
+                    "bb/bbbbbbbb": "b" * 64,
+                }
+            },
+        )
+        inspection = inspect_mod(record)
+        self.assertEqual(inspection.source_count, 1)
+        self.assertEqual(inspection.target_count, 2)
+        groups = normalize_option_groups(build_component_option_groups(inspection))
+        self.assertEqual(len(groups["components"]["choices"]), 1)
+        selected = select_source_paths(groups, {}, record.source_payloads)
+        self.assertEqual(selected, {"chara/chr1001/body/bdy100101.bundle"})
+
+    def test_unique_sources_become_optional_component_choices(self):
         record = ModRecord(
             id="creator.parts",
             name="Parts",
             files={"aa/aaaaaaaa": "a" * 64, "bb/bbbbbbbb": "b" * 64},
-            source_files={
-                "character/chr1001/head/glasses": "aa/aaaaaaaa",
-                "character/chr1001/body/texture": "bb/bbbbbbbb",
+            source_payloads={
+                "character/chr1001/head/glasses": {
+                    "aa/aaaaaaaa": "a" * 64,
+                },
+                "character/chr1001/body/texture": {
+                    "bb/bbbbbbbb": "b" * 64,
+                },
             },
         )
         inspection = inspect_mod(record)
@@ -43,20 +75,21 @@ class ManagerModInspectionTests(unittest.TestCase):
         self.assertIn("components", groups)
         self.assertEqual(groups["components"]["type"], "multiple")
         self.assertEqual(len(groups["components"]["choices"]), 2)
-        selected = select_source_paths(
-            groups,
-            {},
-            record.source_files,
-        )
-        self.assertEqual(selected, set(record.source_files))
+        selected = select_source_paths(groups, {}, record.source_payloads)
+        self.assertEqual(selected, set(record.source_payloads))
 
     def test_sources_sharing_target_become_mutually_exclusive_variants(self):
         record = ModRecord(
             id="creator.variants",
             name="Variants",
-            source_files={
-                "characters/special-week/body": "aa/aaaaaaaa",
-                "characters/silence-suzuka/body": "aa/aaaaaaaa",
+            files={"aa/aaaaaaaa": "a" * 64},
+            source_payloads={
+                "characters/special-week/body": {
+                    "aa/aaaaaaaa": "a" * 64,
+                },
+                "characters/silence-suzuka/body": {
+                    "aa/aaaaaaaa": "b" * 64,
+                },
             },
         )
         inspection = inspect_mod(record)
@@ -65,14 +98,27 @@ class ManagerModInspectionTests(unittest.TestCase):
         self.assertEqual(len(variant_ids), 1)
         group = groups[variant_ids[0]]
         self.assertEqual(group["type"], "single")
-        selected = select_source_paths(groups, {}, record.source_files)
+        selected = select_source_paths(groups, {}, record.source_payloads)
         self.assertEqual(len(selected), 1)
 
+    def test_incomplete_mapping_blocks_component_generation(self):
+        record = ModRecord(
+            id="creator.incomplete",
+            name="Incomplete",
+            files={"aa/aaaaaaaa": "a" * 64, "bb/bbbbbbbb": "b" * 64},
+            source_files={"body.bundle": "aa/aaaaaaaa"},
+        )
+        inspection = inspect_mod(record)
+        self.assertFalse(inspection.configurable_safe)
+        with self.assertRaises(ValueError):
+            build_component_option_groups(inspection)
+
     def test_opaque_only_mapping_reports_limited_detection(self):
+        target = "aa/" + "a" * 64
         record = ModRecord(
             id="creator.opaque",
             name="Opaque",
-            files={"aa/" + "a" * 64: "b" * 64},
+            files={target: "b" * 64},
         )
         inspection = inspect_mod(record)
         self.assertTrue(inspection.warnings)
