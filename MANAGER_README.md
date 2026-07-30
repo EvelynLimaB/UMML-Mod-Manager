@@ -2,7 +2,7 @@
 
 UMML Manager is the full desktop manager and editing workspace for **Umamusume Pretty Derby** mods. It is packaged separately from legacy UMML while preserving the original loader's editing tools through a guarded compatibility Studio.
 
-> **Preview:** `0.2.0~alpha18`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation and source-bundle analysis, profile-scoped configurable mods, visual package targeting and compatibility editing, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and native Linux/Windows packages. Real-game and destructive recovery testing remain required before a stable release.
+> **Preview:** `0.2.0~alpha18`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation and source-bundle analysis, profile-scoped configurable mods, visual package targeting and compatibility editing, a read-only veteran-roster workspace, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and native Linux/Windows packages. Real-game and destructive recovery testing remain required before a stable release.
 
 ## Install
 
@@ -63,7 +63,8 @@ The current source installer stores the complete Manager and legacy Studio sourc
 
 - **Library:** immutable versions, profiles, load order, automatic preparation, detected source-bundle changes, profile choices, package creation/editing, and deployment.
 - **Discover:** Global/Japan GameBanana browsing and bounded local package discovery.
-- **Studio:** the complete legacy editor and loader interface behind process guards.
+- **Studio:** the complete legacy editor and loader interface behind process guards, plus the read-only Veteran Roster workspace.
+- **Veteran Roster:** imports externally produced UmaExtractor `data.json`, removes known account identifiers, stores immutable local snapshots, filters and inspects records, and exports scrubbed JSON or CSV. UmaExtractor remains an external credited tool because its repository does not declare a project-wide license.
 - **Conflicts:** exact file winners and every deployment blocker, including package-declared relative load order.
 - **Settings:** installation detection, target paths, metadata identity, appearance, diagnostics, manager data, and workspaces.
 
@@ -80,4 +81,7 @@ Visible controls follow actual prerequisites instead of silently doing nothing:
 - compatible imports, stale metadata, and older prepared records are prepared and indexed automatically;
 - there is no user-facing Prepare or Re-prepare maintenance step;
 - package-creation and package-editing controls disable while another Manager task owns shared state;
+- Veteran Roster can remain read-only while the game runs, but it never elevates the Manager or receives deployment privileges;
 - **Apply profile** remains explicit and is disabled while the game is running or the plan has blockers.
+
+See [docs/UMAEXTRACTOR_INTEGRATION.md](docs/UMAEXTRACTOR_INTEGRATION.md) for the external-tool, privacy, and attribution boundary.
