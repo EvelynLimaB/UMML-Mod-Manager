@@ -32,6 +32,42 @@ class PackageDraft:
     character_template: bool = False
 
 
+def build_character_option_group(
+    characters: list[str] | tuple[str, ...],
+) -> tuple[dict[str, object], list[str]]:
+    """Build a semantic character selector and return its safe directory IDs."""
+
+    values = [str(value).strip() for value in characters if str(value).strip()]
+    if not values:
+        values = ["Character one", "Character two"]
+    choices: dict[str, object] = {}
+    directory_ids: list[str] = []
+    used: set[str] = set()
+    for character in values:
+        choice_id = _choice_id(character, used)
+        used.add(choice_id)
+        directory_ids.append(choice_id)
+        choices[choice_id] = {
+            "name": character,
+            "target": character,
+            "include": [f"characters/{choice_id}/**"],
+        }
+    return (
+        {
+            "name": "Affected character",
+            "description": (
+                "Select which authored character-specific asset set this profile deploys. "
+                "This selects packaged variants; it does not rewrite arbitrary bundles."
+            ),
+            "kind": "character",
+            "type": "single",
+            "default": next(iter(choices)),
+            "choices": choices,
+        },
+        directory_ids,
+    )
+
+
 def create_package_workspace(store: ManagerStore, draft: PackageDraft) -> Path:
     """Create a new editable package workspace without importing it."""
 
@@ -108,29 +144,12 @@ def create_package_workspace(store: ManagerStore, draft: PackageDraft) -> Path:
         )
 
     if draft.character_template:
-        characters = list(draft.target_characters) or ["Character one", "Character two"]
-        choices: dict[str, object] = {}
-        used: set[str] = set()
-        for character in characters:
-            choice_id = _choice_id(character, used)
-            used.add(choice_id)
-            choices[choice_id] = {
-                "name": character,
-                "target": character,
-                "include": [f"characters/{choice_id}/**"],
-            }
+        character_group, directory_ids = build_character_option_group(
+            draft.target_characters
+        )
+        groups["character"] = character_group
+        for choice_id in directory_ids:
             (assets / "characters" / choice_id).mkdir(parents=True, exist_ok=True)
-        groups["character"] = {
-            "name": "Affected character",
-            "description": (
-                "Select which authored character-specific asset set this profile deploys. "
-                "This selects packaged variants; it does not rewrite arbitrary bundles."
-            ),
-            "kind": "character",
-            "type": "single",
-            "default": next(iter(choices)),
-            "choices": choices,
-        }
         (assets / "common").mkdir(parents=True, exist_ok=True)
         instructions.append(
             "Put each authored character variant under assets/characters/<choice>. "
