@@ -194,11 +194,13 @@ class ManagerCharacterOptionTests(unittest.TestCase):
         )
         self.assertEqual(set(special.winners), {"aa/aaaaaaaa", "bb/bbbbbbbb"})
         self.assertEqual(set(suzuka.winners), {"aa/aaaaaaaa", "cc/cccccccc"})
-        self.assertTrue(
-            special.winners["bb/bbbbbbbb"].source_path.endswith("sources/special-week")
+        self.assertEqual(
+            Path(special.winners["bb/bbbbbbbb"].source_path).parts[-2:],
+            ("sources", "special-week"),
         )
-        self.assertTrue(
-            suzuka.winners["cc/cccccccc"].source_path.endswith("sources/silence-suzuka")
+        self.assertEqual(
+            Path(suzuka.winners["cc/cccccccc"].source_path).parts[-2:],
+            ("sources", "silence-suzuka"),
         )
         self.assertEqual(record.source_files, original_mapping)
 
