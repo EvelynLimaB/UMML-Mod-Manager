@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from .manifest import normalize_targets
-from .options import normalize_option_groups
+from .manifest import normalize_manifest_policy
 
 PACKAGE_UMML_ASSETS = "umml-assets"
 PACKAGE_HACHIMI = "hachimi"
@@ -89,6 +88,8 @@ class ModRecord:
             raise ValueError("Mod record must be an object")
         if "id" not in data:
             raise ValueError("Mod record is missing id")
+        record_id = str(data["id"])
+        policy = normalize_manifest_policy(data, mod_id=record_id)
         update_policy = str(data.get("update_policy", "notify"))
         if update_policy not in SUPPORTED_UPDATE_POLICIES:
             update_policy = "notify"
@@ -97,12 +98,12 @@ class ModRecord:
         if "capabilities" not in data:
             capabilities = _default_capabilities(package_type)
         return cls(
-            id=str(data["id"]),
-            name=str(data.get("name") or data["id"]),
+            id=record_id,
+            name=str(data.get("name") or record_id),
             version=str(data.get("version", "0")),
             description=str(data.get("description", "")),
             author=str(data.get("author", "")),
-            regions=_string_list(data.get("regions", [])),
+            regions=policy.regions,
             source=SourceSpec.from_dict(data.get("source")),
             source_path=str(data.get("source_path", "")),
             prepared_path=str(data.get("prepared_path", "")),
@@ -114,18 +115,18 @@ class ModRecord:
                 str(key): str(value)
                 for key, value in _mapping(data.get("source_files", {})).items()
             },
-            option_groups=normalize_option_groups(data.get("option_groups", {})),
-            targets=normalize_targets(data.get("targets", {})),
-            tags=_string_list(data.get("tags", [])),
+            option_groups=policy.option_groups,
+            targets=policy.targets,
+            tags=policy.tags,
             imported_at=str(data.get("imported_at", "")),
             update_policy=update_policy,
             package_type=package_type,
             capabilities=capabilities,
-            dependencies=_string_list(data.get("dependencies", [])),
-            incompatibilities=_string_list(data.get("incompatibilities", [])),
-            load_after=_string_list(data.get("load_after", [])),
-            load_before=_string_list(data.get("load_before", [])),
-            compatibility_notes=str(data.get("compatibility_notes", "")),
+            dependencies=policy.dependencies,
+            incompatibilities=policy.incompatibilities,
+            load_after=policy.load_after,
+            load_before=policy.load_before,
+            compatibility_notes=policy.compatibility_notes,
             prepared_against=str(data.get("prepared_against", "")),
             prepared_at=str(data.get("prepared_at", "")),
         )
