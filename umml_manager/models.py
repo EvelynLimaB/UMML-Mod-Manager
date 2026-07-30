@@ -60,10 +60,15 @@ class ModRecord:
     # Non-configurable packages and the default configurable selection expose a
     # conventional target -> SHA map for status, compatibility, and migration.
     files: dict[str, str] = field(default_factory=dict)
-    # Configurable packages retain one prepared payload per creator-facing source
-    # so two authored variants may safely resolve to the same game target.
+    # Historical one-source -> one-target compatibility maps. New configurable
+    # preparation also records source_payloads because one Unity bundle can expand
+    # into several final game targets.
     source_files: dict[str, str] = field(default_factory=dict)
     source_hashes: dict[str, str] = field(default_factory=dict)
+    # Creator-facing source -> {final target -> SHA-256}. Each source has its own
+    # prepared root, so a profile can enable or disable a whole authored bundle
+    # without pretending each final target came from a separate source file.
+    source_payloads: dict[str, dict[str, str]] = field(default_factory=dict)
     source_roots: dict[str, str] = field(default_factory=dict)
     option_groups: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Creator-declared informational targeting. Character/dress entries describe
@@ -121,6 +126,7 @@ class ModRecord:
                 str(key): str(value)
                 for key, value in _mapping(data.get("source_hashes", {})).items()
             },
+            source_payloads=_payload_mapping(data.get("source_payloads", {})),
             source_roots={
                 str(key): str(value)
                 for key, value in _mapping(data.get("source_roots", {})).items()
@@ -209,3 +215,17 @@ def _string_list(value: object) -> list[str]:
 
 def _mapping(value: object) -> dict[Any, Any]:
     return dict(value) if isinstance(value, dict) else {}
+
+
+def _payload_mapping(value: object) -> dict[str, dict[str, str]]:
+    result: dict[str, dict[str, str]] = {}
+    for source, raw_payload in _mapping(value).items():
+        if not isinstance(raw_payload, dict):
+            continue
+        payload = {
+            str(target): str(sha256)
+            for target, sha256 in raw_payload.items()
+        }
+        if payload:
+            result[str(source)] = payload
+    return result
