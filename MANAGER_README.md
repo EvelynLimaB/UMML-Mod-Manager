@@ -2,14 +2,14 @@
 
 UMML Manager is the full desktop manager and editing workspace for **Umamusume Pretty Derby** mods. It is packaged separately from legacy UMML while preserving the original loader's editing tools through a guarded compatibility Studio.
 
-> **Preview:** `0.2.0~alpha16`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profile-scoped configurable mods, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game and destructive recovery testing remain required before a stable release.
+> **Preview:** `0.2.0~alpha17`. The manager includes bounded imports, immutable versions, provider browsing, automatic preparation, profile-scoped configurable mods, package targeting and compatibility editing, verified metadata provenance, fail-closed deployment, recovery journals, automatic installation detection, legacy-baseline migration, Studio compatibility, and matching DEB/AppImage packages. Real-game, Windows-package, and destructive recovery testing remain required before a stable release.
 
 ## Install
 
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha16_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha17_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -18,16 +18,16 @@ The package can coexist with `umml-linux`. It owns `/usr/lib/umml-manager`, `/us
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha16_x86_64.AppImage
-./umml-manager_0.2.0-alpha16_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha17_x86_64.AppImage
+./umml-manager_0.2.0-alpha17_x86_64.AppImage
 ```
 
 The same file exposes the CLI:
 
 ```bash
-./umml-manager_0.2.0-alpha16_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha16_x86_64.AppImage --cli list
-./umml-manager_0.2.0-alpha16_x86_64.AppImage --cli browse --region global
+./umml-manager_0.2.0-alpha17_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha17_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha17_x86_64.AppImage --cli browse --region global
 ```
 
 Both formats use the same data directory:
@@ -41,6 +41,8 @@ CI builds both packages from one PyInstaller bundle, extracts the completed DEB 
 ```bash
 sha256sum -c SHA256SUMS
 ```
+
+A native Windows package is not yet advertised. Windows users may run the branch from source for development testing, but that is not equivalent to a validated Windows release.
 
 ### Historical source-install cleanup
 
@@ -59,10 +61,10 @@ The current source installer stores the complete Manager and legacy Studio sourc
 
 ## Interface
 
-- **Library:** immutable versions, profiles, load order, configurable choices, preparation provenance, editable copies, package creation, and deployment.
+- **Library:** immutable versions, profiles, load order, configurable choices, preparation provenance, editable copies, package creation and editing, and deployment.
 - **Discover:** Global/Japan GameBanana browsing and bounded local package discovery.
 - **Studio:** the complete legacy editor and loader interface behind process guards.
-- **Conflicts:** exact file winners and every deployment blocker.
+- **Conflicts:** exact file winners and every deployment blocker, including package-declared relative load order.
 - **Settings:** installation detection, target paths, prepared metadata, appearance, diagnostics, manager data, and workspaces.
 
 ### Context-aware controls
@@ -73,6 +75,8 @@ Visible controls follow actual prerequisites instead of silently doing nothing:
 - **Enable** changes to **Disable** for enabled mods;
 - load-order arrows follow the selected mod's real position;
 - **Configure** appears for packages declaring profile options;
+- **Edit package** creates a workspace copy instead of modifying the imported source;
+- package-creation and package-editing controls disable while another Manager task owns shared state;
 - **Prepare now** and **Re-prepare** reflect package and metadata state;
 - **Apply profile** explains whether target data, metadata verification, blocker resolution, or closing the game is required;
 - GameBanana paging and installation states survive background tasks;
@@ -124,23 +128,55 @@ Prepared records retain file hashes, preparation time, the metadata fingerprint 
 
 Packages may declare `option_groups` in `umml-mod.json`. Single-choice groups use radio-button semantics; multiple-choice groups use checkbox semantics. Selections belong to the active profile, so two profiles may use different variants from the same immutable imported version.
 
+Semantic option kinds include character, dress, colour, audio, quality, feature, variant, and custom labels. A choice can also include a display target such as a character or dress ID.
+
 UMML does not rename imported files to enable or disable choices. Preparation records the complete source mapping once, and the resolver includes only the targets selected by the profile. Files not controlled by any option remain shared and enabled.
 
 Configuration fails closed for unsafe patterns, unknown choices, patterns that match no prepared source, one file controlled by multiple choices or groups, or an old prepared cache with no source mapping. The latter is fixed with one **Re-prepare**.
 
-See `docs/MANAGER_MOD_MANIFEST.md` for the schema and examples.
+### Character selection: what it does and does not do
 
-### New package workspace
+A character selector chooses among character-specific variants already supplied by the package, for example:
 
-**Library → New package** creates a timestamped editable workspace containing `umml-mod.json`, `assets/`, instructions, and optionally a valid two-choice variant template. Creation does not import, prepare, enable, or deploy anything. Populate and validate the workspace, then import it deliberately as a normal immutable version.
+```text
+assets/characters/special-week/**
+assets/characters/silence-suzuka/**
+assets/common/**
+```
+
+Profile A may select Special Week while Profile B selects Silence Suzuka. Resolution includes the chosen character folder plus shared content, without editing or renaming the imported source.
+
+The `targets.characters` field records which characters the package was authored for. It is descriptive and searchable. It does not transform a bundle made for one character into another. Arbitrary bundle retargeting requires a separate generated-transform backend with exact metadata, game-build checks, preview, restoration, and dedicated tests.
+
+See `docs/MANAGER_MOD_MANIFEST.md` for the full schema and examples.
+
+### Package targets and compatibility
+
+The package editor exposes:
+
+- affected characters;
+- affected dresses or costumes;
+- content types and tags;
+- supported regions;
+- required mods;
+- incompatible mods;
+- relative `load_after` and `load_before` constraints;
+- compatibility notes;
+- advanced option-group JSON.
+
+Dependencies and incompatibilities are hard blockers. Relative-order rules become blockers only when both referenced mods are enabled in the wrong order. Invalid or contradictory policy is rejected before an immutable source is copied or registered.
+
+### New package and Edit package workspaces
+
+**Library → New package** creates a timestamped editable workspace containing `umml-mod.json`, `assets/`, instructions, and optional generic or character-selectable templates. Creation does not import, prepare, enable, or deploy anything.
+
+**Edit package** creates a timestamped copy of an imported source and opens the same native manifest editor. **Save manifest** changes only the workspace. **Save and import** sends the workspace through the normal validation and immutable-import path. Change the version or ID before importing changed bytes.
 
 ## Immutable library and concurrency
 
 An imported ID/version is immutable. Re-importing the same identity with different bytes is rejected; re-importing identical bytes preserves the existing record and prepared cache; different versions coexist under safe storage components.
 
 The public library boundary serializes the complete identity-selection, source-copy, and registry transaction. Threads in one process wait on a local mutex; separate manager processes use an advisory file lock. Concurrent imports therefore cannot select one record ID and leave a different source orphaned from the registry.
-
-**Edit copy** creates a timestamped workspace with provenance. Change the edited package's ID or version before importing it as a new immutable version.
 
 ## GameBanana and loose legacy packages
 
@@ -185,7 +221,8 @@ The resolver blocks:
 - invalid paths or hashes;
 - invalid or ambiguous profile options;
 - missing declared dependencies;
-- declared incompatibilities.
+- declared incompatibilities;
+- violated relative load-before/load-after constraints.
 
 Duplicate profile entries are removed and reported instead of creating self-conflicts.
 
@@ -278,16 +315,17 @@ bash scripts/build_manager_deb.sh
 bash scripts/build_manager_appimage.sh
 ```
 
-CI compiles every manager file, audits architecture and dangerous calls, audits visible callbacks including configuration and package-builder dialogs, runs adversarial and failure-injection tests, validates desktop/AppStream metadata, builds one frozen runtime, compares complete DEB/AppImage payloads, checks certifi and Pillow, and verifies external checksums.
+CI compiles every manager file, audits architecture and dangerous calls, audits visible callbacks including configuration, package-builder, and manifest-editor dialogs, runs adversarial and failure-injection tests, validates desktop/AppStream metadata, builds one frozen runtime, compares complete DEB/AppImage payloads, checks certifi and Pillow, and verifies external checksums.
 
 Read `CONTRIBUTING.md`, `docs/MANAGER_ARCHITECTURE.md`, `docs/MANAGER_BSTAR_REVIEW.md`, `docs/MANAGER_DEVELOPMENT.md`, `docs/MANAGER_AUDIT.md`, `docs/MANAGER_FEATURE_ROADMAP.md`, `docs/MANAGER_MAIN_PROMOTION.md`, and `docs/PACKAGING.md` before changing state, providers, deployment, recovery, or packaging.
 
 ## Remaining alpha release gates
 
 - live Bazzite GameBanana browse, preview, detail hydration, deep loose-package normalization, automatic preparation, and import without certificate overrides;
-- real-desktop state, configuration-dialog, package-builder, and diagnostics smoke testing;
-- a broader current-mod corpus, including real configurable packages;
+- real-desktop state, configuration-dialog, package-builder, manifest-editor, and diagnostics smoke testing;
+- a broader current-mod corpus, including real configurable character and dress packages;
 - packaged apply, disable, restore, update, and profile-option tests on disposable game data;
+- native Windows frozen packaging and real-machine testing;
 - deliberate process-kill recovery drills at transaction boundaries;
 - explicit multi-installation target UI and separately scoped state directories;
 - provider-neutral update/version-history UI;
