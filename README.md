@@ -14,7 +14,7 @@ Linux, Steam Proton, packaging, and mod-management work for **Umamusume Pretty D
 
 They can coexist and do not own the same application files or backup state.
 
-> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, configuring profiles, creating package workspaces, and conflict planning may happen while it runs.
+> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, configuring profiles, creating package workspaces, editing manifests, and conflict planning may happen while it runs.
 
 ## Downloads
 
@@ -32,7 +32,7 @@ Download the DEB or AppImage from [GitHub Releases](https://github.com/EvelynLim
 
 ### UMML Manager preview
 
-Current manager preview: **`0.2.0~alpha16`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
+Current manager preview: **`0.2.0~alpha17`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
 
 Until it becomes a permanent Release asset, open the [manager branch workflow runs](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml?query=branch%3Aagent%2Fumml-manager-foundation) and download:
 
@@ -43,7 +43,7 @@ Until it becomes a permanent Release asset, open the [manager branch workflow ru
 #### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha16_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha17_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -52,15 +52,15 @@ The absolute command is useful when testing upgrades from early source previews.
 #### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha16_x86_64.AppImage
-./umml-manager_0.2.0-alpha16_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha17_x86_64.AppImage
+./umml-manager_0.2.0-alpha17_x86_64.AppImage
 ```
 
 CLI mode is available from the same file:
 
 ```bash
-./umml-manager_0.2.0-alpha16_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha16_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha17_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha17_x86_64.AppImage --cli list
 ```
 
 The DEB and AppImage are built from the same frozen runtime and use the same user data directory, `~/.local/share/umml-manager`. CI extracts both finished packages and compares their complete embedded runtime trees.
@@ -83,9 +83,12 @@ sha256sum -c SHA256SUMS
 - context-aware buttons that follow selection, paging, background-task, profile-blocker, metadata-verification, and live game-process state;
 - named profiles with explicit load order and preserved installation identity, plus an explicit verified-target rebinding action;
 - native profile-scoped single-choice and multi-choice mod options declared in `umml-mod.json`;
+- semantic character, dress, colour, audio, quality, feature, and custom option kinds;
 - source-to-target option mapping during preparation, so choices never rename or mutate immutable imported files;
-- a guided **New package** workspace builder with an optional configurable variant template;
-- blockers for missing dependencies, declared incompatibilities, invalid profile options, wrong regions, wrong or unverified installations, unsupported backends, stale or unverified prepared caches, and invalid manifests;
+- authored package targets for characters, dresses/costumes, content types, and searchable tags;
+- a guided **New package** workspace builder with generic and character-selectable variant templates;
+- a native **Edit package** workspace manifest editor covering identity, targets, dependencies, incompatibilities, relative load order, compatibility notes, and raw advanced option groups;
+- hard blockers for missing dependencies, declared incompatibilities, invalid profile options, wrong relative load order, wrong regions, wrong or unverified installations, unsupported backends, stale or unverified prepared caches, and invalid manifests;
 - fail-closed GUI and CLI deployment through one guarded public engine boundary;
 - path-contained, hash-verified deployment with target-scoped active state and vanilla baselines;
 - explicit first-run migration that copies legacy `dat.backup` originals into protected manager baselines before taking ownership;
@@ -108,7 +111,7 @@ Read [MANAGER_README.md](MANAGER_README.md) for the user workflow, [docs/MANAGER
 1. Open the manager and let **Settings** detect the installation and prepare metadata.
 2. Browse GameBanana or scan Downloads/custom folders in **Discover**.
 3. Import a compatible mod; the manager prepares it automatically when metadata is ready. Mod creators can start from **Library → New package**.
-4. Enable and order mods in a profile bound to the intended installation. Use **Configure** for package-declared choices and **Settings → Bind profile here** only when intentionally moving a profile to the currently detected target.
+4. Enable and order mods in a profile bound to the intended installation. Use **Configure** for package-declared choices, including authored character variants. Use **Edit package** to create an editable copy and change targets or compatibility before importing a new version.
 5. Inspect **Conflicts** for file winners and every deployment blocker.
 6. Close the game and apply the profile.
 7. Use **Studio** for the original loader's editing tools.
