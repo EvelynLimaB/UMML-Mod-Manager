@@ -63,11 +63,7 @@ class LibraryActions:
             mods = [
                 mod
                 for mod in mods
-                if needle
-                in (
-                    f"{mod.name} {mod.author} {mod.id} {mod.description} "
-                    f"{mod.package_type} {' '.join(mod.regions)}"
-                ).casefold()
+                if needle in self._library_search_text(mod)
             ]
         mods.sort(
             key=lambda mod: (
@@ -101,6 +97,42 @@ class LibraryActions:
             f"{profile.name}"
         )
         self.refresh_action_states()
+
+    @staticmethod
+    def _library_search_text(mod) -> str:
+        targets = " ".join(
+            [
+                category,
+                *[value for values in mod.targets.values() for value in values],
+            ]
+            if mod.targets
+            else []
+        )
+        option_labels: list[str] = []
+        for group_id, group in mod.option_groups.items():
+            option_labels.extend(
+                [
+                    group_id,
+                    str(group.get("name") or ""),
+                    str(group.get("kind") or ""),
+                ]
+            )
+            for choice_id, choice in dict(group.get("choices", {})).items():
+                option_labels.extend(
+                    [
+                        choice_id,
+                        str(choice.get("name") or ""),
+                        str(choice.get("target") or ""),
+                    ]
+                )
+        return (
+            f"{mod.name} {mod.author} {mod.id} {mod.description} "
+            f"{mod.package_type} {' '.join(mod.regions)} {' '.join(mod.tags)} "
+            f"{targets} {' '.join(mod.dependencies)} "
+            f"{' '.join(mod.incompatibilities)} {' '.join(mod.load_after)} "
+            f"{' '.join(mod.load_before)} {mod.compatibility_notes} "
+            f"{' '.join(option_labels)}"
+        ).casefold()
 
     def _mod_status(self, mod) -> str:
         if mod.package_type != PACKAGE_UMML_ASSETS:
@@ -411,6 +443,10 @@ class LibraryActions:
                 resolution.incompatibility_conflicts,
             ),
             (
+                "Relative load-order constraints",
+                resolution.load_order_conflicts,
+            ),
+            (
                 "Duplicate profile entries removed",
                 resolution.duplicates,
             ),
@@ -527,48 +563,25 @@ class LibraryActions:
         *,
         import_legacy_baselines: bool,
     ) -> None:
-        if not isinstance(exc, LegacyBaselineMigrationRequired):
-            self.status.set("Operation failed")
-            messagebox.showerror(
-                "Operation failed",
-                str(exc),
+        if (
+            isinstance(exc, LegacyBaselineMigrationRequired)
+            and not import_legacy_baselines
+        ):
+            if messagebox.askyesno(
+                "Protect legacy originals first?",
+                str(exc)
+                + "\n\nCopy the verified originals into Manager-owned "
+                "baselines and continue applying this profile?",
                 parent=self.root,
-            )
-            return
-
-        count = len(exc.paths)
-        noun = "file" if count == 1 else "files"
-        if exc.can_import and not import_legacy_baselines:
-            self.status.set("Legacy originals found")
-            should_import = messagebox.askyesno(
-                "Finish legacy UMML migration?",
-                f"{count} game {noun} belong to an older UMML install. Manager "
-                "needs their originals before it can take over safely.\n\n"
-                f"The old UMML dat.backup folder contains original copies for "
-                f"all {count}. Copy them into Manager's protected baseline and "
-                "continue applying?\n\n"
-                "The old backups will not be moved or deleted.",
-                parent=self.root,
-            )
-            if should_import:
+            ):
                 self._run_profile_apply(
                     resolution,
                     import_legacy_baselines=True,
                 )
-            else:
-                self.status.set("Apply cancelled")
-            return
-
-        usable = len(exc.importable)
-        self.status.set("Original files required")
+                return
         messagebox.showerror(
-            "Original files required",
-            f"{count} game {noun} were already modified before UMML Manager "
-            "could save their originals, and the old UMML backup folder does "
-            f"not contain safe copies for all of them ({usable} of {count} "
-            "usable).\n\n"
-            "Nothing in the game was changed. Restore the original assets with "
-            "legacy UMML or Steam's Verify integrity of game files, then apply "
-            "the profile again.",
+            "Apply failed",
+            str(exc),
             parent=self.root,
         )
+        self.refresh_action_states()
