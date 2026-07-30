@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from tkinter import messagebox
 
 from .legacy_adapter import LegacyAssetAdapter
 from .models import PACKAGE_UMML_ASSETS
@@ -9,23 +8,21 @@ from .ui_maintenance_actions import MaintenanceActions
 
 
 class AutoPrepareActions(MaintenanceActions):
-    """Automatically prepare compatible imports while keeping apply explicit."""
+    """Prepare, refresh, and index compatible mods without user maintenance buttons."""
 
     def refresh(self):
-        """Extend Library search without duplicating its ordering and UI logic."""
-
         if not hasattr(self, "search_library") or not hasattr(self, "library"):
-            return super().refresh()
+            result = super().refresh()
+            self._schedule_auto_prepare_scan()
+            return result
+
         query = self.search_library.get()
         needle = query.casefold().strip()
         if not needle:
-            return super().refresh()
+            result = super().refresh()
+            self._schedule_auto_prepare_scan()
+            return result
 
-        # The historical Library refresh filters only common metadata. Populate
-        # its normal ordered rows with an empty query, then apply the richer
-        # package-policy corpus. This keeps one source of truth for ordering,
-        # status, selection, and profile counts while making targets and choices
-        # genuinely searchable rather than merely documented as such.
         self.search_library.set("")
         try:
             result = super().refresh()
@@ -44,12 +41,12 @@ class AutoPrepareActions(MaintenanceActions):
         visible = len(tree.get_children())
         profile = self.profile()
         self.status.set(
-            f"{visible} matching mod(s); {len(profile.enabled)} enabled in "
-            f"{profile.name}"
+            f"{visible} matching mod(s); {len(profile.enabled)} enabled in {profile.name}"
         )
         if not tree.selection():
             self.library.clear_details()
         self.refresh_action_states()
+        self._schedule_auto_prepare_scan()
         return result
 
     @staticmethod
@@ -102,10 +99,7 @@ class AutoPrepareActions(MaintenanceActions):
         if self._closing or not hasattr(self, "library"):
             return
         busy = bool(self._busy)
-        self._configure_button(
-            self.library.new_package_button,
-            enabled=not busy,
-        )
+        self._configure_button(self.library.new_package_button, enabled=not busy)
         selected = self.library.selected_id()
         self._configure_button(
             self.library.edit_package_button,
@@ -138,6 +132,19 @@ class AutoPrepareActions(MaintenanceActions):
             extra.append("Load before: " + ", ".join(record.load_before))
         if record.compatibility_notes:
             extra.append("Compatibility notes\n" + record.compatibility_notes)
+
+        error = self._auto_prepare_errors().get(record.id)
+        if error:
+            extra.append(
+                "Automatic preparation issue\n"
+                + error
+                + "\nThe imported source is unchanged. The Manager will retry after metadata or package changes."
+            )
+        elif self._record_needs_auto_prepare(record):
+            extra.append(
+                "Automatic preparation\nQueued. No manual Prepare or Re-prepare action is required."
+            )
+
         if extra:
             self.library.set_description(current + "\n\n" + "\n\n".join(extra))
         return result
@@ -161,58 +168,164 @@ class AutoPrepareActions(MaintenanceActions):
 
     def _finish_import(self, record):
         super()._finish_import(record)
-        if not should_prepare_automatically(record, self.meta_path.get()):
-            if record.package_type == PACKAGE_UMML_ASSETS:
-                self.status.set(
-                    f"Imported {record.name}; preparation is waiting for valid metadata"
-                )
-            self.refresh_action_states()
+        self._clear_auto_prepare_error(record.id)
+        self._schedule_auto_prepare_scan(delay=30, prioritize=record.id)
+
+    def _schedule_auto_prepare_scan(
+        self,
+        *,
+        delay: int = 350,
+        prioritize: str = "",
+    ) -> None:
+        if getattr(self, "_closing", False) or not hasattr(self, "root"):
+            return
+        if prioritize:
+            queue = self._auto_prepare_priority()
+            if prioritize not in queue:
+                queue.insert(0, prioritize)
+        if getattr(self, "_auto_prepare_scan_scheduled", False):
+            return
+        self._auto_prepare_scan_scheduled = True
+        try:
+            self.root.after(delay, self._run_auto_prepare_scan)
+        except Exception:
+            self._auto_prepare_scan_scheduled = False
+
+    def _run_auto_prepare_scan(self) -> None:
+        self._auto_prepare_scan_scheduled = False
+        if getattr(self, "_closing", False):
+            return
+        if getattr(self, "_busy", False):
+            self._schedule_auto_prepare_scan(delay=800)
+            return
+        if not self._metadata_ready_for_auto_prepare():
+            return
+
+        records = self.store.list_mods()
+        by_id = {record.id: record for record in records}
+        priority = self._auto_prepare_priority()
+        ordered = []
+        while priority:
+            mod_id = priority.pop(0)
+            record = by_id.get(mod_id)
+            if record is not None and record not in ordered:
+                ordered.append(record)
+        ordered.extend(record for record in records if record not in ordered)
+
+        candidate = next(
+            (
+                record
+                for record in ordered
+                if self._record_needs_auto_prepare(record)
+                and self._auto_prepare_key(record) not in self._auto_prepare_failed_keys()
+            ),
+            None,
+        )
+        if candidate is None:
             return
 
         self._run_task(
-            f"Imported {record.name}; preparing assets automatically…",
+            f"Preparing and analyzing {candidate.name} automatically…",
             lambda: LegacyAssetAdapter(
                 self.store,
                 self.meta_path.get(),
-            ).prepare(record),
-            self._finish_automatic_preparation,
-            failed=lambda exc: self._automatic_preparation_failed(record, exc),
+            ).prepare(candidate),
+            self._auto_prepare_completed,
+            failed=lambda exc: self._auto_prepare_failed(candidate, exc),
         )
 
-    def _finish_automatic_preparation(self, prepared):
+    def _auto_prepare_completed(self, prepared) -> None:
+        self._clear_auto_prepare_error(prepared.id)
         self.refresh()
         if self.library.tree.exists(prepared.id):
             self.library.tree.selection_set(prepared.id)
             self.library.tree.see(prepared.id)
             self.show_selected_mod()
         self.status.set(
-            f"Imported and prepared {prepared.name}: {len(prepared.files)} asset(s)"
+            f"Ready: {prepared.name} · {len(prepared.files)} game target(s) indexed automatically"
         )
-        self.show_page("library")
-        self.refresh_action_states()
+        self._schedule_auto_prepare_scan(delay=80)
 
-    def _automatic_preparation_failed(self, record, exc: Exception):
+    def _auto_prepare_failed(self, record, exc: Exception) -> None:
+        key = self._auto_prepare_key(record)
+        self._auto_prepare_failed_keys().add(key)
+        self._auto_prepare_errors()[record.id] = str(exc)
         self.refresh()
         if self.library.tree.exists(record.id):
             self.library.tree.selection_set(record.id)
             self.library.tree.see(record.id)
             self.show_selected_mod()
         self.status.set(
-            f"Imported {record.name}, but automatic preparation needs attention"
+            f"Could not prepare {record.name} automatically; source preserved and other mods will continue"
         )
-        messagebox.showwarning(
-            "Imported, but preparation failed",
-            f"{record.name} was preserved safely in Library, but its assets could "
-            f"not be prepared automatically. You can retry with Prepare now.\n\n{exc}",
-            parent=self.root,
+        self._schedule_auto_prepare_scan(delay=80)
+
+    def _record_needs_auto_prepare(self, record) -> bool:
+        if record.package_type != PACKAGE_UMML_ASSETS:
+            return False
+        if not self._metadata_ready_for_auto_prepare():
+            return False
+        fingerprint = self.metadata_fingerprint.get().strip().casefold()
+        prepared_against = str(record.prepared_against or "").strip().casefold()
+        if not record.prepared_path or not record.files:
+            return True
+        if fingerprint and prepared_against != fingerprint:
+            return True
+        # Source ownership is required for the visual inspector and component editor.
+        if not record.source_payloads or not record.source_roots:
+            return True
+        if record.option_groups:
+            return any(
+                source not in record.source_roots
+                for source in record.source_payloads
+            )
+        return False
+
+    def _metadata_ready_for_auto_prepare(self) -> bool:
+        try:
+            return Path(self.meta_path.get()).expanduser().is_file()
+        except (OSError, ValueError):
+            return False
+
+    def _auto_prepare_key(self, record) -> tuple[str, str, str, str]:
+        return (
+            record.id,
+            record.version,
+            self.metadata_fingerprint.get().strip().casefold(),
+            record.source.sha256,
         )
-        self.show_page("library")
-        self.refresh_action_states()
+
+    def _auto_prepare_failed_keys(self) -> set[tuple[str, str, str, str]]:
+        value = getattr(self, "_auto_prepare_failures", None)
+        if value is None:
+            value = set()
+            self._auto_prepare_failures = value
+        return value
+
+    def _auto_prepare_errors(self) -> dict[str, str]:
+        value = getattr(self, "_auto_prepare_error_messages", None)
+        if value is None:
+            value = {}
+            self._auto_prepare_error_messages = value
+        return value
+
+    def _auto_prepare_priority(self) -> list[str]:
+        value = getattr(self, "_auto_prepare_priority_ids", None)
+        if value is None:
+            value = []
+            self._auto_prepare_priority_ids = value
+        return value
+
+    def _clear_auto_prepare_error(self, mod_id: str) -> None:
+        self._auto_prepare_errors().pop(mod_id, None)
+        self._auto_prepare_failures = {
+            key for key in self._auto_prepare_failed_keys() if key[0] != mod_id
+        }
 
 
 def should_prepare_automatically(record, meta_path: str) -> bool:
-    return bool(
-        record.package_type == PACKAGE_UMML_ASSETS
-        and not record.files
-        and Path(meta_path).expanduser().is_file()
-    )
+    try:
+        metadata_ready = Path(meta_path).expanduser().is_file()
+    except (OSError, ValueError):
+        metadata_ready = False
+    return bool(record.package_type == PACKAGE_UMML_ASSETS and metadata_ready)
