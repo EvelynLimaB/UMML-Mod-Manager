@@ -16,7 +16,7 @@ class ManagerWindowsRootTests(unittest.TestCase):
             home.mkdir()
             local.mkdir()
             with (
-                patch("umml_manager.library.os.name", "nt"),
+                patch("umml_manager.library.sys.platform", "win32"),
                 patch.dict(os.environ, {"LOCALAPPDATA": str(local)}, clear=False),
                 patch("umml_manager.library.Path.home", return_value=home),
             ):
@@ -31,7 +31,7 @@ class ManagerWindowsRootTests(unittest.TestCase):
             legacy.mkdir(parents=True)
             local.mkdir()
             with (
-                patch("umml_manager.library.os.name", "nt"),
+                patch("umml_manager.library.sys.platform", "win32"),
                 patch.dict(os.environ, {"LOCALAPPDATA": str(local)}, clear=False),
                 patch("umml_manager.library.Path.home", return_value=home),
             ):
