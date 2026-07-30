@@ -94,4 +94,6 @@ On the exact DEB:
 - native Studio parity replacing the guarded compatibility host;
 - signed release and update metadata.
 
+UM:PD Dark Mode remains outside ordinary package support because it is a self-installing executable patch. It requires a separately trusted, exact-base patch backend and is never executed through normal mod import.
+
 Keep the PR draft until exact artifacts pass the applicable real-machine gates. Do not reinterpret a successful Linux package as Windows evidence, or a successful Windows portable build as proof that one user's Steam layout has stopped being inventive.
