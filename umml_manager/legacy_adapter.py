@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import sqlite3
+import struct
 import sys
 import tempfile
 import types
@@ -15,6 +17,8 @@ from .models import PACKAGE_UMML_ASSETS, ModRecord
 from .options import OptionError, select_source_paths
 from .safety import SafetyError, atomic_copy_file, hash_file, validate_regular_tree
 from .store import ManagerStore, StoreError
+
+_AB_KEY = b"\x53\x2B\x46\x31\xE4\xA7\xB9\x47\x3E\x7C\xFB"
 
 
 class _NullWidget:
@@ -31,7 +35,7 @@ class _NullRoot:
 
 
 class LegacyAssetAdapter:
-    """Reuse UMML's metadata lookup/encryption routine without its GUI."""
+    """Prepare legacy UMML assets without allowing profile options to mutate sources."""
 
     def __init__(self, store: ManagerStore, meta_path: str | Path):
         self.store = store
@@ -65,7 +69,15 @@ class LegacyAssetAdapter:
         except LockError as exc:
             raise StoreError(str(exc)) from exc
 
-    def _prepare_locked(self, record: ModRecord, assets: Path, output: Path) -> ModRecord:
+    def _prepare_locked(
+        self,
+        record: ModRecord,
+        assets: Path,
+        output: Path,
+    ) -> ModRecord:
+        if record.option_groups:
+            return self._prepare_configurable_locked(record, assets, output)
+
         stage_root = Path(
             tempfile.mkdtemp(prefix=f".{output.name}-prepare-", dir=output.parent)
         )
@@ -111,64 +123,181 @@ class LegacyAssetAdapter:
                 )
 
             source_files = self._source_target_map(assets, files)
-            if record.option_groups:
-                mapped_targets = set(source_files.values())
-                unmapped_targets = sorted(set(files) - mapped_targets)
-                if unmapped_targets:
-                    preview = ", ".join(unmapped_targets[:5])
-                    raise StoreError(
-                        "Configurable package preparation could not map every prepared "
-                        f"asset back to its source path: {preview}. The previous cache "
-                        "was preserved."
-                    )
-                try:
-                    # This validates default selections, glob coverage, and rejects
-                    # patterns that ambiguously control the same source asset.
-                    select_source_paths(record.option_groups, {}, source_files)
-                except OptionError as exc:
-                    raise StoreError(f"Invalid configurable mod manifest: {exc}") from exc
-
-            if output.exists():
-                os.replace(output, backup)
-                moved_old = True
-            os.replace(normalized, output)
-            moved_new = True
             updated = replace(
                 record,
                 prepared_path=str(output),
                 files=files,
                 source_files=source_files,
+                source_hashes={},
+                source_roots={},
                 prepared_against=hash_file(self.meta_path),
                 prepared_at=datetime.now(timezone.utc).isoformat(),
             )
-            try:
-                self.store.save_mod(updated)
-            except Exception:
-                if moved_new and output.exists():
-                    shutil.rmtree(output, ignore_errors=True)
-                if moved_old and backup.exists():
-                    os.replace(backup, output)
-                raise
-            shutil.rmtree(backup, ignore_errors=True)
-            return updated
+            return self._commit_prepared(
+                updated,
+                output=output,
+                normalized=normalized,
+                backup=backup,
+                moved_old_ref=[moved_old],
+                moved_new_ref=[moved_new],
+            )
         finally:
             shutil.rmtree(stage_root, ignore_errors=True)
             if backup.exists() and not output.exists():
                 os.replace(backup, output)
+
+    def _prepare_configurable_locked(
+        self,
+        record: ModRecord,
+        assets: Path,
+        output: Path,
+    ) -> ModRecord:
+        """Preserve each authored source payload, even when variants share a target."""
+
+        stage_root = Path(
+            tempfile.mkdtemp(prefix=f".{output.name}-prepare-", dir=output.parent)
+        )
+        normalized = stage_root / "normalized"
+        normalized.mkdir()
+        backup = output.with_name(
+            f".{output.name}.previous-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
+        )
+        moved_old = False
+        moved_new = False
+        missing = 0
+        source_files: dict[str, str] = {}
+        source_hashes: dict[str, str] = {}
+        source_roots: dict[str, str] = {}
+        try:
+            try:
+                connection = sqlite3.connect(str(self.meta_path))
+            except sqlite3.Error as exc:
+                raise StoreError(f"Could not open metadata for configurable preparation: {exc}") from exc
+            try:
+                cursor = connection.cursor()
+                cursor.execute("PRAGMA table_info(a)")
+                columns = {str(row[1]) for row in cursor.fetchall()}
+                if "n" not in columns or "h" not in columns:
+                    raise StoreError("Metadata table a is missing source-name/hash columns")
+                has_encrypt = "e" in columns
+
+                for source in sorted(item for item in assets.rglob("*") if item.is_file()):
+                    relative = source.relative_to(assets).as_posix()
+                    row = self._lookup_asset_row(
+                        cursor,
+                        relative,
+                        source,
+                        has_encrypt=has_encrypt,
+                    )
+                    if row is None:
+                        if self._looks_like_game_asset(source):
+                            missing += 1
+                        continue
+                    hash_name, encryption_key = row
+                    name = Path(hash_name).name
+                    if len(name) < 2:
+                        missing += 1
+                        continue
+                    target = (Path(name[:2]) / name).as_posix()
+                    root_relative = (
+                        Path("sources")
+                        / hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
+                    ).as_posix()
+                    destination = normalized / root_relative / target
+                    self._decode_source(source, destination, encryption_key)
+                    source_files[relative] = target
+                    source_hashes[relative] = hash_file(destination)
+                    source_roots[relative] = root_relative
+            finally:
+                connection.close()
+
+            if not source_files:
+                raise StoreError(
+                    f"No compatible configurable assets produced; {missing} entries were absent "
+                    "from metadata. The previous prepared cache was preserved."
+                )
+            try:
+                selected_sources = select_source_paths(
+                    record.option_groups,
+                    {},
+                    source_files,
+                )
+            except OptionError as exc:
+                raise StoreError(f"Invalid configurable mod manifest: {exc}") from exc
+
+            files: dict[str, str] = {}
+            owners: dict[str, str] = {}
+            for source_relative in sorted(selected_sources):
+                target = source_files[source_relative]
+                previous = owners.get(target)
+                if previous is not None:
+                    raise StoreError(
+                        "The default configurable selection contains two sources for one game target: "
+                        f"{previous!r} and {source_relative!r} -> {target}. Put them in mutually "
+                        "exclusive choices or remove the duplicate shared file."
+                    )
+                owners[target] = source_relative
+                files[target] = source_hashes[source_relative]
+            if not files:
+                raise StoreError(
+                    "The default configurable selection produced no deployable assets; "
+                    "the previous prepared cache was preserved."
+                )
+
+            updated = replace(
+                record,
+                prepared_path=str(output),
+                files=files,
+                source_files=source_files,
+                source_hashes=source_hashes,
+                source_roots=source_roots,
+                prepared_against=hash_file(self.meta_path),
+                prepared_at=datetime.now(timezone.utc).isoformat(),
+            )
+            return self._commit_prepared(
+                updated,
+                output=output,
+                normalized=normalized,
+                backup=backup,
+                moved_old_ref=[moved_old],
+                moved_new_ref=[moved_new],
+            )
+        finally:
+            shutil.rmtree(stage_root, ignore_errors=True)
+            if backup.exists() and not output.exists():
+                os.replace(backup, output)
+
+    def _commit_prepared(
+        self,
+        updated: ModRecord,
+        *,
+        output: Path,
+        normalized: Path,
+        backup: Path,
+        moved_old_ref: list[bool],
+        moved_new_ref: list[bool],
+    ) -> ModRecord:
+        if output.exists():
+            os.replace(output, backup)
+            moved_old_ref[0] = True
+        os.replace(normalized, output)
+        moved_new_ref[0] = True
+        try:
+            self.store.save_mod(updated)
+        except Exception:
+            if moved_new_ref[0] and output.exists():
+                shutil.rmtree(output, ignore_errors=True)
+            if moved_old_ref[0] and backup.exists():
+                os.replace(backup, output)
+            raise
+        shutil.rmtree(backup, ignore_errors=True)
+        return updated
 
     def _source_target_map(
         self,
         assets: Path,
         prepared_files: dict[str, str],
     ) -> dict[str, str]:
-        """Resolve creator-facing source paths to prepared hash paths.
-
-        The legacy decoder intentionally returns only aggregate counts. The
-        manager independently records this mapping so configuration remains a
-        pure profile-resolution decision rather than filename mutation inside an
-        immutable source directory.
-        """
-
         mapping: dict[str, str] = {}
         owners: dict[str, str] = {}
         try:
@@ -205,13 +334,50 @@ class LegacyAssetAdapter:
             connection.close()
         return mapping
 
-    @staticmethod
-    def _lookup_hash(cursor, relative: str, source: Path) -> str:
+    @classmethod
+    def _lookup_asset_row(
+        cls,
+        cursor,
+        relative: str,
+        source: Path,
+        *,
+        has_encrypt: bool,
+    ) -> tuple[str, int] | None:
+        cursor.execute(
+            "SELECT h, e FROM a WHERE n=?" if has_encrypt else "SELECT h FROM a WHERE n=?",
+            (relative,),
+        )
+        row = cursor.fetchone()
+        if row and row[0]:
+            return str(row[0]), int(row[1]) if has_encrypt else 0
+
+        resolved_name = cls._unity_bundle_name(source)
+        if not resolved_name:
+            return None
+        cursor.execute(
+            "SELECT h, e FROM a WHERE n=?" if has_encrypt else "SELECT h FROM a WHERE n=?",
+            (resolved_name,),
+        )
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return None
+        return str(row[0]), int(row[1]) if has_encrypt else 0
+
+    @classmethod
+    def _lookup_hash(cls, cursor, relative: str, source: Path) -> str:
         cursor.execute("SELECT h FROM a WHERE n=?", (relative,))
         row = cursor.fetchone()
         if row and row[0]:
             return str(row[0])
+        resolved_name = cls._unity_bundle_name(source)
+        if not resolved_name:
+            return ""
+        cursor.execute("SELECT h FROM a WHERE n=?", (resolved_name,))
+        row = cursor.fetchone()
+        return str(row[0]) if row and row[0] else ""
 
+    @staticmethod
+    def _unity_bundle_name(source: Path) -> str:
         try:
             with source.open("rb") as handle:
                 if not handle.read(8).startswith(b"UnityFS"):
@@ -223,16 +389,44 @@ class LegacyAssetAdapter:
                 if obj.type.name != "AssetBundle":
                     continue
                 bundle = obj.read()
-                resolved_name = os.path.splitext(str(bundle.m_Name or ""))[0]
-                if not resolved_name:
-                    continue
-                cursor.execute("SELECT h FROM a WHERE n=?", (resolved_name,))
-                row = cursor.fetchone()
-                if row and row[0]:
-                    return str(row[0])
+                resolved = os.path.splitext(str(bundle.m_Name or ""))[0]
+                if resolved:
+                    return resolved
         except Exception:
             return ""
         return ""
+
+    @staticmethod
+    def _looks_like_game_asset(source: Path) -> bool:
+        if source.suffix.casefold() in {".acb", ".awb", ".usm"}:
+            return True
+        try:
+            return source.read_bytes()[:8].startswith(b"UnityFS")
+        except OSError:
+            return False
+
+    @staticmethod
+    def _decode_source(source: Path, destination: Path, encryption_key: int) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if encryption_key == 0:
+            atomic_copy_file(source, destination)
+            return
+        data = bytearray(source.read_bytes())
+        if len(data) > 256:
+            key = LegacyAssetAdapter._derive_asset_key(encryption_key)
+            for index in range(256, len(data)):
+                data[index] ^= key[index % len(key)]
+        destination.write_bytes(data)
+
+    @staticmethod
+    def _derive_asset_key(key_long: int) -> bytes:
+        key_bytes = struct.pack("<q", key_long)
+        final = bytearray(len(_AB_KEY) * 8)
+        for index, value in enumerate(_AB_KEY):
+            offset = index * 8
+            for byte_index in range(8):
+                final[offset + byte_index] = value ^ key_bytes[byte_index]
+        return bytes(final)
 
     def _decoder(self):
         if sys.platform != "win32" and "winreg" not in sys.modules:
@@ -258,9 +452,13 @@ class LegacyAssetAdapter:
             @staticmethod
             def scan_full_path(root):
                 root_path = Path(root)
-                for item in root_path.rglob("*"):
-                    if item.is_file():
-                        yield item.relative_to(root_path).as_posix()
+                for path in root_path.rglob("*"):
+                    if path.is_file():
+                        yield path.relative_to(root_path).as_posix()
 
-        Decoder.decrypt_assets_internal = core.ModLoaderGUI.decrypt_assets_internal
-        return Decoder()
+        decoder = Decoder()
+        decoder.decrypt_assets_internal = types.MethodType(
+            core.UMMLApp.decrypt_assets_internal,
+            decoder,
+        )
+        return decoder
