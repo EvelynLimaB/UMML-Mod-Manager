@@ -44,10 +44,7 @@ class LibraryPage(ttk.Frame):
         )
         self.new_profile_button.grid(row=0, column=2, padx=(6, 14))
 
-        self.search_entry = ttk.Entry(
-            toolbar,
-            textvariable=app.search_library,
-        )
+        self.search_entry = ttk.Entry(toolbar, textvariable=app.search_library)
         self.search_entry.grid(row=0, column=3, sticky="ew", padx=(0, 6))
         self.search_entry.bind("<Return>", lambda _event: app.refresh())
         self.search_button = ttk.Button(toolbar, text="Search", command=app.refresh)
@@ -87,7 +84,7 @@ class LibraryPage(ttk.Frame):
             ("order", "Order", 72),
             ("version", "Version", 100),
             ("source", "Source", 105),
-            ("state", "State", 150),
+            ("state", "State", 170),
         ):
             self.tree.heading(column, text=title)
             self.tree.column(
@@ -106,11 +103,7 @@ class LibraryPage(ttk.Frame):
         details.grid(row=1, column=1, sticky="nsew", padx=(7, 0))
         details.columnconfigure(0, weight=1)
         details.rowconfigure(5, weight=1)
-        self.mod_title = ttk.Label(
-            details,
-            text="Select a mod",
-            style="CardTitle.TLabel",
-        )
+        self.mod_title = ttk.Label(details, text="Select a mod", style="CardTitle.TLabel")
         self.mod_title.grid(row=0, column=0, sticky="w")
         self.mod_meta = ttk.Label(details, text="", style="SurfaceMuted.TLabel")
         self.mod_meta.grid(row=1, column=0, sticky="w", pady=(3, 10))
@@ -149,7 +142,7 @@ class LibraryPage(ttk.Frame):
 
         profile_buttons = ttk.Frame(details, style="Surface.TFrame")
         profile_buttons.grid(row=6, column=0, sticky="ew", pady=(12, 0))
-        for column in range(5):
+        for column in range(4):
             profile_buttons.columnconfigure(column, weight=1)
         self.toggle_button = ttk.Button(
             profile_buttons,
@@ -178,14 +171,7 @@ class LibraryPage(ttk.Frame):
             command=lambda: configure_mod_options(app, self),
             state="disabled",
         )
-        self.configure_button.grid(row=0, column=3, sticky="ew", padx=4)
-        self.prepare_button = ttk.Button(
-            profile_buttons,
-            text="Prepare",
-            command=app.prepare_selected,
-            state="disabled",
-        )
-        self.prepare_button.grid(row=0, column=4, sticky="ew", padx=(4, 0))
+        self.configure_button.grid(row=0, column=3, sticky="ew", padx=(4, 0))
 
         source_buttons = ttk.Frame(details, style="Surface.TFrame")
         source_buttons.grid(row=7, column=0, sticky="ew", pady=(8, 0))
@@ -234,7 +220,7 @@ class LibraryPage(ttk.Frame):
 
         self.set_description(
             "Select a mod to inspect what it changes, edit compatibility metadata, "
-            "or create simple per-profile component controls."
+            "or create simple per-profile component controls. Preparation and refreshes are automatic."
         )
 
     def _selected_changed(self, _event=None) -> None:
@@ -255,7 +241,7 @@ class LibraryPage(ttk.Frame):
         self.edit_package_button.configure(state="disabled")
         self.set_description(
             "Select a mod to inspect what it changes, edit compatibility metadata, "
-            "or create simple per-profile component controls."
+            "or create simple per-profile component controls. Preparation and refreshes are automatic."
         )
 
     def set_description(self, value: str) -> None:
@@ -281,15 +267,13 @@ class LibraryPage(ttk.Frame):
             if inspection.warnings:
                 inspection_text += "\n" + inspection.warnings[0]
             self.inspection_state.configure(text=inspection_text)
-            self.edit_package_button.configure(
-                state="disabled" if busy else "normal"
-            )
+            self.edit_package_button.configure(state="disabled" if busy else "normal")
 
             if not record.option_groups:
                 self.option_state.configure(
                     text=(
-                        "No profile controls yet. Inspect & edit can turn mapped files into "
-                        "simple component checkboxes or mutually exclusive variants."
+                        "No profile controls yet. Inspect & edit can turn mapped source bundles into "
+                        "component checkboxes or mutually exclusive variants."
                     )
                 )
                 self.configure_button.configure(state="disabled")
@@ -301,12 +285,10 @@ class LibraryPage(ttk.Frame):
                 profile.options.get(mod_id, {}),
             )
             summary = option_summary(record.option_groups, selections)
-            if record.files and not record.source_files:
-                summary += " • Re-prepare required for option mapping"
+            if not record.source_payloads:
+                summary += " • automatic source indexing queued"
             self.option_state.configure(text="Profile options • " + summary)
-            self.configure_button.configure(
-                state="disabled" if busy else "normal"
-            )
+            self.configure_button.configure(state="disabled" if busy else "normal")
         except OptionError as exc:
             self.option_state.configure(text=f"Invalid profile options: {exc}")
             self.configure_button.configure(state="normal")
