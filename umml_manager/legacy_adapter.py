@@ -129,6 +129,7 @@ class LegacyAssetAdapter:
                 files=files,
                 source_files=source_files,
                 source_hashes={},
+                source_payloads={},
                 source_roots={},
                 prepared_against=hash_file(self.meta_path),
                 prepared_at=datetime.now(timezone.utc).isoformat(),
@@ -152,7 +153,7 @@ class LegacyAssetAdapter:
         assets: Path,
         output: Path,
     ) -> ModRecord:
-        """Preserve each authored source payload, even when variants share a target."""
+        """Preserve every authored source bundle and every target it expands into."""
 
         stage_root = Path(
             tempfile.mkdtemp(prefix=f".{output.name}-prepare-", dir=output.parent)
@@ -167,12 +168,16 @@ class LegacyAssetAdapter:
         missing = 0
         source_files: dict[str, str] = {}
         source_hashes: dict[str, str] = {}
+        source_payloads: dict[str, dict[str, str]] = {}
         source_roots: dict[str, str] = {}
         try:
+            decoder = self._decoder()
             try:
                 connection = sqlite3.connect(str(self.meta_path))
             except sqlite3.Error as exc:
-                raise StoreError(f"Could not open metadata for configurable preparation: {exc}") from exc
+                raise StoreError(
+                    f"Could not open metadata for configurable preparation: {exc}"
+                ) from exc
             try:
                 cursor = connection.cursor()
                 cursor.execute("PRAGMA table_info(a)")
@@ -183,35 +188,33 @@ class LegacyAssetAdapter:
 
                 for source in sorted(item for item in assets.rglob("*") if item.is_file()):
                     relative = source.relative_to(assets).as_posix()
-                    row = self._lookup_asset_row(
-                        cursor,
-                        relative,
-                        source,
-                        has_encrypt=has_encrypt,
-                    )
-                    if row is None:
-                        if self._looks_like_game_asset(source):
-                            missing += 1
-                        continue
-                    hash_name, encryption_key = row
-                    name = Path(hash_name).name
-                    if len(name) < 2:
-                        missing += 1
-                        continue
-                    target = (Path(name[:2]) / name).as_posix()
                     root_relative = (
                         Path("sources")
                         / hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
                     ).as_posix()
-                    destination = normalized / root_relative / target
-                    self._decode_source(source, destination, encryption_key)
-                    source_files[relative] = target
-                    source_hashes[relative] = hash_file(destination)
+                    payload, source_missing = self._decode_configurable_source(
+                        decoder,
+                        cursor,
+                        source=source,
+                        relative=relative,
+                        root_relative=root_relative,
+                        stage_root=stage_root,
+                        normalized=normalized,
+                        has_encrypt=has_encrypt,
+                    )
+                    missing += source_missing
+                    if not payload:
+                        continue
+                    source_payloads[relative] = payload
                     source_roots[relative] = root_relative
+                    if len(payload) == 1:
+                        target, sha256 = next(iter(payload.items()))
+                        source_files[relative] = target
+                        source_hashes[relative] = sha256
             finally:
                 connection.close()
 
-            if not source_files:
+            if not source_payloads:
                 raise StoreError(
                     f"No compatible configurable assets produced; {missing} entries were absent "
                     "from metadata. The previous prepared cache was preserved."
@@ -220,7 +223,7 @@ class LegacyAssetAdapter:
                 selected_sources = select_source_paths(
                     record.option_groups,
                     {},
-                    source_files,
+                    source_payloads,
                 )
             except OptionError as exc:
                 raise StoreError(f"Invalid configurable mod manifest: {exc}") from exc
@@ -228,16 +231,16 @@ class LegacyAssetAdapter:
             files: dict[str, str] = {}
             owners: dict[str, str] = {}
             for source_relative in sorted(selected_sources):
-                target = source_files[source_relative]
-                previous = owners.get(target)
-                if previous is not None:
-                    raise StoreError(
-                        "The default configurable selection contains two sources for one game target: "
-                        f"{previous!r} and {source_relative!r} -> {target}. Put them in mutually "
-                        "exclusive choices or remove the duplicate shared file."
-                    )
-                owners[target] = source_relative
-                files[target] = source_hashes[source_relative]
+                for target, sha256 in sorted(source_payloads[source_relative].items()):
+                    previous = owners.get(target)
+                    if previous is not None:
+                        raise StoreError(
+                            "The default configurable selection contains two source bundles for one "
+                            f"game target: {previous!r} and {source_relative!r} -> {target}. Put them "
+                            "in mutually exclusive choices or remove the duplicate shared payload."
+                        )
+                    owners[target] = source_relative
+                    files[target] = sha256
             if not files:
                 raise StoreError(
                     "The default configurable selection produced no deployable assets; "
@@ -250,6 +253,7 @@ class LegacyAssetAdapter:
                 files=files,
                 source_files=source_files,
                 source_hashes=source_hashes,
+                source_payloads=source_payloads,
                 source_roots=source_roots,
                 prepared_against=hash_file(self.meta_path),
                 prepared_at=datetime.now(timezone.utc).isoformat(),
@@ -266,6 +270,74 @@ class LegacyAssetAdapter:
             shutil.rmtree(stage_root, ignore_errors=True)
             if backup.exists() and not output.exists():
                 os.replace(backup, output)
+
+    def _decode_configurable_source(
+        self,
+        decoder,
+        cursor,
+        *,
+        source: Path,
+        relative: str,
+        root_relative: str,
+        stage_root: Path,
+        normalized: Path,
+        has_encrypt: bool,
+    ) -> tuple[dict[str, str], int]:
+        """Decode one creator-facing source in isolation and retain all outputs."""
+
+        token = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
+        input_root = stage_root / "source-inputs" / token
+        isolated_source = input_root / Path(relative)
+        atomic_copy_file(source, isolated_source)
+        decoded_root = stage_root / "source-decoded" / token
+        decoded_root.mkdir(parents=True, exist_ok=True)
+
+        _count, missing = decoder.decrypt_assets_internal(
+            str(input_root),
+            str(decoded_root),
+            use_hash=False,
+            filter_path=None,
+        )
+        try:
+            validate_regular_tree(decoded_root)
+        except SafetyError as exc:
+            raise StoreError(
+                f"Prepared source output for {relative!r} was unsafe: {exc}"
+            ) from exc
+
+        payload: dict[str, str] = {}
+        for decoded in sorted(item for item in decoded_root.rglob("*") if item.is_file()):
+            name = decoded.name
+            if len(name) < 2:
+                continue
+            target = (Path(name[:2]) / name).as_posix()
+            destination = normalized / root_relative / target
+            if target in payload:
+                raise StoreError(
+                    f"Source {relative!r} produced duplicate target {target}; existing cache was preserved."
+                )
+            atomic_copy_file(decoded, destination)
+            payload[target] = hash_file(destination)
+
+        if payload:
+            return payload, int(missing or 0)
+
+        row = self._lookup_asset_row(
+            cursor,
+            relative,
+            source,
+            has_encrypt=has_encrypt,
+        )
+        if row is None:
+            return {}, int(missing or 0) + (1 if self._looks_like_game_asset(source) else 0)
+        hash_name, encryption_key = row
+        name = Path(hash_name).name
+        if len(name) < 2:
+            return {}, int(missing or 0) + 1
+        target = (Path(name[:2]) / name).as_posix()
+        destination = normalized / root_relative / target
+        self._decode_source(source, destination, encryption_key)
+        return {target: hash_file(destination)}, int(missing or 0)
 
     def _commit_prepared(
         self,
