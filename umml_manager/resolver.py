@@ -48,9 +48,6 @@ class Resolution:
 
     @property
     def blocking_issues(self) -> list[str]:
-        # Option failures are also mirrored into invalid so existing GUI/CLI plan
-        # renderers show them under Invalid manifests without a second counting
-        # path. invalid_options remains structured evidence for callers/tests.
         return (
             self.missing
             + self.unprepared
@@ -166,34 +163,29 @@ def resolve_profile(
             continue
 
         if not record.prepared_path:
-            resolution.unprepared.append(mod_id)
+            resolution.unprepared.append(f"{mod_id} is waiting for automatic preparation")
             continue
         if record.option_groups:
-            if not (
-                record.files
-                and record.source_files
-                and record.source_hashes
-                and record.source_roots
-            ):
+            payloads = _source_payloads(record)
+            if not record.files or not payloads or not record.source_roots:
                 resolution.unprepared.append(
-                    f"{mod_id} needs option-aware re-preparation"
+                    f"{mod_id} is waiting for option-aware automatic preparation"
                 )
                 continue
         elif not record.files:
-            resolution.unprepared.append(mod_id)
+            resolution.unprepared.append(f"{mod_id} is waiting for automatic preparation")
             continue
 
         prepared_against = str(record.prepared_against or "").strip().casefold()
         if fingerprint and not prepared_against:
             resolution.stale_prepared.append(
-                f"{mod_id} has no metadata fingerprint; re-prepare it against "
-                f"the current metadata {fingerprint[:12]}…"
+                f"{mod_id} is waiting to be refreshed against metadata {fingerprint[:12]}…"
             )
             continue
         if fingerprint and prepared_against != fingerprint:
             resolution.stale_prepared.append(
-                f"{mod_id} was prepared against {prepared_against[:12]}…, "
-                f"current metadata is {fingerprint[:12]}…"
+                f"{mod_id} is being refreshed from {prepared_against[:12]}… "
+                f"to {fingerprint[:12]}…"
             )
             continue
 
@@ -252,6 +244,7 @@ def _resolve_configurable_record(
     resolution: Resolution,
 ) -> None:
     try:
+        payloads = _source_payloads(record)
         selected = normalize_profile_options(
             record.option_groups,
             profile.options.get(record.id, {}),
@@ -259,31 +252,32 @@ def _resolve_configurable_record(
         selected_sources = select_source_paths(
             record.option_groups,
             selected,
-            record.source_files.keys(),
+            payloads.keys(),
         )
         selected_claims: dict[str, Claim] = {}
         selected_owners: dict[str, str] = {}
         for source in sorted(selected_sources):
-            if source not in record.source_hashes or source not in record.source_roots:
+            if source not in payloads or source not in record.source_roots:
                 raise OptionError(
-                    f"prepared source mapping is incomplete for {source!r}; re-prepare the mod"
+                    f"prepared source payload is incomplete for {source!r}; automatic preparation will retry"
                 )
-            target = normalize_relative_path(record.source_files[source])
-            sha256 = validate_sha256(record.source_hashes[source])
             root_relative = normalize_relative_path(record.source_roots[source])
-            previous = selected_owners.get(target)
-            if previous is not None:
-                raise OptionError(
-                    "selected sources resolve to the same game target: "
-                    f"{previous!r} and {source!r} -> {target}"
+            for raw_target, raw_sha256 in sorted(payloads[source].items()):
+                target = normalize_relative_path(raw_target)
+                sha256 = validate_sha256(raw_sha256)
+                previous = selected_owners.get(target)
+                if previous is not None:
+                    raise OptionError(
+                        "selected source bundles resolve to the same game target: "
+                        f"{previous!r} and {source!r} -> {target}"
+                    )
+                selected_owners[target] = source
+                selected_claims[target] = Claim(
+                    mod_id=record.id,
+                    mod_version=record.version,
+                    source_path=str(Path(record.prepared_path) / root_relative),
+                    sha256=sha256,
                 )
-            selected_owners[target] = source
-            selected_claims[target] = Claim(
-                mod_id=record.id,
-                mod_version=record.version,
-                source_path=str(Path(record.prepared_path) / root_relative),
-                sha256=sha256,
-            )
     except (OptionError, SafetyError) as exc:
         _record_option_error(resolution, record.id, str(exc))
         return
@@ -298,19 +292,38 @@ def _resolve_configurable_record(
         claims.setdefault(target, []).append(claim)
 
 
+def _source_payloads(record: ModRecord) -> dict[str, dict[str, str]]:
+    if record.source_payloads:
+        return {
+            str(source): {
+                str(target): str(sha256)
+                for target, sha256 in payload.items()
+            }
+            for source, payload in record.source_payloads.items()
+            if payload
+        }
+    payloads: dict[str, dict[str, str]] = {}
+    for source, target in record.source_files.items():
+        sha256 = record.source_hashes.get(source)
+        if sha256:
+            payloads[str(source)] = {str(target): str(sha256)}
+    return payloads
+
+
 def _known_mod_hashes(mods: list[ModRecord]) -> dict[str, tuple[str, ...]]:
     known: dict[str, set[str]] = {}
     for record in mods:
         if record.package_type != PACKAGE_UMML_ASSETS:
             continue
         try:
-            if record.option_groups and record.source_files and record.source_hashes:
-                for source, target in record.source_files.items():
-                    if source not in record.source_hashes:
-                        continue
-                    canonical = normalize_relative_path(target)
-                    sha256 = validate_sha256(record.source_hashes[source])
-                    known.setdefault(canonical, set()).add(sha256)
+            payloads = _source_payloads(record) if record.option_groups else {}
+            if payloads:
+                for payload in payloads.values():
+                    for target, sha256 in payload.items():
+                        canonical = normalize_relative_path(target)
+                        known.setdefault(canonical, set()).add(
+                            validate_sha256(sha256)
+                        )
             else:
                 for relative, sha256 in record.files.items():
                     canonical = normalize_relative_path(relative)
