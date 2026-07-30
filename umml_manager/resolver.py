@@ -162,30 +162,33 @@ def resolve_profile(
             )
             continue
 
+        # Keep the resolver's structured blocker contract stable. The GUI owns the
+        # human-facing automatic-preparation wording and queue state.
         if not record.prepared_path:
-            resolution.unprepared.append(f"{mod_id} is waiting for automatic preparation")
+            resolution.unprepared.append(mod_id)
             continue
         if record.option_groups:
             payloads = _source_payloads(record)
             if not record.files or not payloads or not record.source_roots:
                 resolution.unprepared.append(
-                    f"{mod_id} is waiting for option-aware automatic preparation"
+                    f"{mod_id} needs option-aware re-preparation"
                 )
                 continue
         elif not record.files:
-            resolution.unprepared.append(f"{mod_id} is waiting for automatic preparation")
+            resolution.unprepared.append(mod_id)
             continue
 
         prepared_against = str(record.prepared_against or "").strip().casefold()
         if fingerprint and not prepared_against:
             resolution.stale_prepared.append(
-                f"{mod_id} is waiting to be refreshed against metadata {fingerprint[:12]}…"
+                f"{mod_id} has no metadata fingerprint; re-prepare it against "
+                f"the current metadata {fingerprint[:12]}…"
             )
             continue
         if fingerprint and prepared_against != fingerprint:
             resolution.stale_prepared.append(
-                f"{mod_id} is being refreshed from {prepared_against[:12]}… "
-                f"to {fingerprint[:12]}…"
+                f"{mod_id} was prepared against {prepared_against[:12]}…, "
+                f"current metadata is {fingerprint[:12]}…"
             )
             continue
 
@@ -259,7 +262,7 @@ def _resolve_configurable_record(
         for source in sorted(selected_sources):
             if source not in payloads or source not in record.source_roots:
                 raise OptionError(
-                    f"prepared source payload is incomplete for {source!r}; automatic preparation will retry"
+                    f"prepared source payload is incomplete for {source!r}; re-prepare the mod"
                 )
             root_relative = normalize_relative_path(record.source_roots[source])
             for raw_target, raw_sha256 in sorted(payloads[source].items()):
