@@ -142,6 +142,11 @@ class ManagerCharacterOptionTests(unittest.TestCase):
                 }
             }
         )
+        sources = {
+            "common/shared": "aa/aaaaaaaa",
+            "characters/special-week/body": "bb/bbbbbbbb",
+            "characters/silence-suzuka/body": "cc/cccccccc",
+        }
         return ModRecord(
             id="creator.character-pack",
             name="Character pack",
@@ -150,12 +155,17 @@ class ManagerCharacterOptionTests(unittest.TestCase):
             files={
                 "aa/aaaaaaaa": "a" * 64,
                 "bb/bbbbbbbb": "b" * 64,
-                "cc/cccccccc": "c" * 64,
             },
-            source_files={
-                "common/shared": "aa/aaaaaaaa",
-                "characters/special-week/body": "bb/bbbbbbbb",
-                "characters/silence-suzuka/body": "cc/cccccccc",
+            source_files=sources,
+            source_hashes={
+                "common/shared": "a" * 64,
+                "characters/special-week/body": "b" * 64,
+                "characters/silence-suzuka/body": "c" * 64,
+            },
+            source_roots={
+                "common/shared": "sources/common",
+                "characters/special-week/body": "sources/special-week",
+                "characters/silence-suzuka/body": "sources/silence-suzuka",
             },
             option_groups=groups,
             prepared_against="f" * 64,
@@ -184,6 +194,12 @@ class ManagerCharacterOptionTests(unittest.TestCase):
         )
         self.assertEqual(set(special.winners), {"aa/aaaaaaaa", "bb/bbbbbbbb"})
         self.assertEqual(set(suzuka.winners), {"aa/aaaaaaaa", "cc/cccccccc"})
+        self.assertTrue(
+            special.winners["bb/bbbbbbbb"].source_path.endswith("sources/special-week")
+        )
+        self.assertTrue(
+            suzuka.winners["cc/cccccccc"].source_path.endswith("sources/silence-suzuka")
+        )
         self.assertEqual(record.source_files, original_mapping)
 
     def test_load_order_constraints_block_wrong_order_only(self):
