@@ -10,11 +10,11 @@ Linux, Steam Proton, packaging, and mod-management work for **Umamusume Pretty D
 | Application | Purpose | Package | Commands |
 | --- | --- | --- | --- |
 | **Legacy UMML** | One-folder loader, preview, backup, restore, and direct editors | `umml-linux` | `umml`, `umml-doctor` |
-| **UMML Manager** | Mod library, profiles, GameBanana browser, local detection, conflicts, Studio editors, and verified transactional deployment | `umml-manager` DEB or AppImage | `umml-manager`, `umml-manager-cli`, or AppImage flags |
+| **UMML Manager** | Mod library, profiles, GameBanana browser, local detection, conflicts, Studio and roster tools, and verified transactional deployment | `umml-manager` DEB or AppImage | `umml-manager`, `umml-manager-cli`, or AppImage flags |
 
 They can coexist and do not own the same application files or backup state.
 
-> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, configuring profiles, creating package workspaces, editing manifests, and conflict planning may happen while it runs.
+> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, configuring profiles, creating package workspaces, editing manifests, conflict planning, and read-only veteran-roster analysis may happen while it runs.
 
 ## Downloads
 
@@ -32,7 +32,7 @@ Download the DEB or AppImage from [GitHub Releases](https://github.com/EvelynLim
 
 ### UMML Manager preview
 
-Current manager preview: **`0.2.0~alpha17`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
+Current manager preview: **`0.2.0~alpha18`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
 
 Until it becomes a permanent Release asset, open the [manager branch workflow runs](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml?query=branch%3Aagent%2Fumml-manager-foundation) and download:
 
@@ -43,7 +43,7 @@ Until it becomes a permanent Release asset, open the [manager branch workflow ru
 #### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha17_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha18_amd64.deb
 /usr/bin/umml-manager
 ```
 
@@ -52,15 +52,15 @@ The absolute command is useful when testing upgrades from early source previews.
 #### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha17_x86_64.AppImage
-./umml-manager_0.2.0-alpha17_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha18_x86_64.AppImage
+./umml-manager_0.2.0-alpha18_x86_64.AppImage
 ```
 
 CLI mode is available from the same file:
 
 ```bash
-./umml-manager_0.2.0-alpha17_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha17_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha18_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha18_x86_64.AppImage --cli list
 ```
 
 The DEB and AppImage are built from the same frozen runtime and use the same user data directory, `~/.local/share/umml-manager`. CI extracts both finished packages and compares their complete embedded runtime trees.
@@ -87,7 +87,7 @@ sha256sum -c SHA256SUMS
 - source-to-target option mapping during preparation, so choices never rename or mutate immutable imported files;
 - authored package targets for characters, dresses/costumes, content types, and searchable tags;
 - a guided **New package** workspace builder with generic and character-selectable variant templates;
-- a native **Edit package** workspace manifest editor covering identity, targets, dependencies, incompatibilities, relative load order, compatibility notes, and raw advanced option groups;
+- a focused **Inspect & edit** workflow covering detected source bundles, final game targets, identity, targets, dependencies, incompatibilities, relative load order, compatibility notes, and advanced option groups;
 - hard blockers for missing dependencies, declared incompatibilities, invalid profile options, wrong relative load order, wrong regions, wrong or unverified installations, unsupported backends, stale or unverified prepared caches, and invalid manifests;
 - fail-closed GUI and CLI deployment through one guarded public engine boundary;
 - path-contained, hash-verified deployment with target-scoped active state and vanilla baselines;
@@ -97,6 +97,7 @@ sha256sum -c SHA256SUMS
 - bounded ZIP/TAR extraction and local-folder validation for traversal, symlinks, special files, duplicate paths, file counts, and expanded size;
 - automatic nested mod-folder discovery without treating every archive or settings file as a mod;
 - built-in Global/Japan GameBanana browsing, verified downloads, exact archive provenance, search, sorting, file selection, bounded preview images, and a detail-loading fallback when catalogue rows omit files;
+- a read-only Veteran Roster tool that imports externally produced UmaExtractor JSON, removes known account identifiers, preserves immutable local snapshots, provides search and inspection, and keeps all upstream code external;
 - complete legacy editing features through the built-in Studio compatibility host;
 - a lifetime game-process watcher around all legacy Studio entry points;
 - verified diagnostics for target paths, metadata integrity, HTTPS trust, registries, transactions, and process inspection;
@@ -104,17 +105,17 @@ sha256sum -c SHA256SUMS
 - a standard-library AST audit, visible-button callback audit, and adversarial regression/failure-injection tests;
 - manager tests run against the same pinned runtime dependencies bundled into one matching DEB/AppImage runtime.
 
-Read [MANAGER_README.md](MANAGER_README.md) for the user workflow, [docs/MANAGER_MOD_MANIFEST.md](docs/MANAGER_MOD_MANIFEST.md) for package configuration, [docs/MANAGER_BSTAR_REVIEW.md](docs/MANAGER_BSTAR_REVIEW.md) for the comparative design pass, [docs/MANAGER_AUDIT.md](docs/MANAGER_AUDIT.md) for the code audit, and [docs/MANAGER_FEATURE_ROADMAP.md](docs/MANAGER_FEATURE_ROADMAP.md) for planned work.
+Read [MANAGER_README.md](MANAGER_README.md) for the user workflow, [docs/MANAGER_MOD_MANIFEST.md](docs/MANAGER_MOD_MANIFEST.md) for package configuration, [docs/MANAGER_BSTAR_REVIEW.md](docs/MANAGER_BSTAR_REVIEW.md) for the comparative design pass, [docs/UMAEXTRACTOR_INTEGRATION.md](docs/UMAEXTRACTOR_INTEGRATION.md) for roster-tool attribution and safety, [docs/MANAGER_AUDIT.md](docs/MANAGER_AUDIT.md) for the code audit, and [docs/MANAGER_FEATURE_ROADMAP.md](docs/MANAGER_FEATURE_ROADMAP.md) for planned work.
 
 ## Basic manager workflow
 
 1. Open the manager and let **Settings** detect the installation and prepare metadata.
 2. Browse GameBanana or scan Downloads/custom folders in **Discover**.
 3. Import a compatible mod; the manager prepares it automatically when metadata is ready. Mod creators can start from **Library → New package**.
-4. Enable and order mods in a profile bound to the intended installation. Use **Configure** for package-declared choices, including authored character variants. Use **Edit package** to create an editable copy and change targets or compatibility before importing a new version.
+4. Enable and order mods in a profile bound to the intended installation. Use **Configure profile** for package-declared choices, including authored character variants. Use **Inspect & edit** to create an editable copy and change targets or compatibility before importing a new version.
 5. Inspect **Conflicts** for file winners and every deployment blocker.
 6. Close the game and apply the profile.
-7. Use **Studio** for the original loader's editing tools.
+7. Use **Studio** for the original loader's editing tools or open **Veteran roster** to import and analyse an external UmaExtractor `data.json` snapshot.
 
 ## Source installation
 
@@ -149,4 +150,4 @@ The experimental runtime bridge is separate from the desktop manager packages. I
 
 ## License
 
-MIT. Third-party mods and downloads retain their original licenses.
+MIT. Third-party mods, external tools, and downloads retain their original licenses. UMML does not bundle external code without a compatible license or explicit permission.
