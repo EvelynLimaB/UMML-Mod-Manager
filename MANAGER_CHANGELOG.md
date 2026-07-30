@@ -1,5 +1,28 @@
 # UMML Manager changelog
 
+## 0.2.0~alpha17 - 2026-07-30
+
+### Package targeting and compatibility
+
+- Added creator-declared targets for affected characters, dresses or costumes, content types, and searchable tags.
+- Added dependency, incompatibility, relative load-before/load-after, region, and compatibility-note editing through one validated package policy.
+- Relative order constraints block deployment only when both referenced mods are enabled in the wrong order.
+- Invalid policy is rejected before immutable source copying or registry updates.
+
+### Character and variant customization
+
+- Added semantic option kinds and choice target labels for character, dress, colour, audio, quality, feature, variant, and custom selectors.
+- Added a character-selector template that creates authored `assets/characters/<choice>` folders and profile-scoped choices.
+- Different profiles can resolve different authored character variants from one immutable imported version without renaming or editing source files.
+- Character targeting metadata remains descriptive; arbitrary Unity bundles are not silently rewritten from one character ID to another.
+
+### Native package editor
+
+- Added **Edit package**, which creates an editable workspace copy and opens a tabbed manifest editor for identity, targets, compatibility, and advanced option groups.
+- Added **Save manifest** and **Save and import** flows; saving changes the workspace only, while import creates a new immutable version through the normal validated library boundary.
+- Expanded the New Package builder with targeting, compatibility, generic variants, and character-selectable templates.
+- Added regressions for target persistence, contradictory policy, clean rejection, character profile isolation, load-order blockers, and generated character workspaces.
+
 ## 0.2.0~alpha16 - 2026-07-29
 
 ### Configurable packages
