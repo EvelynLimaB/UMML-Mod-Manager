@@ -3,6 +3,7 @@ from __future__ import annotations
 from tkinter import ttk
 
 from .studio import LEGACY_TOOLS
+from .ui_veterans_window import launch_veterans_window
 
 
 class StudioPage(ttk.Frame):
@@ -15,10 +16,9 @@ class StudioPage(ttk.Frame):
         ttk.Label(
             self,
             text=(
-                "All legacy editing features remain available through the "
-                "compatibility Studio. The legacy host requires the game to be "
-                "closed because it contains mutating callbacks even when opened at "
-                "the full workspace."
+                "Read-only analysis tools may run while the game is open. Legacy editing features "
+                "remain available through the compatibility Studio, but that host requires the game "
+                "to be closed because it still contains mutating callbacks."
             ),
             style="Muted.TLabel",
             wraplength=850,
@@ -27,7 +27,36 @@ class StudioPage(ttk.Frame):
         cards.grid(row=1, column=0, sticky="nsew")
         for column in range(2):
             cards.columnconfigure(column, weight=1)
-        for index, tool in enumerate(LEGACY_TOOLS):
+
+        veteran_card = ttk.Frame(cards, style="Surface.TFrame", padding=15)
+        veteran_card.grid(row=0, column=0, sticky="nsew", padx=(0, 7), pady=6)
+        veteran_card.columnconfigure(0, weight=1)
+        ttk.Label(
+            veteran_card,
+            text="Veteran roster",
+            style="CardTitle.TLabel",
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            veteran_card,
+            text=(
+                "Import and browse UmaExtractor data.json snapshots, filter veterans, inspect stats, "
+                "skills, factors and aptitudes, and export scrubbed local data. The external extractor "
+                "is credited and launched separately; no unlicensed upstream code is bundled."
+            ),
+            style="SurfaceMuted.TLabel",
+            wraplength=380,
+        ).grid(row=1, column=0, sticky="w", pady=(4, 10))
+        veteran_button = ttk.Button(
+            veteran_card,
+            text="Open",
+            style="Accent.TButton",
+            command=lambda: launch_veterans_window(app),
+        )
+        veteran_button.grid(row=2, column=0, sticky="w")
+        self.tool_buttons["veterans"] = veteran_button
+        self.tool_mutating["veterans"] = False
+
+        for index, tool in enumerate(LEGACY_TOOLS, start=1):
             card = ttk.Frame(cards, style="Surface.TFrame", padding=15)
             card.grid(
                 row=index // 2,
@@ -54,6 +83,6 @@ class StudioPage(ttk.Frame):
             )
             button.grid(row=2, column=0, sticky="w")
             self.tool_buttons[tool.id] = button
-            # Every card launches the same compatibility host. Its lifetime watcher
+            # Every legacy card launches the same compatibility host. Its lifetime watcher
             # closes the entire host when Umamusume runs, including the full workspace.
             self.tool_mutating[tool.id] = True
