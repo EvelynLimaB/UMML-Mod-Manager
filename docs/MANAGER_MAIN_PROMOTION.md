@@ -1,6 +1,6 @@
 # UMML Manager main-promotion policy
 
-This document defines the evidence required before the Manager preview branch can become `main`. It does not declare a stable release merely because CI is green. Computers remain talented at passing synthetic tests before meeting one particular desktop and developing a personality disorder.
+This document defines the evidence required before the Manager preview branch can become `main`. It does not declare a stable Manager release merely because CI is green. Computers remain talented at passing synthetic tests before meeting one particular desktop and developing a personality disorder.
 
 ## Exact revision rule
 
