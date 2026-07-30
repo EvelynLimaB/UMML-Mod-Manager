@@ -136,6 +136,7 @@ class LegacyAssetAdapter:
                 normalized=normalized,
                 strict=False,
             )
+            fingerprint = hash_file(self.meta_path)
 
             updated = replace(
                 record,
@@ -145,7 +146,8 @@ class LegacyAssetAdapter:
                 source_hashes=source_hashes,
                 source_payloads=source_payloads,
                 source_roots=source_roots,
-                prepared_against=hash_file(self.meta_path),
+                source_indexed_against=fingerprint,
+                prepared_against=fingerprint,
                 prepared_at=datetime.now(timezone.utc).isoformat(),
             )
             return self._commit_prepared(
@@ -216,6 +218,7 @@ class LegacyAssetAdapter:
                     "The default configurable selection produced no deployable assets; "
                     "the previous prepared cache was preserved."
                 )
+            fingerprint = hash_file(self.meta_path)
 
             updated = replace(
                 record,
@@ -225,7 +228,8 @@ class LegacyAssetAdapter:
                 source_hashes=source_hashes,
                 source_payloads=source_payloads,
                 source_roots=source_roots,
-                prepared_against=hash_file(self.meta_path),
+                source_indexed_against=fingerprint,
+                prepared_against=fingerprint,
                 prepared_at=datetime.now(timezone.utc).isoformat(),
             )
             return self._commit_prepared(
