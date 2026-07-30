@@ -22,7 +22,7 @@ _OPAQUE_PATH = re.compile(r"^(?:[0-9a-f]{2}/)?[0-9a-f]{32,64}$", re.I)
 @dataclass(frozen=True)
 class AssetFinding:
     source: str
-    target: str
+    targets: tuple[str, ...]
     label: str
     content_type: str
     part: str
@@ -38,6 +38,7 @@ class ModInspection:
     character_ids: tuple[str, ...]
     dress_ids: tuple[str, ...]
     warnings: tuple[str, ...]
+    complete_mapping: bool
 
     @property
     def source_count(self) -> int:
@@ -45,12 +46,23 @@ class ModInspection:
 
     @property
     def target_count(self) -> int:
-        return len({item.target for item in self.findings if item.target})
+        return len(
+            {
+                target
+                for item in self.findings
+                for target in item.targets
+                if target
+            }
+        )
+
+    @property
+    def configurable_safe(self) -> bool:
+        return bool(self.findings and self.complete_mapping and all(item.targets for item in self.findings))
 
     def summary(self) -> str:
         if not self.findings:
             return "No inspectable asset mapping is available yet"
-        pieces = [f"{self.source_count} asset(s) → {self.target_count} game target(s)"]
+        pieces = [f"{self.source_count} source bundle(s) → {self.target_count} game target(s)"]
         if self.parts:
             pieces.append("parts: " + ", ".join(self.parts[:5]))
         if self.character_ids:
@@ -61,10 +73,10 @@ class ModInspection:
 
 
 def inspect_mod(record: ModRecord) -> ModInspection:
-    mappings = _source_mappings(record)
+    mappings, complete = _source_mappings(record)
     findings = tuple(
-        _finding(source, target)
-        for source, target in sorted(mappings.items())
+        _finding(source, targets)
+        for source, targets in sorted(mappings.items())
     )
     content_types = _ordered_unique(item.content_type for item in findings if item.content_type)
     parts = _ordered_unique(item.part for item in findings if item.part)
@@ -76,11 +88,16 @@ def inspect_mod(record: ModRecord) -> ModInspection:
     warnings: list[str] = []
     if not findings:
         warnings.append(
-            "Prepare the mod first so the Manager can map creator-facing assets to game targets."
+            "The Manager is still preparing this mod, so detailed source ownership is not available yet."
         )
     elif all(_OPAQUE_PATH.fullmatch(item.source) for item in findings):
         warnings.append(
             "The package exposes only opaque hashes, so character and part detection is limited."
+        )
+    if findings and not complete:
+        warnings.append(
+            "Some prepared targets cannot yet be attributed to one creator-facing source bundle. "
+            "The Manager will refresh the package automatically before offering component controls."
         )
     if findings and not character_ids:
         warnings.append(
@@ -93,6 +110,7 @@ def inspect_mod(record: ModRecord) -> ModInspection:
         character_ids=character_ids,
         dress_ids=dress_ids,
         warnings=tuple(warnings),
+        complete_mapping=complete,
     )
 
 
@@ -101,20 +119,24 @@ def build_component_option_groups(
     *,
     preserve: dict[str, dict] | None = None,
 ) -> dict[str, dict]:
-    """Create safe profile controls from exact source-to-target ownership.
+    """Create profile controls at the real creator-facing source-bundle boundary."""
 
-    One-source targets become independently toggleable components. Multiple sources
-    that resolve to the same target become mutually exclusive variant selectors.
-    """
+    if not inspection.configurable_safe:
+        raise ValueError(
+            "Component controls need a complete source-bundle mapping. Automatic preparation must finish first."
+        )
 
     groups = dict(preserve or {})
-    by_target: dict[str, list[AssetFinding]] = {}
-    for finding in inspection.findings:
-        if not finding.target:
-            continue
-        by_target.setdefault(finding.target, []).append(finding)
+    findings = list(inspection.findings)
+    overlap_sets = _overlap_components(findings)
+    variant_sources = {
+        finding.source
+        for component in overlap_sets
+        if len(component) > 1
+        for finding in component
+    }
 
-    optional = [items[0] for items in by_target.values() if len(items) == 1]
+    optional = [finding for finding in findings if finding.source not in variant_sources]
     if optional:
         choices: dict[str, dict] = {}
         defaults: list[str] = []
@@ -129,7 +151,7 @@ def build_component_option_groups(
             }
         groups["components"] = {
             "name": "Included components",
-            "description": "Enable or disable individual detected files for this profile.",
+            "description": "Enable or disable whole detected source bundles for this profile.",
             "kind": "feature",
             "type": "multiple",
             "default": defaults,
@@ -137,13 +159,13 @@ def build_component_option_groups(
         }
 
     variant_number = 0
-    for target, items in sorted(by_target.items()):
-        if len(items) < 2:
+    for component in overlap_sets:
+        if len(component) < 2:
             continue
         variant_number += 1
         used: set[str] = set()
         choices: dict[str, dict] = {}
-        for index, finding in enumerate(items, start=1):
+        for index, finding in enumerate(component, start=1):
             choice_id = _unique_id(_slug(finding.label) or f"variant-{index}", used)
             choices[choice_id] = {
                 "name": finding.label,
@@ -151,9 +173,19 @@ def build_component_option_groups(
                 "include": [finding.source],
             }
         group_id = f"detected-variant-{variant_number}"
+        shared_targets = sorted(
+            set.intersection(*(set(item.targets) for item in component))
+        )
+        target_label = (
+            Path(shared_targets[0]).name[:12]
+            if shared_targets
+            else "overlapping targets"
+        )
         groups[group_id] = {
-            "name": f"Variant for {Path(target).name[:12]}",
-            "description": "These authored files replace the same game target and cannot be active together.",
+            "name": f"Variant for {target_label}",
+            "description": (
+                "These authored source bundles overlap one or more game targets and cannot be active together."
+            ),
             "kind": "variant",
             "type": "single",
             "default": next(iter(choices)),
@@ -162,30 +194,59 @@ def build_component_option_groups(
     return groups
 
 
-def _source_mappings(record: ModRecord) -> dict[str, str]:
+def _source_mappings(record: ModRecord) -> tuple[dict[str, tuple[str, ...]], bool]:
+    if record.source_payloads:
+        mappings = {
+            str(source).replace("\\", "/").strip("/"): tuple(
+                str(target).replace("\\", "/").strip("/")
+                for target in payload
+                if str(target).strip()
+            )
+            for source, payload in record.source_payloads.items()
+            if str(source).strip()
+        }
+        mapped_targets = {
+            target for targets in mappings.values() for target in targets
+        }
+        complete = bool(mappings) and mapped_targets == set(record.files)
+        return mappings, complete
+
     if record.source_files:
-        return {
-            str(source).replace("\\", "/").strip("/"): str(target).replace("\\", "/").strip("/")
+        mappings = {
+            str(source).replace("\\", "/").strip("/"): (
+                str(target).replace("\\", "/").strip("/"),
+            )
             for source, target in record.source_files.items()
             if str(source).strip()
         }
+        mapped_targets = {
+            target for targets in mappings.values() for target in targets
+        }
+        complete = bool(mappings) and mapped_targets == set(record.files)
+        return mappings, complete
 
     assets = Path(record.source_path).expanduser() / "assets"
     if assets.is_dir():
         files = [item for item in assets.rglob("*") if item.is_file()]
         if files:
             targets = list(record.files)
-            result: dict[str, str] = {}
+            result: dict[str, tuple[str, ...]] = {}
             for item in files:
                 relative = item.relative_to(assets).as_posix()
-                matches = [target for target in targets if Path(target).name == item.name]
-                result[relative] = matches[0] if len(matches) == 1 else ""
-            return result
+                matches = tuple(
+                    target for target in targets if Path(target).name == item.name
+                )
+                result[relative] = matches
+            mapped_targets = {
+                target for values in result.values() for target in values
+            }
+            return result, bool(result) and mapped_targets == set(record.files)
 
-    return {str(target): str(target) for target in record.files}
+    opaque = {str(target): (str(target),) for target in record.files}
+    return opaque, bool(opaque)
 
 
-def _finding(source: str, target: str) -> AssetFinding:
+def _finding(source: str, targets: tuple[str, ...]) -> AssetFinding:
     normalized = source.replace("\\", "/").strip("/")
     lowered = normalized.casefold()
     tokens = set(filter(None, re.split(r"[/_.\-\s]+", lowered)))
@@ -196,13 +257,32 @@ def _finding(source: str, target: str) -> AssetFinding:
     label = _human_label(normalized, part, content_type)
     return AssetFinding(
         source=normalized,
-        target=target,
+        targets=tuple(dict.fromkeys(targets)),
         label=label,
         content_type=content_type,
         part=part,
         character_ids=characters,
         dress_ids=dresses,
     )
+
+
+def _overlap_components(findings: list[AssetFinding]) -> list[list[AssetFinding]]:
+    remaining = list(findings)
+    components: list[list[AssetFinding]] = []
+    while remaining:
+        component = [remaining.pop(0)]
+        targets = set(component[0].targets)
+        changed = True
+        while changed:
+            changed = False
+            for finding in list(remaining):
+                if targets.intersection(finding.targets):
+                    component.append(finding)
+                    targets.update(finding.targets)
+                    remaining.remove(finding)
+                    changed = True
+        components.append(component)
+    return components
 
 
 def _content_type(path: str, tokens: set[str]) -> str:
@@ -293,7 +373,10 @@ def _choice_description(finding: AssetFinding) -> str:
         details.append("character " + ", ".join(finding.character_ids))
     if finding.dress_ids:
         details.append("dress " + ", ".join(finding.dress_ids))
-    details.append("target " + (Path(finding.target).name[:12] if finding.target else "unknown"))
+    if len(finding.targets) == 1:
+        details.append("target " + Path(finding.targets[0]).name[:12])
+    else:
+        details.append(f"{len(finding.targets)} game targets")
     return " • ".join(item for item in details if item)
 
 
