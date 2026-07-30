@@ -87,6 +87,24 @@ class ManagerConfigurableDeploymentTests(unittest.TestCase):
             finally:
                 connection.close()
 
+            class FakeDecoder:
+                def decrypt_assets_internal(self, input_root, output, **_kwargs):
+                    source = next(path for path in Path(input_root).rglob("*") if path.is_file())
+                    payload = source.read_bytes()
+                    target_name = (
+                        common_hash_name
+                        if payload == common_bytes
+                        else character_hash_name
+                    )
+                    destination = Path(output)
+                    destination.mkdir(parents=True, exist_ok=True)
+                    (destination / target_name).write_bytes(payload)
+                    return 1, 0
+
+            class TestAdapter(LegacyAssetAdapter):
+                def _decoder(self):
+                    return FakeDecoder()
+
             store = ManagerStore(root / "manager")
             imported = store.import_folder(package)
             original_source_bytes = {
@@ -94,7 +112,7 @@ class ManagerConfigurableDeploymentTests(unittest.TestCase):
                 for path in Path(imported.source_path).rglob("*")
                 if path.is_file()
             }
-            prepared = LegacyAssetAdapter(store, meta).prepare(imported)
+            prepared = TestAdapter(store, meta).prepare(imported)
 
             self.assertEqual(
                 prepared.source_files["characters/special-week/body"],
