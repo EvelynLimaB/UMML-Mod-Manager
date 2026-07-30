@@ -142,6 +142,24 @@ class ManagerOptionImportTests(unittest.TestCase):
 
 class ManagerOptionResolverTests(unittest.TestCase):
     def _record(self) -> ModRecord:
+        sources = {
+            "common/base": "aa/aaaaaaaa",
+            "variants/red/body": "bb/bbbbbbbb",
+            "variants/blue/body": "cc/cccccccc",
+            "extras/sparkles/fx": "dd/dddddddd",
+            "extras/voice/line": "ee/eeeeeeee",
+        }
+        hashes = {
+            "common/base": "a" * 64,
+            "variants/red/body": "b" * 64,
+            "variants/blue/body": "c" * 64,
+            "extras/sparkles/fx": "d" * 64,
+            "extras/voice/line": "e" * 64,
+        }
+        roots = {
+            source: f"sources/{index}"
+            for index, source in enumerate(sources, start=1)
+        }
         return ModRecord(
             id="creator.configurable",
             name="Configurable",
@@ -150,17 +168,11 @@ class ManagerOptionResolverTests(unittest.TestCase):
             files={
                 "aa/aaaaaaaa": "a" * 64,
                 "bb/bbbbbbbb": "b" * 64,
-                "cc/cccccccc": "c" * 64,
                 "dd/dddddddd": "d" * 64,
-                "ee/eeeeeeee": "e" * 64,
             },
-            source_files={
-                "common/base": "aa/aaaaaaaa",
-                "variants/red/body": "bb/bbbbbbbb",
-                "variants/blue/body": "cc/cccccccc",
-                "extras/sparkles/fx": "dd/dddddddd",
-                "extras/voice/line": "ee/eeeeeeee",
-            },
+            source_files=sources,
+            source_hashes=hashes,
+            source_roots=roots,
             option_groups=normalize_option_groups(GROUPS),
             prepared_against="f" * 64,
         )
@@ -183,6 +195,9 @@ class ManagerOptionResolverTests(unittest.TestCase):
             set(result.winners),
             {"aa/aaaaaaaa", "cc/cccccccc", "ee/eeeeeeee"},
         )
+        self.assertTrue(
+            result.winners["cc/cccccccc"].source_path.endswith("sources/3")
+        )
 
     def test_invalid_profile_choice_is_a_visible_blocker(self):
         record = self._record()
@@ -197,7 +212,7 @@ class ManagerOptionResolverTests(unittest.TestCase):
 
     def test_old_prepared_record_requires_option_aware_reprepare(self):
         record = self._record()
-        record.source_files = {}
+        record.source_hashes = {}
         result = resolve_profile(Profile("Default", [record.id]), [record])
         self.assertIn("option-aware re-preparation", result.unprepared[0])
         self.assertFalse(result.winners)
