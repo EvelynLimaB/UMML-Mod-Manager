@@ -1,62 +1,97 @@
-# UMML Manager main-promotion gate
+# UMML Manager main-promotion policy
 
-This gate decides whether PR #2 can merge the UMML Manager alpha preview into `main`. It does not rename the Manager stable, publish a stable Manager release, or waive the broader [release checklist](MANAGER_RELEASE_CHECKLIST.md).
+This document defines the evidence required before the Manager preview branch can become `main`. It does not declare a stable release merely because CI is green. Computers remain talented at passing synthetic tests before meeting one particular desktop and developing a personality disorder.
 
-Evidence is revision-specific. Every automated result and Bazzite report must identify the exact PR head commit and alpha15 artifact. Results from an older artifact do not promote a newer commit.
+## Exact revision rule
 
-## Required repository and CI evidence
+Promotion evidence belongs to one exact branch head. Any code, workflow, version, packaging, or documentation change after validation requires new artifacts and new evidence.
 
-- The PR head is mergeable into current `main`, contains no unresolved review thread, and passes `git diff --check`.
-- `bash scripts/check_all.sh` passes from a clean checkout.
-- Manager and legacy workflows pass for the exact head commit.
-- The Manager workflow is configured for Manager changes pushed to `main`.
-- Source installation upgrades an isolated historical alpha1 layout, launches the current CLI self-test, uninstalls cleanly, and preserves library/deployment sentinels.
-- One frozen runtime produces the DEB and AppImage, and their complete runtime trees match.
-- Source, frozen, extracted DEB, installed DEB, and AppImage entry points pass the same disposable deployment/recovery self-test.
-- Every native Tk page constructs and renders under Xvfb from source and each finished package layout.
-- The real Debian package installs and removes in CI without deleting Manager user data.
-- Package names, versions, metadata, embedded CA data, Pillow runtime, and external SHA-256 checksums validate.
+Record:
 
-## Required Bazzite evidence
+- exact commit SHA;
+- Python checks run;
+- Linux Manager checks run;
+- Windows Manager checks run when Windows is advertised;
+- artifact IDs and expiration dates;
+- external SHA-256 values;
+- real-machine results tied to those exact downloads.
 
-Use the AppImage artifact built by the exact passing workflow. Close Umamusume, verify `SHA256SUMS`, and run from the repository checkout:
+## Automated gates
 
-```bash
-scripts/manager_main_gate.sh \
-  --appimage /path/to/umml-manager_0.2.0-alpha15_x86_64.AppImage \
-  --checksums /path/to/SHA256SUMS \
-  --profile Default \
-  --output ./umml-manager-main-gate.log
-```
+The exact head must pass:
 
-`RESULT: PASS` proves all of the following on that machine:
+1. Python syntax and project checks.
+2. Manager structural, architecture, dangerous-call, and visible-button audits.
+3. Full Manager regression suite on Linux and Windows.
+4. End-to-end configurable package preparation, profile switching, deployment, vanilla restoration, and immutable-source verification.
+5. Source GUI rendering for every page in Light and Dark modes.
+6. Frozen runtime self-test and GUI smoke tests.
+7. DEB and AppImage construction, inspection, installation lifecycle, runtime parity, and checksums.
+8. Native Windows PyInstaller construction, packaged self-test, dual-theme GUI smoke, portable ZIP assembly, and checksum artifact.
+9. Installation detection, provider, TLS, profile verification, recovery, and disposable deployment gates already required by the Manager workflows.
 
-- the exact AppImage starts and reports its expected version;
-- disposable import, profile conflict, apply/switch/restore, external-change refusal, legacy-baseline migration, and interrupted recovery succeed;
-- platform, HTTPS trust, saved installation, metadata fingerprint, profile registries, process inspection, pending transactions, active state, and vanilla baseline scope are ready;
-- current GameBanana browse/detail/file metadata and preview decoding work without disabling TLS verification;
-- Library, Discover, Studio, Conflicts, and Settings construct and render through native Tk;
-- the real `Default` profile resolves with its prepared payloads and installation identity;
-- its winners, conflicts, current active state, and legacy originals can apply and restore on disposable copies;
-- the real game targets are hash-checked before and after and remain unchanged.
+## Configurable package gates
 
-The log can contain local paths. Sanitize it before attaching it to the PR. Record only truthful results; a skipped profile check is an incomplete gate.
+The release candidate must prove that:
 
-## Explicit alpha-preview exclusions
+- package targets, tags, regions, dependencies, incompatibilities, and relative load order survive import and registry reload;
+- invalid or contradictory policy leaves no immutable source or partial registry record;
+- **Edit package** works for modern and legacy manifest-less imports through workspace copies;
+- Save changes only the workspace;
+- Save-and-import requires a new immutable ID/version for edited bytes;
+- one imported package may contain multiple authored character or dress variants;
+- two variants may safely map to the same game target because each prepared payload has an isolated source root;
+- profile selection changes the resolved payload and conflict plan without mutating imported source files;
+- switching profile variants transactionally replaces the target and an empty profile restores vanilla;
+- stale configurable caches require re-preparation rather than guessing.
 
-These are not blockers for merging the alpha preview into `main`, but they remain blockers for the corresponding stable claim:
+Target metadata remains descriptive. Arbitrary Unity bundle retargeting is excluded until a generated-transform backend has exact metadata/game-build validation and restoration tests.
 
-- UM:PD Dark Mode is a self-installing executable patch. The Manager neither runs it nor claims generic import support for it.
-- Pure Hachimi packages remain non-deployable until a separately tested backend exists.
-- 7z/RAR support, native Windows packaging, an in-game injector, hot reload, multi-installation convenience UI, and automatic dependency installation are not advertised as complete.
-- Live destructive profile deployment, controlled process-kill recovery, game-update baseline rebasing, broad current-mod corpus testing, and second-distribution coverage remain on the stable release checklist.
+## Real-machine gates
 
-## Promotion sequence
+### Windows
 
-1. Push the candidate and wait for exact-head workflows.
-2. Run the Bazzite gate against that workflow's AppImage and checksum artifact.
-3. Attach the sanitized PASS evidence to PR #2.
-4. Resolve any remaining review threads, convert the PR from draft, and merge without rewriting the tested head.
-5. Confirm Manager and legacy workflows pass on the resulting `main` commit.
+On the exact portable Windows artifact:
 
-If step 5 fails, treat `main` as unhealthy and fix it immediately; do not publish a Manager release from that commit.
+1. Extract into a fresh ordinary user-owned directory.
+2. Launch `UMML Manager.cmd` without a development Python environment.
+3. Confirm Steam Global/Japan or the intended Windows installation is detected correctly.
+4. Confirm Manager data uses `%LOCALAPPDATA%\UMML Manager`, or preserves a detected early preview root without appearing empty.
+5. Test Light/System/Dark switching and restart persistence.
+6. Test **Open workspaces** and **Open manager data** through Explorer.
+7. Create a package with affected characters, dresses, content types, compatibility rules, and a character selector.
+8. Save/import it as a new version, prepare it, choose different variants in two profiles, and inspect the changed conflict plan.
+9. On disposable game data, apply one variant, switch to the other, disable it, and restore exact originals.
+10. Verify imported source bytes remain unchanged.
+11. Exercise diagnostics and a clean restart.
+
+### Bazzite/Linux
+
+On the exact AppImage:
+
+1. `scripts/manager_main_gate.sh` returns `RESULT: PASS`.
+2. Folder-opening buttons work on the live desktop.
+3. Light/System/Dark and every page render correctly.
+4. The same package creation, edit, configuration, conflict, variant-switch, and restore flow passes.
+
+### Mint/Debian
+
+On the exact DEB:
+
+1. Upgrade/install succeeds and launches `/usr/bin/umml-manager`.
+2. Detection, folder opening, themes, package editing, configuration, conflict planning, and restart persistence work.
+3. User data survives package removal or upgrade.
+
+## Stable-release gates not implied by main promotion
+
+- broader current real-mod corpus;
+- destructive process-kill recovery drills at every transaction phase;
+- game-update metadata and baseline rebase workflow;
+- native Hachimi deployment;
+- generated arbitrary character/dress retargeting;
+- provider-neutral version/update centre and rollback UI;
+- one-click `umml:` protocol;
+- native Studio parity replacing the guarded compatibility host;
+- signed release and update metadata.
+
+Keep the PR draft until exact artifacts pass the applicable real-machine gates. Do not reinterpret a successful Linux package as Windows evidence, or a successful Windows portable build as proof that one user's Steam layout has stopped being inventive.
