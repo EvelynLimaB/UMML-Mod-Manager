@@ -7,13 +7,14 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any
 
+from .legacy_adapter import LegacyAssetAdapter
 from .manifest import normalize_manifest_policy
-from .mod_inspection import ModInspection, build_component_option_groups, inspect_mod
+from .mod_inspection import build_component_option_groups, inspect_mod
 from .safety import atomic_write_json
 from .studio import open_path
 from .store import StoreError
 from .ui_manifest_editor import ManifestEditorDialog, _ensure_workspace_manifest
-
+from .ui_windows import present_toplevel
 
 _GENERATED_GROUPS = re.compile(r"^(?:components|detected-variant-\d+)$")
 
@@ -35,7 +36,7 @@ class ModInspectorDialog(tk.Toplevel):
         self.transient(app.root)
         self.resizable(True, True)
         self.minsize(920, 640)
-        self.geometry("1040x760")
+        self.geometry("1080x760")
 
         targets = self.manifest.get("targets", {})
         targets = targets if isinstance(targets, dict) else {}
@@ -77,21 +78,21 @@ class ModInspectorDialog(tk.Toplevel):
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(2, weight=1)
 
-        ttk.Label(
-            outer,
-            text=record.name,
-            style="PageTitle.TLabel",
-        ).grid(row=0, column=0, sticky="w")
+        ttk.Label(outer, text=record.name, style="PageTitle.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+        )
         ttk.Label(
             outer,
             text=(
                 self.inspection.summary()
-                + "\nThe Manager uses prepared source-to-target mappings. Detected IDs and parts are "
-                "suggestions; saving creates a new immutable package version."
+                + "\nDetected IDs and parts are suggestions based on real source names. "
+                "Saving creates a new immutable package version; the imported original is untouched."
             ),
             style="Muted.TLabel",
             justify="left",
-            wraplength=940,
+            wraplength=980,
         ).grid(row=1, column=0, sticky="ew", pady=(4, 12))
 
         notebook = ttk.Notebook(outer)
@@ -119,7 +120,7 @@ class ModInspectorDialog(tk.Toplevel):
         ).pack(side="left")
         ttk.Button(
             actions,
-            text="Advanced editor",
+            text="Advanced manifest",
             command=self._advanced_editor,
         ).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Cancel", command=self.destroy).pack(side="right")
@@ -132,11 +133,12 @@ class ModInspectorDialog(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.bind("<Escape>", lambda _event: self.destroy())
+        present_toplevel(self, app.root)
 
     def _build_detected(self, page: ttk.Frame) -> None:
         page.columnconfigure(0, weight=1)
         page.rowconfigure(1, weight=1)
-        summary = []
+        summary: list[str] = []
         if self.inspection.character_ids:
             summary.append("Character IDs: " + ", ".join(self.inspection.character_ids))
         if self.inspection.dress_ids:
@@ -145,14 +147,13 @@ class ModInspectorDialog(tk.Toplevel):
             summary.append("Content: " + ", ".join(self.inspection.content_types))
         if self.inspection.parts:
             summary.append("Parts: " + ", ".join(self.inspection.parts))
-        if self.inspection.warnings:
-            summary.extend(self.inspection.warnings)
+        summary.extend(self.inspection.warnings)
         ttk.Label(
             page,
-            text="\n".join(summary) or "No reliable asset metadata was detected yet.",
+            text="\n".join(summary) or "No reliable asset metadata was detected.",
             style="Muted.TLabel",
             justify="left",
-            wraplength=900,
+            wraplength=940,
         ).grid(row=0, column=0, sticky="ew", pady=(0, 10))
 
         table_frame = ttk.Frame(page)
@@ -161,29 +162,26 @@ class ModInspectorDialog(tk.Toplevel):
         table_frame.rowconfigure(0, weight=1)
         tree = ttk.Treeview(
             table_frame,
-            columns=("type", "part", "target"),
+            columns=("type", "part", "targets"),
             show="tree headings",
             selectmode="browse",
         )
-        tree.heading("#0", text="Source asset")
+        tree.heading("#0", text="Source bundle")
         tree.heading("type", text="Type")
         tree.heading("part", text="Part")
-        tree.heading("target", text="Game target")
+        tree.heading("targets", text="Game targets")
         tree.column("#0", width=390, anchor="w")
         tree.column("type", width=100, anchor="center")
         tree.column("part", width=140, anchor="w")
-        tree.column("target", width=210, anchor="w")
+        tree.column("targets", width=260, anchor="w")
         for index, finding in enumerate(self.inspection.findings):
+            target_text = _targets_label(finding.targets)
             tree.insert(
                 "",
                 "end",
                 iid=f"asset-{index}",
                 text=finding.source,
-                values=(
-                    finding.content_type,
-                    finding.part,
-                    finding.target or "not mapped",
-                ),
+                values=(finding.content_type, finding.part, target_text),
             )
         scroll = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scroll.set)
@@ -219,13 +217,7 @@ class ModInspectorDialog(tk.Toplevel):
             )
         ttk.Label(page, text="Description").grid(row=8, column=0, sticky="nw", pady=5)
         self.description = tk.Text(page, height=10, wrap="word")
-        self.description.grid(
-            row=8,
-            column=1,
-            sticky="nsew",
-            padx=(12, 0),
-            pady=5,
-        )
+        self.description.grid(row=8, column=1, sticky="nsew", padx=(12, 0), pady=5)
         self.description.insert(
             "1.0",
             str(self.manifest.get("description") or self.record.description or ""),
@@ -272,47 +264,64 @@ class ModInspectorDialog(tk.Toplevel):
 
     def _build_components(self, page: ttk.Frame) -> None:
         page.columnconfigure(0, weight=1)
+        page.rowconfigure(2, weight=1)
         ttk.Label(
             page,
             text=(
-                "The Manager can turn detected source files into profile controls. Files with unique "
-                "targets become checkboxes. Files that replace the same target become a single-choice "
-                "variant selector. This does not rewrite bundles or invent character conversions."
+                "Controls operate on whole detected source bundles. A source bundle may own one or "
+                "many final game targets. Non-overlapping bundles become checkboxes; bundles that "
+                "overlap targets become mutually exclusive variants."
             ),
             style="Muted.TLabel",
             justify="left",
-            wraplength=850,
+            wraplength=880,
         ).grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        ttk.Checkbutton(
+        self.component_check = ttk.Checkbutton(
             page,
-            text="Create simple profile controls for detected components",
+            text="Create simple per-profile controls for detected components",
             variable=self.component_controls,
             command=self._refresh_component_preview,
-        ).grid(row=1, column=0, sticky="w")
+        )
+        self.component_check.grid(row=1, column=0, sticky="w")
+        if not self.inspection.configurable_safe:
+            self.component_check.configure(state="disabled")
         self.component_preview = tk.Text(page, height=20, wrap="word")
         self.component_preview.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
         self.component_preview.configure(state="disabled")
-        page.rowconfigure(2, weight=1)
         self._refresh_component_preview()
 
     def _refresh_component_preview(self) -> None:
         lines: list[str] = []
-        if not self.inspection.findings:
-            lines.append("No mapped source files are available. Prepare the mod first.")
+        if not self.inspection.configurable_safe:
+            lines.append(
+                "Component controls are temporarily unavailable because source ownership is incomplete. "
+                "The Manager refreshes this automatically; no Prepare button is required."
+            )
         else:
-            by_target: dict[str, list[str]] = {}
-            for finding in self.inspection.findings:
-                by_target.setdefault(finding.target, []).append(finding.label)
-            optional = [labels[0] for labels in by_target.values() if len(labels) == 1]
-            variants = [labels for labels in by_target.values() if len(labels) > 1]
-            lines.append(f"Optional component checkboxes: {len(optional)}")
-            lines.extend(f"  • {label}" for label in optional[:20])
-            if len(optional) > 20:
-                lines.append(f"  • … and {len(optional) - 20} more")
-            lines.append("")
-            lines.append(f"Mutually exclusive variant groups: {len(variants)}")
-            for labels in variants[:10]:
-                lines.append("  • " + " / ".join(labels))
+            try:
+                groups = build_component_option_groups(self.inspection)
+            except Exception as exc:
+                lines.append(str(exc))
+            else:
+                optional = groups.get("components", {}).get("choices", {})
+                variants = [
+                    group
+                    for key, group in groups.items()
+                    if key.startswith("detected-variant-")
+                ]
+                lines.append(f"Optional source-bundle checkboxes: {len(optional)}")
+                for choice in list(optional.values())[:20]:
+                    lines.append("  • " + str(choice.get("name") or "Component"))
+                if len(optional) > 20:
+                    lines.append(f"  • … and {len(optional) - 20} more")
+                lines.append("")
+                lines.append(f"Mutually exclusive variant groups: {len(variants)}")
+                for group in variants[:10]:
+                    names = [
+                        str(choice.get("name") or choice_id)
+                        for choice_id, choice in dict(group.get("choices", {})).items()
+                    ]
+                    lines.append("  • " + " / ".join(names))
         if not self.component_controls.get():
             lines.insert(0, "Component controls are currently disabled.\n")
         self.component_preview.configure(state="normal")
@@ -360,10 +369,7 @@ class ModInspectorDialog(tk.Toplevel):
                 for key, value in groups.items()
                 if not _GENERATED_GROUPS.fullmatch(str(key))
             }
-            groups = build_component_option_groups(
-                self.inspection,
-                preserve=preserved,
-            )
+            groups = build_component_option_groups(self.inspection, preserve=preserved)
         manifest.update(
             {
                 "id": mod_id,
@@ -415,13 +421,6 @@ class ModInspectorDialog(tk.Toplevel):
         return True
 
     def _save_and_import(self) -> None:
-        if self.component_controls.get() and not self.inspection.findings:
-            messagebox.showwarning(
-                "Prepare the mod first",
-                "Component controls need a real source-to-target mapping. Re-prepare the mod, then inspect it again.",
-                parent=self,
-            )
-            return
         if not self._save_workspace():
             return
         self.import_requested = True
@@ -438,10 +437,6 @@ class ModInspectorDialog(tk.Toplevel):
             self.import_requested = True
             self.destroy()
             return
-        try:
-            self.manifest = self._load_manifest()
-        except Exception as exc:
-            messagebox.showerror("Could not reload manifest", str(exc), parent=self)
         self.deiconify()
         present_toplevel(self, self.app.root)
 
@@ -471,52 +466,60 @@ def inspect_selected_mod(app, page) -> None:
         return
     try:
         record = app.store.get_mod(mod_id)
-        workspace = app.store.create_workspace(mod_id)
+    except Exception as exc:
+        messagebox.showerror("Could not load mod", str(exc), parent=app.root)
+        return
+
+    metadata_ready = Path(app.meta_path.get()).expanduser().is_file()
+    needs_index = not record.source_payloads and metadata_ready
+    if needs_index:
+        app._run_task(
+            f"Analyzing {record.name} automatically…",
+            lambda: LegacyAssetAdapter(app.store, app.meta_path.get()).prepare(record),
+            lambda prepared: _open_inspector(app, page, prepared),
+            failed=lambda exc: _inspection_prepare_failed(app, record, exc),
+        )
+        return
+    _open_inspector(app, page, record)
+
+
+def _open_inspector(app, page, record) -> None:
+    try:
+        workspace = app.store.create_workspace(record.id)
         _ensure_workspace_manifest(workspace, record)
         dialog = ModInspectorDialog(app, record, workspace)
     except Exception as exc:
         messagebox.showerror("Could not inspect mod", str(exc), parent=app.root)
         return
-
-    app.status.set(f"Inspecting {record.name} in editable workspace {workspace}")
-    present_toplevel(dialog, app.root)
+    app.status.set(f"Inspecting {record.name}")
     app.root.wait_window(dialog)
     if dialog.import_requested:
         app._import(lambda: app.store.import_folder(workspace))
+    else:
+        app.refresh()
+        if page.tree.exists(record.id):
+            page.tree.selection_set(record.id)
+            page.tree.see(record.id)
 
 
-def present_toplevel(dialog: tk.Toplevel, parent: tk.Misc) -> None:
-    """Center, raise, and focus a Manager-owned window without leaving it topmost."""
-
-    try:
-        dialog.update_idletasks()
-        parent_top = parent.winfo_toplevel()
-        width = max(dialog.winfo_reqwidth(), dialog.winfo_width())
-        height = max(dialog.winfo_reqheight(), dialog.winfo_height())
-        x = parent_top.winfo_rootx() + max(24, (parent_top.winfo_width() - width) // 2)
-        y = parent_top.winfo_rooty() + max(24, (parent_top.winfo_height() - height) // 2)
-        dialog.geometry(f"+{x}+{y}")
-        dialog.deiconify()
-        dialog.lift(parent_top)
-        try:
-            dialog.attributes("-topmost", True)
-            dialog.after(180, lambda: _clear_topmost(dialog))
-        except tk.TclError:
-            pass
-        dialog.focus_force()
-        dialog.grab_set()
-    except tk.TclError:
-        return
+def _inspection_prepare_failed(app, record, exc: Exception) -> None:
+    app.status.set(f"Could not analyze {record.name}; imported source was preserved")
+    messagebox.showerror(
+        "Could not analyze mod",
+        f"The Manager could not build a safe source-bundle map for {record.name}. "
+        f"Nothing was changed in the imported source.\n\n{exc}",
+        parent=app.root,
+    )
 
 
-def _clear_topmost(dialog: tk.Toplevel) -> None:
-    try:
-        if dialog.winfo_exists():
-            dialog.attributes("-topmost", False)
-            dialog.lift()
-            dialog.focus_force()
-    except tk.TclError:
-        pass
+def _targets_label(targets: tuple[str, ...]) -> str:
+    if not targets:
+        return "not mapped"
+    if len(targets) == 1:
+        return targets[0]
+    preview = ", ".join(Path(value).name[:12] for value in targets[:3])
+    suffix = f" +{len(targets) - 3}" if len(targets) > 3 else ""
+    return f"{len(targets)} targets: {preview}{suffix}"
 
 
 def _next_local_version(value: str) -> str:
