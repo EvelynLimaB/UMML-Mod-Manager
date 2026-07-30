@@ -14,6 +14,7 @@ datas = [
     (str(ROOT / "docs" / "MANAGER_DEVELOPMENT.md"), "docs"),
     (str(ROOT / "docs" / "MANAGER_AUDIT.md"), "docs"),
     (str(ROOT / "docs" / "MANAGER_FEATURE_ROADMAP.md"), "docs"),
+    (str(ROOT / "docs" / "UMAEXTRACTOR_INTEGRATION.md"), "docs"),
     (str(ROOT / "docs" / "PACKAGING.md"), "docs"),
 ]
 binaries = []
@@ -39,6 +40,9 @@ hiddenimports = [
     "umml_manager.ui_studio",
     "umml_manager.ui_system_actions",
     "umml_manager.ui_theme",
+    "umml_manager.ui_veterans",
+    "umml_manager.ui_veterans_window",
+    "umml_manager.veterans",
 ]
 for package in ("UnityPy", "apsw", "yaml", "vdf", "certifi", "PIL"):
     package_datas, package_binaries, package_hidden = collect_all(package)
