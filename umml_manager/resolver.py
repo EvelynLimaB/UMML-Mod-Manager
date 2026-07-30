@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .models import PACKAGE_UMML_ASSETS, ModRecord, Profile
 from .options import OptionError, normalize_profile_options, select_source_paths
@@ -83,27 +84,7 @@ def resolve_profile(
         target_installation_key=installation_key,
         metadata_fingerprint=fingerprint,
     )
-    known_hashes: dict[str, set[str]] = {}
-    for record in mods:
-        if record.package_type != PACKAGE_UMML_ASSETS:
-            continue
-        validated_hashes: list[tuple[str, str]] = []
-        try:
-            for relative, sha256 in record.files.items():
-                validated_hashes.append(
-                    (
-                        normalize_relative_path(relative),
-                        validate_sha256(sha256),
-                    )
-                )
-        except SafetyError:
-            continue
-        for canonical, sha256 in validated_hashes:
-            known_hashes.setdefault(canonical, set()).add(sha256)
-    resolution.known_mod_hashes = {
-        relative: tuple(sorted(hashes))
-        for relative, hashes in known_hashes.items()
-    }
+    resolution.known_mod_hashes = _known_mod_hashes(mods)
     if profile.installation_key:
         if not installation_key:
             resolution.wrong_installation.append(
@@ -184,7 +165,21 @@ def resolve_profile(
             )
             continue
 
-        if not record.prepared_path or not record.files:
+        if not record.prepared_path:
+            resolution.unprepared.append(mod_id)
+            continue
+        if record.option_groups:
+            if not (
+                record.files
+                and record.source_files
+                and record.source_hashes
+                and record.source_roots
+            ):
+                resolution.unprepared.append(
+                    f"{mod_id} needs option-aware re-preparation"
+                )
+                continue
+        elif not record.files:
             resolution.unprepared.append(mod_id)
             continue
 
@@ -202,56 +197,26 @@ def resolve_profile(
             )
             continue
 
-        selected_targets: set[str] | None = None
         if record.option_groups:
-            if not record.source_files:
-                resolution.unprepared.append(
-                    f"{mod_id} needs option-aware re-preparation"
-                )
-                continue
-            try:
-                selected = normalize_profile_options(
-                    record.option_groups,
-                    profile.options.get(mod_id, {}),
-                )
-                selected_sources = select_source_paths(
-                    record.option_groups,
-                    selected,
-                    record.source_files.keys(),
-                )
-                selected_targets = {
-                    normalize_relative_path(record.source_files[source])
-                    for source in selected_sources
-                }
-            except (OptionError, SafetyError) as exc:
-                _record_option_error(resolution, mod_id, str(exc))
-                continue
-            missing_targets = sorted(selected_targets - set(record.files))
-            if missing_targets:
-                _record_option_error(
-                    resolution,
-                    mod_id,
-                    "selected option target(s) are missing from the prepared cache: "
-                    + ", ".join(missing_targets[:5]),
-                )
-                continue
+            _resolve_configurable_record(
+                record,
+                profile,
+                claims,
+                resolution,
+            )
+            continue
 
         validated: list[tuple[str, str]] = []
         try:
             for relative, sha256 in sorted(record.files.items()):
-                canonical = normalize_relative_path(relative)
-                if selected_targets is not None and canonical not in selected_targets:
-                    continue
-                validated.append((canonical, validate_sha256(sha256)))
+                validated.append(
+                    (
+                        normalize_relative_path(relative),
+                        validate_sha256(sha256),
+                    )
+                )
         except SafetyError as exc:
             resolution.invalid.append(f"{mod_id}: {exc}")
-            continue
-        if record.option_groups and not validated:
-            _record_option_error(
-                resolution,
-                mod_id,
-                "selected options produced no deployable assets",
-            )
             continue
         for relative, sha256 in validated:
             claims.setdefault(relative, []).append(
@@ -278,6 +243,84 @@ def resolve_profile(
             )
     resolution.conflicts.sort(key=lambda item: item.path)
     return resolution
+
+
+def _resolve_configurable_record(
+    record: ModRecord,
+    profile: Profile,
+    claims: dict[str, list[Claim]],
+    resolution: Resolution,
+) -> None:
+    try:
+        selected = normalize_profile_options(
+            record.option_groups,
+            profile.options.get(record.id, {}),
+        )
+        selected_sources = select_source_paths(
+            record.option_groups,
+            selected,
+            record.source_files.keys(),
+        )
+        selected_claims: dict[str, Claim] = {}
+        selected_owners: dict[str, str] = {}
+        for source in sorted(selected_sources):
+            if source not in record.source_hashes or source not in record.source_roots:
+                raise OptionError(
+                    f"prepared source mapping is incomplete for {source!r}; re-prepare the mod"
+                )
+            target = normalize_relative_path(record.source_files[source])
+            sha256 = validate_sha256(record.source_hashes[source])
+            root_relative = normalize_relative_path(record.source_roots[source])
+            previous = selected_owners.get(target)
+            if previous is not None:
+                raise OptionError(
+                    "selected sources resolve to the same game target: "
+                    f"{previous!r} and {source!r} -> {target}"
+                )
+            selected_owners[target] = source
+            selected_claims[target] = Claim(
+                mod_id=record.id,
+                mod_version=record.version,
+                source_path=str(Path(record.prepared_path) / root_relative),
+                sha256=sha256,
+            )
+    except (OptionError, SafetyError) as exc:
+        _record_option_error(resolution, record.id, str(exc))
+        return
+    if not selected_claims:
+        _record_option_error(
+            resolution,
+            record.id,
+            "selected options produced no deployable assets",
+        )
+        return
+    for target, claim in selected_claims.items():
+        claims.setdefault(target, []).append(claim)
+
+
+def _known_mod_hashes(mods: list[ModRecord]) -> dict[str, tuple[str, ...]]:
+    known: dict[str, set[str]] = {}
+    for record in mods:
+        if record.package_type != PACKAGE_UMML_ASSETS:
+            continue
+        try:
+            if record.option_groups and record.source_files and record.source_hashes:
+                for source, target in record.source_files.items():
+                    if source not in record.source_hashes:
+                        continue
+                    canonical = normalize_relative_path(target)
+                    sha256 = validate_sha256(record.source_hashes[source])
+                    known.setdefault(canonical, set()).add(sha256)
+            else:
+                for relative, sha256 in record.files.items():
+                    canonical = normalize_relative_path(relative)
+                    known.setdefault(canonical, set()).add(validate_sha256(sha256))
+        except SafetyError:
+            continue
+    return {
+        relative: tuple(sorted(hashes))
+        for relative, hashes in known.items()
+    }
 
 
 def _record_option_error(
