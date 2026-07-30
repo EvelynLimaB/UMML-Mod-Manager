@@ -22,6 +22,7 @@ class ManifestEditorDialog(tk.Toplevel):
         self.workspace = Path(workspace).expanduser().resolve()
         self.manifest_path = self.workspace / "umml-mod.json"
         self.original = self._load_manifest()
+        self.base_identity = _workspace_base_identity(self.workspace)
         self.saved = False
         self.import_requested = False
 
@@ -34,7 +35,11 @@ class ManifestEditorDialog(tk.Toplevel):
         self.mod_id = tk.StringVar(value=str(self.original.get("id") or ""))
         self.title_value = tk.StringVar(value=str(self.original.get("title") or ""))
         self.version = tk.StringVar(
-            value=str(self.original.get("mod_version") or self.original.get("version") or "1.0.0")
+            value=str(
+                self.original.get("mod_version")
+                or self.original.get("version")
+                or "1.0.0"
+            )
         )
         self.author = tk.StringVar(value=str(self.original.get("author") or ""))
         self.regions = tk.StringVar(value=_join(self.original.get("regions", [])))
@@ -44,24 +49,37 @@ class ManifestEditorDialog(tk.Toplevel):
         self.dresses = tk.StringVar(value=_join(targets.get("dresses", [])))
         self.content_types = tk.StringVar(value=_join(targets.get("content", [])))
         self.tags = tk.StringVar(value=_join(self.original.get("tags", [])))
-        self.dependencies = tk.StringVar(value=_join(self.original.get("dependencies", [])))
+        self.dependencies = tk.StringVar(
+            value=_join(self.original.get("dependencies", []))
+        )
         self.incompatibilities = tk.StringVar(
             value=_join(self.original.get("incompatibilities", []))
         )
-        self.load_after = tk.StringVar(value=_join(self.original.get("load_after", [])))
-        self.load_before = tk.StringVar(value=_join(self.original.get("load_before", [])))
+        self.load_after = tk.StringVar(
+            value=_join(self.original.get("load_after", []))
+        )
+        self.load_before = tk.StringVar(
+            value=_join(self.original.get("load_before", []))
+        )
 
         outer = ttk.Frame(self, padding=14)
         outer.pack(fill="both", expand=True)
         outer.columnconfigure(0, weight=1)
         outer.rowconfigure(1, weight=1)
 
+        identity_note = ""
+        if self.base_identity:
+            identity_note = (
+                f" Base version: {self.base_identity[0]} {self.base_identity[1]}. "
+                "Change the version or ID before importing edited bytes."
+            )
         ttk.Label(
             outer,
             text=(
                 f"Workspace: {self.workspace}\n"
                 "Saving changes only edits this workspace. Import creates a new immutable version; "
                 "it never mutates the already imported source."
+                + identity_note
             ),
             style="Muted.TLabel",
             justify="left",
@@ -86,7 +104,11 @@ class ManifestEditorDialog(tk.Toplevel):
 
         buttons = ttk.Frame(outer)
         buttons.grid(row=2, column=0, sticky="ew", pady=(12, 0))
-        ttk.Button(buttons, text="Open folder", command=self._open_folder).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Open folder",
+            command=self._open_folder,
+        ).pack(side="left")
         ttk.Button(buttons, text="Close", command=self.destroy).pack(side="right")
         ttk.Button(
             buttons,
@@ -121,9 +143,20 @@ class ManifestEditorDialog(tk.Toplevel):
                 padx=(12, 0),
                 pady=5,
             )
-        ttk.Label(page, text="Description").grid(row=4, column=0, sticky="nw", pady=5)
+        ttk.Label(page, text="Description").grid(
+            row=4,
+            column=0,
+            sticky="nw",
+            pady=5,
+        )
         self.description = tk.Text(page, height=14, wrap="word")
-        self.description.grid(row=4, column=1, sticky="nsew", padx=(12, 0), pady=5)
+        self.description.grid(
+            row=4,
+            column=1,
+            sticky="nsew",
+            padx=(12, 0),
+            pady=5,
+        )
         self.description.insert("1.0", str(self.original.get("description") or ""))
         page.rowconfigure(4, weight=1)
 
@@ -227,9 +260,17 @@ class ManifestEditorDialog(tk.Toplevel):
         self.options_json.grid(row=1, column=0, sticky="nsew")
         self.options_json.insert(
             "1.0",
-            json.dumps(self.original.get("option_groups", {}), indent=2, ensure_ascii=False),
+            json.dumps(
+                self.original.get("option_groups", {}),
+                indent=2,
+                ensure_ascii=False,
+            ),
         )
-        scroll = ttk.Scrollbar(page, orient="vertical", command=self.options_json.yview)
+        scroll = ttk.Scrollbar(
+            page,
+            orient="vertical",
+            command=self.options_json.yview,
+        )
         scroll.grid(row=1, column=1, sticky="ns")
         self.options_json.configure(yscrollcommand=scroll.set)
 
@@ -257,7 +298,9 @@ class ManifestEditorDialog(tk.Toplevel):
         if not version:
             raise StoreError("Package version cannot be empty")
         try:
-            option_groups = json.loads(self.options_json.get("1.0", "end").strip() or "{}")
+            option_groups = json.loads(
+                self.options_json.get("1.0", "end").strip() or "{}"
+            )
         except json.JSONDecodeError as exc:
             raise StoreError(f"Option-group JSON is invalid: {exc}") from exc
         if not isinstance(option_groups, dict):
@@ -282,7 +325,9 @@ class ManifestEditorDialog(tk.Toplevel):
                 "incompatibilities": _split(self.incompatibilities.get()),
                 "load_after": _split(self.load_after.get()),
                 "load_before": _split(self.load_before.get()),
-                "compatibility_notes": self.compatibility_notes.get("1.0", "end").strip(),
+                "compatibility_notes": self.compatibility_notes.get(
+                    "1.0", "end"
+                ).strip(),
                 "option_groups": option_groups,
             }
         )
@@ -302,7 +347,7 @@ class ManifestEditorDialog(tk.Toplevel):
         )
         return manifest
 
-    def _save(self) -> bool:
+    def _save(self, *, show_message: bool = True) -> bool:
         try:
             manifest = self._manifest_value()
             atomic_write_json(self.manifest_path, manifest)
@@ -312,15 +357,32 @@ class ManifestEditorDialog(tk.Toplevel):
         self.original = manifest
         self.saved = True
         self.app.status.set(f"Saved package manifest at {self.manifest_path}")
-        messagebox.showinfo(
-            "Manifest saved",
-            "The editable workspace was updated. Imported source versions were not changed.",
-            parent=self,
-        )
+        if show_message:
+            messagebox.showinfo(
+                "Manifest saved",
+                "The editable workspace was updated. Imported source versions were not changed.",
+                parent=self,
+            )
         return True
 
     def _save_and_import(self) -> None:
-        if not self._save():
+        try:
+            candidate = self._manifest_value()
+        except Exception as exc:
+            messagebox.showerror("Manifest validation failed", str(exc), parent=self)
+            return
+        if self.base_identity and (
+            str(candidate.get("id") or ""),
+            str(candidate.get("mod_version") or ""),
+        ) == self.base_identity:
+            messagebox.showwarning(
+                "New immutable identity required",
+                "This workspace contains changed package metadata but still uses the imported base ID "
+                "and version. Increase Version or change the package ID before importing it.",
+                parent=self,
+            )
+            return
+        if not self._save(show_message=False):
             return
         self.import_requested = True
         self.destroy()
@@ -335,7 +397,9 @@ class ManifestEditorDialog(tk.Toplevel):
             )
             return
         try:
-            groups = json.loads(self.options_json.get("1.0", "end").strip() or "{}")
+            groups = json.loads(
+                self.options_json.get("1.0", "end").strip() or "{}"
+            )
             if not isinstance(groups, dict):
                 raise ValueError("option_groups must be an object")
         except (json.JSONDecodeError, ValueError) as exc:
@@ -354,7 +418,10 @@ class ManifestEditorDialog(tk.Toplevel):
             (assets / "characters" / choice_id).mkdir(parents=True, exist_ok=True)
         (assets / "common").mkdir(parents=True, exist_ok=True)
         self.options_json.delete("1.0", "end")
-        self.options_json.insert("1.0", json.dumps(groups, indent=2, ensure_ascii=False))
+        self.options_json.insert(
+            "1.0",
+            json.dumps(groups, indent=2, ensure_ascii=False),
+        )
         self.app.status.set(
             "Generated a profile character selector and matching workspace directories"
         )
@@ -370,7 +437,11 @@ def launch_manifest_editor(app, workspace: str | Path) -> ManifestEditorDialog |
     try:
         dialog = ManifestEditorDialog(app, workspace)
     except Exception as exc:
-        messagebox.showerror("Could not open package editor", str(exc), parent=app.root)
+        messagebox.showerror(
+            "Could not open package editor",
+            str(exc),
+            parent=app.root,
+        )
         return None
     app.root.wait_window(dialog)
     if dialog.import_requested:
@@ -387,7 +458,9 @@ def edit_selected_package(app, page) -> None:
         app.status.set("Select a mod before creating an editable package copy")
         return
     try:
+        record = app.store.get_mod(mod_id)
         workspace = app.store.create_workspace(mod_id)
+        _ensure_workspace_manifest(workspace, record)
     except Exception as exc:
         messagebox.showerror("Workspace failed", str(exc), parent=app.root)
         return
@@ -395,9 +468,75 @@ def edit_selected_package(app, page) -> None:
     launch_manifest_editor(app, workspace)
 
 
+def _ensure_workspace_manifest(workspace: Path, record) -> Path:
+    """Materialize modern editable metadata for legacy or manifest-less imports."""
+
+    path = workspace / "umml-mod.json"
+    if path.is_file():
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise StoreError(f"Could not read existing workspace manifest: {exc}") from exc
+        if not isinstance(value, dict):
+            raise StoreError("Existing workspace manifest must contain an object")
+        manifest = dict(value)
+    else:
+        manifest = {}
+
+    manifest.setdefault("id", record.id)
+    manifest.setdefault("title", record.name)
+    manifest.setdefault("mod_version", record.version)
+    manifest.setdefault("author", record.author)
+    manifest.setdefault("description", record.description)
+    manifest.setdefault("regions", list(record.regions))
+    manifest.setdefault("targets", dict(record.targets))
+    manifest.setdefault("tags", list(record.tags))
+    manifest.setdefault("dependencies", list(record.dependencies))
+    manifest.setdefault("incompatibilities", list(record.incompatibilities))
+    manifest.setdefault("load_after", list(record.load_after))
+    manifest.setdefault("load_before", list(record.load_before))
+    manifest.setdefault("compatibility_notes", record.compatibility_notes)
+    manifest.setdefault("option_groups", dict(record.option_groups))
+    policy = normalize_manifest_policy(manifest, mod_id=str(manifest["id"]))
+    manifest.update(
+        {
+            "regions": policy.regions,
+            "targets": policy.targets,
+            "tags": policy.tags,
+            "dependencies": policy.dependencies,
+            "incompatibilities": policy.incompatibilities,
+            "load_after": policy.load_after,
+            "load_before": policy.load_before,
+            "compatibility_notes": policy.compatibility_notes,
+            "option_groups": policy.option_groups,
+        }
+    )
+    atomic_write_json(path, manifest)
+    return path
+
+
+def _workspace_base_identity(workspace: Path) -> tuple[str, str] | None:
+    marker = workspace / ".umml-workspace.json"
+    if not marker.is_file():
+        return None
+    try:
+        value = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    mod_id = str(value.get("base_mod_id") or "").strip()
+    version = str(value.get("base_version") or "").strip()
+    return (mod_id, version) if mod_id and version else None
+
+
 def _split(value: str) -> list[str]:
     normalized = value.replace("\r", "\n").replace(",", "\n").replace(";", "\n")
-    return list(dict.fromkeys(item.strip() for item in normalized.split("\n") if item.strip()))
+    return list(
+        dict.fromkeys(
+            item.strip() for item in normalized.split("\n") if item.strip()
+        )
+    )
 
 
 def _join(value: object) -> str:
