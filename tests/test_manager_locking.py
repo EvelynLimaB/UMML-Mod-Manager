@@ -12,8 +12,8 @@ class ManagerFileLockTests(unittest.TestCase):
             path = Path(temp) / "manager.lock"
             with FileLock(path, purpose="testing first acquisition"):
                 self.assertTrue(path.is_file())
-                if os.name == "nt":
-                    self.assertTrue(path.read_bytes().startswith(b"0"))
+            if os.name == "nt":
+                self.assertTrue(path.read_bytes().startswith(b"0"))
             with FileLock(path, purpose="testing second acquisition"):
                 self.assertTrue(path.is_file())
 
