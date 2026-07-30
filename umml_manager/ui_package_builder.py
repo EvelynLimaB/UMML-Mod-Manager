@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .package_builder import PackageDraft, create_package_workspace
-from .ui_manifest_editor import launch_manifest_editor
+from .ui_manifest_editor import ManifestEditorDialog
 from .ui_windows import present_toplevel
 
 
@@ -197,7 +197,19 @@ class PackageBuilderDialog(tk.Toplevel):
             return
         self.app.status.set(f"Created package workspace at {path}")
         self.destroy()
-        self.app.root.after(0, lambda: launch_manifest_editor(self.app, path))
+        self.app.root.after(0, lambda: _open_created_package(self.app, path))
+
+
+def _open_created_package(app, path) -> None:
+    try:
+        dialog = ManifestEditorDialog(app, path)
+    except Exception as exc:
+        messagebox.showerror("Could not open package editor", str(exc), parent=app.root)
+        return
+    present_toplevel(dialog, app.root)
+    app.root.wait_window(dialog)
+    if dialog.import_requested:
+        app._import(lambda: app.store.import_folder(path))
 
 
 def launch_package_builder(app) -> None:
