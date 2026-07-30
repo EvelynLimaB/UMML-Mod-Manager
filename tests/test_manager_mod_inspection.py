@@ -118,6 +118,7 @@ class ManagerModInspectionTests(unittest.TestCase):
         record = ModRecord(
             id="creator.opaque",
             name="Opaque",
+            source_path="/definitely/not/a/package",
             files={target: "b" * 64},
         )
         inspection = inspect_mod(record)
