@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from .ui_veteran_providers import launch_provider_window
 from .ui_veterans import VeteransPage
 from .ui_windows import present_toplevel
 
@@ -29,6 +30,17 @@ def launch_veterans_window(app) -> None:
     page.rowconfigure(2, weight=0)
     page.rowconfigure(3, weight=1)
     page.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
+    page.import_button.configure(text="Import roster JSON")
+    page.open_upstream_button.configure(
+        text="Extractor projects",
+        command=lambda: launch_provider_window(app),
+    )
+    page.notice_value.set(
+        "Import classic data.json or Werseter trained_chara_data.json. UMML "
+        "validates and stores scrubbed snapshots, but does not bundle any "
+        "external memory scanner because those projects do not declare a "
+        "project-wide license."
+    )
 
     def close() -> None:
         app._veterans_window = None
