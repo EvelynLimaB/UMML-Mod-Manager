@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from .ui_veteran_external import launch_configured_extractor
 from .ui_veteran_providers import launch_provider_window
 from .ui_veterans import VeteransPage
 from .ui_windows import present_toplevel
@@ -31,6 +32,9 @@ def launch_veterans_window(app) -> None:
     page.rowconfigure(3, weight=1)
     page.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
     page.import_button.configure(text="Import roster JSON")
+    page.run_extractor_button.configure(
+        command=lambda: launch_configured_extractor(app, page)
+    )
     page.open_upstream_button.configure(
         text="Extractor projects",
         command=lambda: launch_provider_window(app),
