@@ -70,6 +70,10 @@ class ModRecord:
     # without pretending each final target came from a separate source file.
     source_payloads: dict[str, dict[str, str]] = field(default_factory=dict)
     source_roots: dict[str, str] = field(default_factory=dict)
+    # Metadata fingerprint for the last completed source-index attempt. The value is
+    # recorded even when a legacy package cannot expose a safe source map, preventing
+    # an automatic retry loop while still allowing a retry after metadata changes.
+    source_indexed_against: str = ""
     option_groups: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Creator-declared informational targeting. Character/dress entries describe
     # authored compatibility; they do not rewrite arbitrary bundle internals.
@@ -131,6 +135,7 @@ class ModRecord:
                 str(key): str(value)
                 for key, value in _mapping(data.get("source_roots", {})).items()
             },
+            source_indexed_against=str(data.get("source_indexed_against", "")),
             option_groups=policy.option_groups,
             targets=policy.targets,
             tags=policy.tags,
