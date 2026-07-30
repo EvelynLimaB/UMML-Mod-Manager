@@ -76,7 +76,12 @@ jobs:
       - name: Assemble portable ZIP and checksums
         shell: pwsh
         run: |
-          $version = (Get-Content MANAGER_VERSION -Raw).Trim().Replace('~', '-')
+          $versionFile = Join-Path $PWD 'MANAGER_VERSION'
+          $versionRaw = [System.IO.File]::ReadAllText($versionFile).Trim()
+          if ([string]::IsNullOrWhiteSpace($versionRaw)) {
+            throw "MANAGER_VERSION was empty: $versionFile"
+          }
+          $version = $versionRaw -replace '~', '-'
           $stageRoot = 'dist/windows'
           $stage = Join-Path $stageRoot "UMML-Manager-$version-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
@@ -97,8 +102,9 @@ jobs:
 
           Close Umamusume before Apply, restore, or legacy Studio writes.
           '@
-          $zip = "dist/umml-manager_$version_win64.zip"
+          $zip = "dist/umml-manager_${version}_win64.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $zip -CompressionLevel Optimal
+          if (!(Test-Path $zip)) { throw "Portable ZIP was not created: $zip" }
           $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
           "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content -Encoding ascii 'dist/SHA256SUMS-WINDOWS'
           Get-Content 'dist/SHA256SUMS-WINDOWS'
