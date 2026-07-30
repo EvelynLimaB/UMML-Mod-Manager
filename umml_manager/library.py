@@ -7,8 +7,9 @@ from typing import Any
 
 from . import store as _store
 from .locking import FileLock, LockError
+from .manifest import ManifestError, normalize_manifest_policy
 from .models import ModRecord, SourceSpec
-from .options import normalize_option_groups
+from .options import OptionError
 
 
 class UnrecognizedModError(_store.StoreError):
@@ -42,7 +43,7 @@ def find_mod_root(extracted: Path) -> Path:
 
 
 class ManagerStore(_BaseManagerStore):
-    """Manager store with whole-import identity allocation serialization.
+    """Manager store with serialized immutable imports and creator-policy validation.
 
     Threads in one manager process wait on the local mutex. A separate manager
     process still receives the normal fail-fast advisory-lock error instead of
@@ -61,9 +62,9 @@ class ManagerStore(_BaseManagerStore):
         if selected.is_dir() and not _store.is_mod_root(selected):
             selected = find_mod_root(selected)
 
-        # Validate creator-facing policy before the low-level store copies or
-        # registers anything. An invalid options manifest must not leave behind
-        # a half-imported immutable record.
+        # Validate all creator-facing policy before the low-level store copies or
+        # registers anything. Invalid options, targeting, dependencies, regions,
+        # or ordering must not leave a half-imported immutable record.
         metadata = _store.read_mod_metadata(selected) if selected.is_dir() else {}
         if metadata_overrides:
             metadata.update(
@@ -73,7 +74,11 @@ class ManagerStore(_BaseManagerStore):
                     if value not in (None, "")
                 }
             )
-        option_groups = normalize_option_groups(metadata.get("option_groups", {}))
+        declared_id = str(mod_id or metadata.get("id") or "")
+        try:
+            policy = normalize_manifest_policy(metadata, mod_id=declared_id)
+        except (ManifestError, OptionError) as exc:
+            raise _store.StoreError(f"Invalid UMML package manifest: {exc}") from exc
 
         with _IMPORT_MUTEX:
             try:
@@ -89,11 +94,22 @@ class ManagerStore(_BaseManagerStore):
                     )
                     # The low-level store intentionally understands only common
                     # metadata. Enrich the record at the public library boundary
-                    # after the whole import has succeeded.
-                    if record.option_groups != option_groups:
-                        record = replace(record, option_groups=option_groups)
-                        self.save_mod(record)
-                    return record
+                    # after the whole source import has succeeded.
+                    enriched = replace(
+                        record,
+                        option_groups=policy.option_groups,
+                        targets=policy.targets,
+                        tags=policy.tags,
+                        regions=policy.regions,
+                        dependencies=policy.dependencies,
+                        incompatibilities=policy.incompatibilities,
+                        load_after=policy.load_after,
+                        load_before=policy.load_before,
+                        compatibility_notes=policy.compatibility_notes,
+                    )
+                    if enriched.to_dict() != record.to_dict():
+                        self.save_mod(enriched)
+                    return enriched
             except LockError as exc:
                 raise _store.StoreError(str(exc)) from exc
 
