@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from .legacy_adapter import LegacyAssetAdapter
@@ -246,6 +247,10 @@ class AutoPrepareActions(MaintenanceActions):
         )
 
     def _auto_prepare_completed(self, prepared) -> None:
+        fingerprint = self.metadata_fingerprint.get().strip().casefold()
+        if fingerprint and prepared.source_indexed_against.casefold() != fingerprint:
+            prepared = replace(prepared, source_indexed_against=fingerprint)
+            self.store.save_mod(prepared)
         self._clear_auto_prepare_error(prepared.id)
         self.refresh()
         if self.library.tree.exists(prepared.id):
@@ -278,14 +283,16 @@ class AutoPrepareActions(MaintenanceActions):
             return False
         fingerprint = self.metadata_fingerprint.get().strip().casefold()
         prepared_against = str(record.prepared_against or "").strip().casefold()
+        indexed_against = str(record.source_indexed_against or "").strip().casefold()
         if not record.prepared_path or not record.files:
             return True
         if fingerprint and prepared_against != fingerprint:
             return True
-        # Source ownership is required for the visual inspector and component editor.
-        if not record.source_payloads or not record.source_roots:
+        if fingerprint and indexed_against != fingerprint:
             return True
         if record.option_groups:
+            if not record.source_payloads or not record.source_roots:
+                return True
             return any(
                 source not in record.source_roots
                 for source in record.source_payloads
