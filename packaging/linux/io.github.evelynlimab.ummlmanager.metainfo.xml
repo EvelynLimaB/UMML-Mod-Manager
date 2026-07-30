@@ -21,6 +21,11 @@
     <category>Utility</category>
   </categories>
   <releases>
+    <release version="0.2.0-alpha.17" date="2026-07-30">
+      <description>
+        <p>Adds a native package manifest editor, authored character/dress/content targets, semantic character selectors, dependency/incompatibility and relative load-order editing, and end-to-end profile-resolution regressions.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.16" date="2026-07-29">
       <description>
         <p>Adds profile-scoped configurable mod choices, source-to-target option mapping, a guided new-package workspace, expanded UI callback auditing, and the full comparative manager review.</p>
