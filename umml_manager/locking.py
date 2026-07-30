@@ -40,7 +40,12 @@ class FileLock:
                 f"Another UMML Manager process is already {self.purpose}. "
                 f"Close it or wait for it to finish. Lock: {self.path}"
             ) from exc
-        stream.seek(0)
+
+        # Windows msvcrt locks a byte range rather than the whole file. Keep the
+        # sentinel byte at offset zero intact and write human-readable ownership
+        # metadata after it. Truncating the locked byte made LK_UNLCK fail with
+        # PermissionError even though the same process still owned the handle.
+        stream.seek(1 if os.name == "nt" else 0)
         stream.truncate()
         stream.write(f"pid={os.getpid()} purpose={self.purpose}\n".encode("utf-8"))
         stream.flush()
