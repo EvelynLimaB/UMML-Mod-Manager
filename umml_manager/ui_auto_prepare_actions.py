@@ -11,6 +11,21 @@ from .ui_maintenance_actions import MaintenanceActions
 class AutoPrepareActions(MaintenanceActions):
     """Automatically prepare compatible imports while keeping apply explicit."""
 
+    def refresh_action_states(self) -> None:
+        super().refresh_action_states()
+        if self._closing or not hasattr(self, "library"):
+            return
+        busy = bool(self._busy)
+        self._configure_button(
+            self.library.new_package_button,
+            enabled=not busy,
+        )
+        selected = self.library.selected_id()
+        self._configure_button(
+            self.library.edit_package_button,
+            enabled=bool(selected) and not busy,
+        )
+
     def _finish_import(self, record):
         super()._finish_import(record)
         if not should_prepare_automatically(record, self.meta_path.get()):
