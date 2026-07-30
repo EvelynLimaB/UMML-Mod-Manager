@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .manifest import normalize_targets
 from .options import normalize_option_groups
 
 PACKAGE_UMML_ASSETS = "umml-assets"
@@ -64,12 +65,21 @@ class ModRecord:
     source_files: dict[str, str] = field(default_factory=dict)
     # Canonical option-group manifest stored with the immutable library record.
     option_groups: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Creator-declared informational targeting. Character/dress entries describe
+    # authored compatibility; they do not rewrite arbitrary bundle internals.
+    targets: dict[str, list[str]] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
     imported_at: str = ""
     update_policy: str = "notify"
     package_type: str = PACKAGE_UMML_ASSETS
     capabilities: list[str] = field(default_factory=_asset_capabilities)
     dependencies: list[str] = field(default_factory=list)
     incompatibilities: list[str] = field(default_factory=list)
+    # Conditional ordering constraints. They apply only when both mods are
+    # enabled and become visible resolver blockers when the profile order is wrong.
+    load_after: list[str] = field(default_factory=list)
+    load_before: list[str] = field(default_factory=list)
+    compatibility_notes: str = ""
     prepared_against: str = ""
     prepared_at: str = ""
 
@@ -105,12 +115,17 @@ class ModRecord:
                 for key, value in _mapping(data.get("source_files", {})).items()
             },
             option_groups=normalize_option_groups(data.get("option_groups", {})),
+            targets=normalize_targets(data.get("targets", {})),
+            tags=_string_list(data.get("tags", [])),
             imported_at=str(data.get("imported_at", "")),
             update_policy=update_policy,
             package_type=package_type,
             capabilities=capabilities,
             dependencies=_string_list(data.get("dependencies", [])),
             incompatibilities=_string_list(data.get("incompatibilities", [])),
+            load_after=_string_list(data.get("load_after", [])),
+            load_before=_string_list(data.get("load_before", [])),
+            compatibility_notes=str(data.get("compatibility_notes", "")),
             prepared_against=str(data.get("prepared_against", "")),
             prepared_at=str(data.get("prepared_at", "")),
         )
