@@ -35,7 +35,7 @@ class _NullRoot:
 
 
 class LegacyAssetAdapter:
-    """Prepare legacy UMML assets without allowing profile options to mutate sources."""
+    """Prepare legacy UMML assets and index source-bundle ownership safely."""
 
     def __init__(self, store: ManagerStore, meta_path: str | Path):
         self.store = store
@@ -85,9 +85,7 @@ class LegacyAssetAdapter:
         normalized = stage_root / "normalized"
         decoded.mkdir()
         normalized.mkdir()
-        backup = output.with_name(
-            f".{output.name}.previous-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
-        )
+        backup = self._backup_path(output)
         moved_old = False
         moved_new = False
         try:
@@ -108,29 +106,45 @@ class LegacyAssetAdapter:
                 name = path.name
                 if len(name) < 2:
                     continue
-                relative = (Path(name[:2]) / name).as_posix()
-                destination = normalized / name[:2] / name
-                if relative in files:
+                target = (Path(name[:2]) / name).as_posix()
+                destination = normalized / target
+                if target in files:
                     raise StoreError(
                         f"Preparation produced duplicate target hash {name}; existing cache was preserved."
                     )
                 atomic_copy_file(path, destination)
-                files[relative] = hash_file(destination)
+                files[target] = hash_file(destination)
             if not files:
                 raise StoreError(
                     f"No compatible assets produced; {missing} entries were absent from metadata. "
                     "The previous prepared cache was preserved."
                 )
 
-            source_files = self._source_target_map(assets, files)
+            # Build a second, isolated source index. It is not deployed for ordinary
+            # mods; it exists so the UI can explain and later configure whole source
+            # bundles, including bundles that expand into several game targets.
+            (
+                source_files,
+                source_hashes,
+                source_payloads,
+                source_roots,
+                _mapping_missing,
+            ) = self._prepare_source_payloads(
+                decoder,
+                assets=assets,
+                stage_root=stage_root,
+                normalized=normalized,
+                strict=False,
+            )
+
             updated = replace(
                 record,
                 prepared_path=str(output),
                 files=files,
                 source_files=source_files,
-                source_hashes={},
-                source_payloads={},
-                source_roots={},
+                source_hashes=source_hashes,
+                source_payloads=source_payloads,
+                source_roots=source_roots,
                 prepared_against=hash_file(self.meta_path),
                 prepared_at=datetime.now(timezone.utc).isoformat(),
             )
@@ -160,60 +174,24 @@ class LegacyAssetAdapter:
         )
         normalized = stage_root / "normalized"
         normalized.mkdir()
-        backup = output.with_name(
-            f".{output.name}.previous-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
-        )
+        backup = self._backup_path(output)
         moved_old = False
         moved_new = False
-        missing = 0
-        source_files: dict[str, str] = {}
-        source_hashes: dict[str, str] = {}
-        source_payloads: dict[str, dict[str, str]] = {}
-        source_roots: dict[str, str] = {}
         try:
             decoder = self._decoder()
-            try:
-                connection = sqlite3.connect(str(self.meta_path))
-            except sqlite3.Error as exc:
-                raise StoreError(
-                    f"Could not open metadata for configurable preparation: {exc}"
-                ) from exc
-            try:
-                cursor = connection.cursor()
-                cursor.execute("PRAGMA table_info(a)")
-                columns = {str(row[1]) for row in cursor.fetchall()}
-                if "n" not in columns or "h" not in columns:
-                    raise StoreError("Metadata table a is missing source-name/hash columns")
-                has_encrypt = "e" in columns
-
-                for source in sorted(item for item in assets.rglob("*") if item.is_file()):
-                    relative = source.relative_to(assets).as_posix()
-                    root_relative = (
-                        Path("sources")
-                        / hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
-                    ).as_posix()
-                    payload, source_missing = self._decode_configurable_source(
-                        decoder,
-                        cursor,
-                        source=source,
-                        relative=relative,
-                        root_relative=root_relative,
-                        stage_root=stage_root,
-                        normalized=normalized,
-                        has_encrypt=has_encrypt,
-                    )
-                    missing += source_missing
-                    if not payload:
-                        continue
-                    source_payloads[relative] = payload
-                    source_roots[relative] = root_relative
-                    if len(payload) == 1:
-                        target, sha256 = next(iter(payload.items()))
-                        source_files[relative] = target
-                        source_hashes[relative] = sha256
-            finally:
-                connection.close()
-
+            (
+                source_files,
+                source_hashes,
+                source_payloads,
+                source_roots,
+                missing,
+            ) = self._prepare_source_payloads(
+                decoder,
+                assets=assets,
+                stage_root=stage_root,
+                normalized=normalized,
+                strict=True,
+            )
             if not source_payloads:
                 raise StoreError(
                     f"No compatible configurable assets produced; {missing} entries were absent "
@@ -228,19 +206,11 @@ class LegacyAssetAdapter:
             except OptionError as exc:
                 raise StoreError(f"Invalid configurable mod manifest: {exc}") from exc
 
-            files: dict[str, str] = {}
-            owners: dict[str, str] = {}
-            for source_relative in sorted(selected_sources):
-                for target, sha256 in sorted(source_payloads[source_relative].items()):
-                    previous = owners.get(target)
-                    if previous is not None:
-                        raise StoreError(
-                            "The default configurable selection contains two source bundles for one "
-                            f"game target: {previous!r} and {source_relative!r} -> {target}. Put them "
-                            "in mutually exclusive choices or remove the duplicate shared payload."
-                        )
-                    owners[target] = source_relative
-                    files[target] = sha256
+            files = self._flatten_selected_payloads(
+                selected_sources,
+                source_payloads,
+                context="default configurable selection",
+            )
             if not files:
                 raise StoreError(
                     "The default configurable selection produced no deployable assets; "
@@ -271,6 +241,75 @@ class LegacyAssetAdapter:
             if backup.exists() and not output.exists():
                 os.replace(backup, output)
 
+    def _prepare_source_payloads(
+        self,
+        decoder,
+        *,
+        assets: Path,
+        stage_root: Path,
+        normalized: Path,
+        strict: bool,
+    ) -> tuple[
+        dict[str, str],
+        dict[str, str],
+        dict[str, dict[str, str]],
+        dict[str, str],
+        int,
+    ]:
+        source_files: dict[str, str] = {}
+        source_hashes: dict[str, str] = {}
+        source_payloads: dict[str, dict[str, str]] = {}
+        source_roots: dict[str, str] = {}
+        missing = 0
+        try:
+            connection = sqlite3.connect(str(self.meta_path))
+        except sqlite3.Error as exc:
+            raise StoreError(
+                f"Could not open metadata for source indexing: {exc}"
+            ) from exc
+        try:
+            cursor = connection.cursor()
+            cursor.execute("PRAGMA table_info(a)")
+            columns = {str(row[1]) for row in cursor.fetchall()}
+            if "n" not in columns or "h" not in columns:
+                raise StoreError("Metadata table a is missing source-name/hash columns")
+            has_encrypt = "e" in columns
+
+            for source in sorted(item for item in assets.rglob("*") if item.is_file()):
+                relative = source.relative_to(assets).as_posix()
+                root_relative = (
+                    Path("sources")
+                    / hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
+                ).as_posix()
+                try:
+                    payload, source_missing = self._decode_configurable_source(
+                        decoder,
+                        cursor,
+                        source=source,
+                        relative=relative,
+                        root_relative=root_relative,
+                        stage_root=stage_root,
+                        normalized=normalized,
+                        has_encrypt=has_encrypt,
+                    )
+                except Exception:
+                    if strict:
+                        raise
+                    missing += 1
+                    continue
+                missing += source_missing
+                if not payload:
+                    continue
+                source_payloads[relative] = payload
+                source_roots[relative] = root_relative
+                if len(payload) == 1:
+                    target, sha256 = next(iter(payload.items()))
+                    source_files[relative] = target
+                    source_hashes[relative] = sha256
+        finally:
+            connection.close()
+        return source_files, source_hashes, source_payloads, source_roots, missing
+
     def _decode_configurable_source(
         self,
         decoder,
@@ -283,8 +322,6 @@ class LegacyAssetAdapter:
         normalized: Path,
         has_encrypt: bool,
     ) -> tuple[dict[str, str], int]:
-        """Decode one creator-facing source in isolation and retain all outputs."""
-
         token = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:20]
         input_root = stage_root / "source-inputs" / token
         isolated_source = input_root / Path(relative)
@@ -318,7 +355,6 @@ class LegacyAssetAdapter:
                 )
             atomic_copy_file(decoded, destination)
             payload[target] = hash_file(destination)
-
         if payload:
             return payload, int(missing or 0)
 
@@ -338,6 +374,34 @@ class LegacyAssetAdapter:
         destination = normalized / root_relative / target
         self._decode_source(source, destination, encryption_key)
         return {target: hash_file(destination)}, int(missing or 0)
+
+    @staticmethod
+    def _flatten_selected_payloads(
+        selected_sources,
+        source_payloads: dict[str, dict[str, str]],
+        *,
+        context: str,
+    ) -> dict[str, str]:
+        files: dict[str, str] = {}
+        owners: dict[str, str] = {}
+        for source_relative in sorted(selected_sources):
+            for target, sha256 in sorted(source_payloads[source_relative].items()):
+                previous = owners.get(target)
+                if previous is not None:
+                    raise StoreError(
+                        f"The {context} contains two source bundles for one game target: "
+                        f"{previous!r} and {source_relative!r} -> {target}. Put them in "
+                        "mutually exclusive choices or remove the duplicate payload."
+                    )
+                owners[target] = source_relative
+                files[target] = sha256
+        return files
+
+    @staticmethod
+    def _backup_path(output: Path) -> Path:
+        return output.with_name(
+            f".{output.name}.previous-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
+        )
 
     def _commit_prepared(
         self,
@@ -364,47 +428,6 @@ class LegacyAssetAdapter:
             raise
         shutil.rmtree(backup, ignore_errors=True)
         return updated
-
-    def _source_target_map(
-        self,
-        assets: Path,
-        prepared_files: dict[str, str],
-    ) -> dict[str, str]:
-        mapping: dict[str, str] = {}
-        owners: dict[str, str] = {}
-        try:
-            connection = sqlite3.connect(str(self.meta_path))
-        except sqlite3.Error as exc:
-            raise StoreError(f"Could not open metadata for source mapping: {exc}") from exc
-        try:
-            cursor = connection.cursor()
-            cursor.execute("PRAGMA table_info(a)")
-            columns = {str(row[1]) for row in cursor.fetchall()}
-            if "n" not in columns or "h" not in columns:
-                raise StoreError("Metadata table a is missing source-name/hash columns")
-
-            for source in sorted(item for item in assets.rglob("*") if item.is_file()):
-                relative = source.relative_to(assets).as_posix()
-                hash_name = self._lookup_hash(cursor, relative, source)
-                if not hash_name:
-                    continue
-                name = Path(hash_name).name
-                if len(name) < 2:
-                    continue
-                target = (Path(name[:2]) / name).as_posix()
-                if target not in prepared_files:
-                    continue
-                previous = owners.get(target)
-                if previous is not None and previous != relative:
-                    raise StoreError(
-                        "Two source assets resolve to the same target hash: "
-                        f"{previous!r} and {relative!r} -> {target}."
-                    )
-                owners[target] = relative
-                mapping[relative] = target
-        finally:
-            connection.close()
-        return mapping
 
     @classmethod
     def _lookup_asset_row(
@@ -434,19 +457,6 @@ class LegacyAssetAdapter:
         if not row or not row[0]:
             return None
         return str(row[0]), int(row[1]) if has_encrypt else 0
-
-    @classmethod
-    def _lookup_hash(cls, cursor, relative: str, source: Path) -> str:
-        cursor.execute("SELECT h FROM a WHERE n=?", (relative,))
-        row = cursor.fetchone()
-        if row and row[0]:
-            return str(row[0])
-        resolved_name = cls._unity_bundle_name(source)
-        if not resolved_name:
-            return ""
-        cursor.execute("SELECT h FROM a WHERE n=?", (resolved_name,))
-        row = cursor.fetchone()
-        return str(row[0]) if row and row[0] else ""
 
     @staticmethod
     def _unity_bundle_name(source: Path) -> str:
