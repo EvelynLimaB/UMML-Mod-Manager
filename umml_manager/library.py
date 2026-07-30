@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import replace
 from pathlib import Path
@@ -30,6 +31,13 @@ _base_find_mod_root = getattr(
 )
 _store._UMML_BASE_FIND_MOD_ROOT = _base_find_mod_root  # type: ignore[attr-defined]
 
+_base_default_root = getattr(
+    _store,
+    "_UMML_BASE_DEFAULT_ROOT",
+    _store.default_root,
+)
+_store._UMML_BASE_DEFAULT_ROOT = _base_default_root  # type: ignore[attr-defined]
+
 _IMPORT_MUTEX = threading.RLock()
 
 
@@ -40,6 +48,26 @@ def find_mod_root(extracted: Path) -> Path:
         if str(exc).startswith("No recognizable UMML/Hachimi mod folder"):
             raise UnrecognizedModError(str(exc)) from exc
         raise
+
+
+def default_root() -> Path:
+    """Return the platform-native Manager state root without stranding previews."""
+
+    if os.name != "nt":
+        return _base_default_root()
+    local_app_data = str(os.environ.get("LOCALAPPDATA") or "").strip()
+    preferred = (
+        Path(local_app_data).expanduser() / "UMML Manager"
+        if local_app_data
+        else Path.home() / "AppData" / "Local" / "UMML Manager"
+    )
+    legacy = Path.home() / ".local" / "share" / "umml-manager"
+    # Early source previews used the Linux-style root even on Windows. Preserve
+    # that existing library until the user deliberately migrates it rather than
+    # presenting an apparently empty Manager after upgrade.
+    if legacy.exists() and not preferred.exists():
+        return legacy
+    return preferred
 
 
 class ManagerStore(_BaseManagerStore):
@@ -118,9 +146,9 @@ class ManagerStore(_BaseManagerStore):
 # Package initialization loads this boundary before GUI/CLI/provider modules.
 _store.find_mod_root = find_mod_root
 _store.ManagerStore = ManagerStore
+_store.default_root = default_root
 
 StoreError = _store.StoreError
-default_root = _store.default_root
 
 __all__ = [
     "ManagerStore",
