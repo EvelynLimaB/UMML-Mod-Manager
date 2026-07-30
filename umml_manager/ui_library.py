@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .options import OptionError, normalize_profile_options, option_summary
+from .ui_manifest_editor import edit_selected_package
 from .ui_mod_options import configure_mod_options
 from .ui_package_builder import launch_package_builder
 from .ui_theme import SURFACE_2, TEXT
@@ -125,14 +126,15 @@ class LibraryPage(ttk.Frame):
         )
         self.description.grid(row=4, column=0, sticky="nsew")
         self.description.configure(state="disabled")
-        buttons = ttk.Frame(details, style="Surface.TFrame")
-        buttons.grid(row=5, column=0, sticky="ew", pady=(12, 0))
+
+        profile_buttons = ttk.Frame(details, style="Surface.TFrame")
+        profile_buttons.grid(row=5, column=0, sticky="ew", pady=(12, 0))
         self.toggle_button = ttk.Button(
-            buttons, text="Enable", command=app.toggle_mod, state="disabled"
+            profile_buttons, text="Enable", command=app.toggle_mod, state="disabled"
         )
         self.toggle_button.pack(side="left")
         self.move_up_button = ttk.Button(
-            buttons,
+            profile_buttons,
             text="↑",
             width=3,
             command=lambda: app.move_mod(-1),
@@ -140,7 +142,7 @@ class LibraryPage(ttk.Frame):
         )
         self.move_up_button.pack(side="left", padx=(6, 2))
         self.move_down_button = ttk.Button(
-            buttons,
+            profile_buttons,
             text="↓",
             width=3,
             command=lambda: app.move_mod(1),
@@ -148,28 +150,38 @@ class LibraryPage(ttk.Frame):
         )
         self.move_down_button.pack(side="left", padx=2)
         self.configure_button = ttk.Button(
-            buttons,
+            profile_buttons,
             text="Configure",
             command=lambda: configure_mod_options(app, self),
             state="disabled",
         )
         self.configure_button.pack(side="left", padx=(8, 2))
         self.prepare_button = ttk.Button(
-            buttons,
+            profile_buttons,
             text="Prepare",
             command=app.prepare_selected,
             state="disabled",
         )
         self.prepare_button.pack(side="left", padx=2)
+
+        source_buttons = ttk.Frame(details, style="Surface.TFrame")
+        source_buttons.grid(row=6, column=0, sticky="ew", pady=(7, 0))
         self.workspace_button = ttk.Button(
-            buttons,
-            text="Edit copy",
+            source_buttons,
+            text="Open edit copy",
             command=app.create_workspace,
             state="disabled",
         )
-        self.workspace_button.pack(side="left", padx=2)
+        self.workspace_button.pack(side="left")
+        self.edit_package_button = ttk.Button(
+            source_buttons,
+            text="Edit package",
+            command=lambda: edit_selected_package(app, self),
+            state="disabled",
+        )
+        self.edit_package_button.pack(side="left", padx=(6, 0))
         self.remove_button = ttk.Button(
-            buttons,
+            source_buttons,
             text="Remove",
             style="Danger.TButton",
             command=app.remove_selected,
@@ -205,6 +217,7 @@ class LibraryPage(ttk.Frame):
         self.mod_state.configure(text="")
         self.option_state.configure(text="")
         self.configure_button.configure(state="disabled")
+        self.edit_package_button.configure(state="disabled")
         self.set_description("")
 
     def set_description(self, value: str) -> None:
