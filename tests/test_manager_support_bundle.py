@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 import zipfile
@@ -7,6 +8,7 @@ from pathlib import Path
 
 from umml_manager.store import ManagerStore
 from umml_manager.support_bundle import (
+    MAX_TEXT_VALUE,
     SupportBundleError,
     create_support_bundle,
     default_support_bundle_name,
@@ -53,6 +55,7 @@ class ManagerSupportBundleTests(unittest.TestCase):
                     "viewer_id": 123456789,
                     "user_name": "Trainer Alice",
                     "authorization": "Bearer secret-value",
+                    "oversized": "x" * (MAX_TEXT_VALUE + 100),
                 }
 
             destination = root / "report"
@@ -87,6 +90,7 @@ class ManagerSupportBundleTests(unittest.TestCase):
                 report["diagnostics"]["authorization"],
                 "<redacted>",
             )
+            self.assertIn("<truncated 100 characters>", report["diagnostics"]["oversized"])
             for private_value in (
                 str(private_game),
                 str(private_dat),
@@ -103,6 +107,7 @@ class ManagerSupportBundleTests(unittest.TestCase):
             self.assertFalse(report["privacy"]["game_assets_included"])
             self.assertFalse(report["privacy"]["mod_payloads_included"])
             self.assertFalse(report["privacy"]["raw_settings_included"])
+            self.assertTrue(report["privacy"]["text_values_bounded"])
 
     def test_default_name_is_release_specific_and_stable(self):
         name = default_support_bundle_name(
@@ -130,6 +135,28 @@ class ManagerSupportBundleTests(unittest.TestCase):
                         "checks": [],
                     },
                 )
+
+    @unittest.skipIf(os.name == "nt", "symlink creation is not reliably available")
+    def test_destination_cannot_follow_a_symlink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = ManagerStore(root / "manager")
+            victim = root / "victim.txt"
+            victim.write_text("preserve", encoding="utf-8")
+            destination = root / "support.zip"
+            destination.symlink_to(victim)
+
+            with self.assertRaises(SupportBundleError):
+                create_support_bundle(
+                    store,
+                    destination,
+                    diagnostics_collector=lambda _store: {
+                        "status": "ready",
+                        "ready": True,
+                        "checks": [],
+                    },
+                )
+            self.assertEqual(victim.read_text(encoding="utf-8"), "preserve")
 
 
 if __name__ == "__main__":
