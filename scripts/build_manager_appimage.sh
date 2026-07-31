@@ -26,6 +26,10 @@ OUTPUT="$OUT_DIR/umml-manager_${DISPLAY_VERSION}_${ARCH}.AppImage"
   echo "Portable AppImage version still contains Debian's '~': $DISPLAY_VERSION" >&2
   exit 1
 }
+[[ -f "$ROOT/docs/releases/$DISPLAY_VERSION.md" ]] || {
+  echo "Release notes not found: docs/releases/$DISPLAY_VERSION.md" >&2
+  exit 1
+}
 [[ -x "$BUNDLE/umml-manager-bin" ]] || {
   echo "Frozen manager bundle not found: $BUNDLE" >&2
   echo "Run scripts/build_manager_frozen.sh first." >&2
@@ -70,9 +74,12 @@ install -m 0644 "$ROOT/NOTICE.md" "$APPDIR/usr/share/doc/umml-manager/NOTICE.md"
 install -m 0644 "$ROOT/README.md" "$APPDIR/usr/share/doc/umml-manager/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$APPDIR/usr/share/doc/umml-manager/MANAGER_README.md"
 install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$APPDIR/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md"
+install -m 0644 "$ROOT/docs/DOWNLOADS.md" "$APPDIR/usr/share/doc/umml-manager/DOWNLOADS.md"
+install -m 0644 "$ROOT/docs/GAMEBANANA_PROVIDER.md" "$APPDIR/usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md"
+install -m 0644 "$ROOT/docs/UMAEXTRACTOR_INTEGRATION.md" "$APPDIR/usr/share/doc/umml-manager/UMAEXTRACTOR_INTEGRATION.md"
 install -m 0644 "$ROOT/docs/TESTING_AND_FEEDBACK.md" "$APPDIR/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md"
 install -m 0644 "$ROOT/docs/RELEASE_PROCESS.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_PROCESS.md"
-install -m 0644 "$ROOT/docs/releases/0.2.0-alpha.19.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_NOTES.md"
+install -m 0644 "$ROOT/docs/releases/$DISPLAY_VERSION.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_NOTES.md"
 install -m 0644 "$ROOT/MANAGER_CHANGELOG.md" "$APPDIR/usr/share/doc/umml-manager/changelog"
 
 cat > "$APPDIR/AppRun" <<'EOF_APPRUN'
@@ -154,6 +161,9 @@ diff -qr \
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/applications/$DESKTOP_ID.desktop" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/NOTICE.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/DOWNLOADS.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/UMAEXTRACTOR_INTEGRATION.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_PROCESS.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_NOTES.md" ]]
