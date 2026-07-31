@@ -97,3 +97,5 @@ if __name__ == "__main__":
           git add umml_manager/gui.py tests/test_manager_responsive_pages.py
           git commit -m "Make Settings and Studio vertically responsive"
           git push origin HEAD:feature/managed-extractor-resilient-gamebanana
+
+# Trigger after workflow registration.
