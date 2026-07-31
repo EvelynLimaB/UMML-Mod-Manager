@@ -49,7 +49,9 @@ def require_contains(path: str, *values: str) -> str:
     text = require_file(path)
     for value in values:
         if value not in text:
-            raise ReleaseAuditError(f"{path} does not contain required text: {value}")
+            raise ReleaseAuditError(
+                f"{path} does not contain required text: {value}"
+            )
     return text
 
 
@@ -77,6 +79,7 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         "Create support bundle",
     )
     require_contains("MANAGER_CHANGELOG.md", version)
+    require_contains("CITATION.cff", f"version: {display}")
     require_contains(
         "packaging/linux/io.github.evelynlimab.ummlmanager.metainfo.xml",
         f'version="{display}"',
