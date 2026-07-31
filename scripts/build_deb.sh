@@ -59,10 +59,11 @@ Architecture: $ARCH
 Maintainer: EvelynLimaB <lara_f@id.uff.br>
 Installed-Size: $INSTALLED_SIZE
 Depends: libc6 (>= 2.35), libx11-6, libxext6, libxrender1, libxcb1, libfontconfig1, libfreetype6, zlib1g
-Homepage: https://github.com/EvelynLimaB/UMML-Linux
-Description: Umamusume mod loader with Linux and Steam Proton support
+Homepage: https://github.com/EvelynLimaB/Uma-Mod-Manager
+Description: Original UMML compatibility loader for Umamusume
  UMML loads, previews, backs up, and restores Umamusume Pretty Derby mods.
- This package contains a self-contained Python runtime and does not need pip.
+ This preserved compatibility package includes a self-contained Python runtime.
+ New mod-manager and creator-tool development lives in Uma Mod Manager.
 EOF_CONTROL
 
 cat > "$BUILD_ROOT/DEBIAN/postinst" <<'EOF_POSTINST'
@@ -92,4 +93,4 @@ dpkg-deb --contents "$OUTPUT" > "$CONTENTS"
 grep -q 'usr/bin/umml$' "$CONTENTS"
 rm -f "$CONTENTS"
 trap - EXIT
-printf 'Built Debian package: %s\n' "$OUTPUT"
+printf 'Built original UMML compatibility package: %s\n' "$OUTPUT"
