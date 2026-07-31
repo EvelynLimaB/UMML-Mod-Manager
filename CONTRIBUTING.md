@@ -1,45 +1,59 @@
-# Contributing to UMML Linux and UMML Manager
+# Contributing to UMML-Manager
 
-This repository contains two independently packaged desktop applications and an experimental runtime protocol. Contributions should preserve the boundary between them instead of quietly turning three codebases into one unusually anxious organism.
+UMML-Manager is a cross-platform mod manager and mod-development workspace for **Umamusume Pretty Derby**, forked from the original UMML project.
+
+The repository's forward direction is the Manager. Original UMML code remains as a compatibility layer until native replacements reach feature parity and pass safety, deployment, and restoration tests.
+
+Contributions are especially welcome when they make one of these tasks easier:
+
+- discovering and installing a mod;
+- understanding what a mod affects;
+- configuring characters, dresses, parts, or optional components;
+- creating and validating a package;
+- testing and updating a mod safely;
+- recovering to vanilla;
+- integrating a licensed external tool with proper provenance;
+- replacing legacy UI with a clearer native workflow.
 
 ## Project map
 
 | Area | Purpose | Main paths |
 | --- | --- | --- |
-| Legacy UMML | One-folder loading, preview, backup, restore, and platform discovery | `UMML.py`, `UMML_core.py`, `umml_platform.py`, `umml_autodetect/` |
-| UMML Manager | Library, profiles, providers, conflicts, editing workspace, and deterministic deployment | `umml_manager/`, `MANAGER_README.md` |
-| Runtime bridge | Optional fail-closed protocol for future in-game adapters | `umml_runtime/`, `runtime_bridge/` |
-| Packaging | Shared frozen runtimes, Debian packages, AppImages, desktop metadata, checksums | `scripts/`, `packaging/`, `assets/` |
-| Documentation | User, architecture, development, release, and safety guidance | `README.md`, `docs/` |
+| Manager application | Library, profiles, providers, automatic preparation, inspection, conflicts, UI, deployment, and recovery | `umml_manager/`, `umml_manager_packaged.py` |
+| Creator tooling | Package workspaces, manifests, source analysis, targeting, options, compatibility, and external-tool adapters | `umml_manager/package_builder.py`, `umml_manager/mod_inspection.py`, `docs/MOD_CREATOR_GUIDE.md` |
+| Compatibility Studio | Original UMML loader and editor behavior preserved behind Manager guards | `UMML.py`, `UMML_core.py`, `umml_platform.py`, `umml_autodetect/` |
+| Runtime experiment | Optional fail-closed protocol for future in-game adapters | `umml_runtime/`, `runtime_bridge/` |
+| Packaging | Windows portable, frozen runtime, Debian package, AppImage, desktop metadata, checksums | `scripts/`, `packaging/`, `assets/` |
+| Documentation | User, creator, architecture, development, release, safety, and attribution guidance | `README.md`, `MANAGER_README.md`, `docs/` |
 
-State which area your pull request changes. Large changes spanning layers need a clear reason and should usually be split into stacked draft PRs.
+State which area your change affects. Large architecture, provider, deployment, or runtime work should normally begin as a draft pull request.
 
 ## Before contributing
 
-1. Check the repository and current draft PRs for overlapping work.
-2. Reproduce the problem with exact commands and paths, with private information removed.
-3. Identify affected products, package formats, platforms, and stored-state formats.
-4. Use synthetic or redistributable fixtures.
-5. Keep unrelated cleanup out of the patch.
-6. Run every check for the layers you touched.
-7. Document real-machine or live-service testing that remains undone.
-
-Repository Issues may be disabled. In that case, open a focused draft PR with a complete problem statement rather than a mysterious pile of files and optimism.
+1. Read [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md).
+2. Check open pull requests for overlapping work.
+3. Reproduce the problem with exact steps and private information removed.
+4. Identify affected platforms, package formats, installations, providers, and stored-state versions.
+5. Use synthetic or redistributable fixtures.
+6. Keep unrelated formatting or cleanup out of functional patches.
+7. Run every check for the layers you changed.
+8. State real-game, real-machine, network, or destructive-recovery testing that remains undone.
 
 ## Never commit
 
 Do not commit:
 
-- game executables, bundles, textures, audio, models, or other copyrighted assets;
+- game executables, bundles, textures, audio, models, animations, or other copyrighted assets;
 - encrypted or decrypted game metadata databases;
-- `dat`, `dat.backup`, `Persistent`, Wine prefixes, or Steam credentials;
-- downloaded mod archives unless their license explicitly permits redistribution;
-- virtual environments, Micromamba roots, PyInstaller work directories, AppDirs, downloaded packaging tools, or build outputs;
-- manager libraries, profiles, state, vanilla backups, logs, or caches;
-- access tokens, cookies, account identifiers, or private crash reports;
-- generated DEB/AppImage files in ordinary source commits.
+- real `Persistent/dat`, `dat.backup`, Wine prefixes, or Steam credentials;
+- real Manager libraries, profiles, baselines, active state, journals, snapshots, logs, or caches;
+- real veteran-roster or account data;
+- downloaded mod archives without redistribution permission;
+- external tools without a compatible license or explicit permission;
+- access tokens, cookies, account identifiers, private crash reports, or personal paths;
+- virtual environments, Micromamba roots, PyInstaller work directories, AppDirs, downloaded packaging tools, DEBs, AppImages, portable ZIPs, or other generated outputs.
 
-Tests should use tiny generated files that reproduce path, hash, ordering, transaction, archive, provider, or package behavior without including game content.
+Tests should generate tiny fixtures that reproduce path, hash, archive, option, conflict, state, transaction, provider, platform, or package behavior without game content.
 
 ## Development setup
 
@@ -68,91 +82,64 @@ sudo apt install \
   python3-tk
 ```
 
+Windows contributors may use PowerShell and the equivalent `.venv\Scripts\Activate.ps1` environment.
+
 ## Coding guidance
 
-- Target Python 3.11 for packaged Linux builds.
-- Add type annotations to new manager and runtime code.
-- Prefer `pathlib.Path` for new filesystem work.
-- Keep GUI, network, filesystem, state, deployment, and packaging responsibilities separate.
-- Use explicit exceptions with actionable error messages.
-- Keep sorting and serialization deterministic.
-- Never pass untrusted provider/archive values to a shell.
-- Do not weaken safety checks to support one problematic mod.
+- Target the Python version declared by the package workflows.
+- Add type annotations to new Manager and runtime code.
+- Prefer `pathlib.Path` for new filesystem behavior.
+- Keep GUI, network, provider, state, filesystem, preparation, planning, deployment, and packaging responsibilities separate.
+- Use explicit exceptions with actionable messages.
+- Keep serialization and conflict ordering deterministic.
+- Never pass provider, archive, manifest, or external-tool input to a shell.
+- Never weaken a safety invariant merely to accept one malformed package.
 - Keep launchers and package scripts thin; product behavior belongs in application code.
+- Do not claim detected character, dress, part, or content metadata without evidence.
+- Ordinary creator flows should not require JSON editing.
+- Internal preparation and migration should be automatic, not user-operated maintenance.
 
-`UMML_core.py` is upstream-derived and structurally older than new modules. Avoid format-only rewrites that make upstream comparison and review harder.
+`UMML_core.py` is upstream-derived and structurally older than new modules. Avoid format-only rewrites that make upstream comparison harder. New work should extract reusable services instead of enlarging the compatibility monolith.
 
-## Legacy UMML contributions
+## Manager invariants
 
-### Boundaries
-
-Keep Steam, registry, Wine, Proton, and regional path discovery in `umml_platform.py` and `umml_autodetect/`. Do not spread platform probes through GUI callbacks.
-
-Game-file mutations must remain blocked while the game is running. New mutating operations need the same safety treatment as load, restore, cleanup, and database work on branches where those guards exist.
-
-### Required checks
-
-```bash
-python -m py_compile \
-  UMML.py UMML_core.py umml_platform.py umml_packaged.py \
-  umml_autodetect/*.py
-python -m unittest discover -s tests -v
-bash -n install.sh uninstall.sh scripts/*.sh
-scripts/build_release.sh
-```
-
-Branches adding optional legacy extension modules must include those modules in their compile and test commands.
-
-### Manual GUI checks
-
-Verify:
-
-1. startup feedback appears before long path/metadata work;
-2. platform selection stays in front of the main window;
-3. resizing keeps paths, actions, and progress usable;
-4. load and restore create recoverable state;
-5. diagnostics report selected paths and readiness evidence;
-6. mutating actions are blocked while the game runs;
-7. error dialogs are parented to the application window.
-
-## UMML Manager contributions
-
-Read these first:
-
-- `MANAGER_README.md`;
-- `docs/MANAGER_ARCHITECTURE.md`;
-- `docs/MANAGER_DEVELOPMENT.md`;
-- `docs/PACKAGING.md` for package changes;
-- `docs/MANAGER_MAIN_PROMOTION.md` for merging the alpha preview into `main`;
-- `docs/MANAGER_RELEASE_CHECKLIST.md` for unfinished real-machine gates.
-
-### Manager invariants
-
-The following are review requirements:
+These are review requirements:
 
 1. Imported source versions are immutable.
-2. Preparation never writes game files.
-3. Profiles are ordered; later entries win conflicts.
-4. Resolution completes before deployment begins.
-5. Missing or unprepared enabled mods block deployment.
-6. Vanilla files are captured once and never refreshed from modded state.
-7. Active targets are verified against the previous deployment manifest.
-8. Corrupt state fails closed instead of being silently reset.
-9. External changes are not overwritten silently.
-10. Apply and restore are transactional and blocked while the game runs.
-11. Providers download/import but never deploy.
-12. Native or injected plugins remain outside both manager package formats.
-13. The DEB and AppImage use the same frozen runtime and user data model.
+2. Preparation and source analysis never write game files.
+3. Automatic maintenance remains automatic; Apply remains explicit.
+4. Profiles are ordered and deterministic.
+5. Resolution completes before deployment begins.
+6. Missing, unsupported, stale, or invalid enabled packages block deployment.
+7. Vanilla files are captured only from verified originals and are never refreshed from modded state.
+8. Active targets are verified against the previous deployment manifest.
+9. Corrupt critical state fails closed rather than being silently reset.
+10. External changes are not overwritten silently.
+11. Apply and restore are transactional and blocked while the game is running.
+12. Providers download and import but never deploy.
+13. Native or injected tools remain outside ordinary mod packages.
+14. Windows, Debian, and AppImage builds use the same state and safety model.
+15. Manager-owned windows are parented, focused, and usable at supported sizes.
+16. Editing an imported package creates a new workspace and version rather than mutating the source record.
 
-State/model changes need backward-compatible defaults or an explicit migration. Never silently reinterpret an existing field.
+Stored-state changes require backward-compatible defaults or an explicit migration. Never silently reinterpret an existing field.
 
-### Required checks
+## Required Manager checks
 
 ```bash
 python -m py_compile \
-  umml_manager/*.py umml_manager/providers/*.py \
-  umml_manager_packaged.py tests/test_manager.py
-python -m unittest discover -s tests -p 'test_manager.py' -v
+  umml_manager/*.py \
+  umml_manager/providers/*.py \
+  umml_manager_packaged.py
+
+python -m unittest discover -s tests -p 'test_manager*.py' -v
+python scripts/audit_manager.py
+bash scripts/check_manager.sh
+```
+
+Shell changes also require:
+
+```bash
 bash -n \
   install-manager.sh \
   uninstall-manager.sh \
@@ -161,46 +148,83 @@ bash -n \
   scripts/build_manager_appimage.sh
 ```
 
-### Test expectations
-
-Use a temporary manager root and synthetic game tree. Depending on the change, test:
+Depending on the change, test:
 
 - deterministic conflict winners;
-- empty, missing, and unprepared profiles;
-- unsafe archive paths, links, special files, entry counts, and expanded-size limits;
-- preparation failures;
+- empty, missing, stale, unsupported, and invalid profiles;
+- profile-scoped option defaults and switching;
+- one source bundle owning multiple targets;
+- overlapping character/component variants;
+- unsafe archive paths, links, special entries, counts, sizes, and duplicate names;
+- immutable import behavior;
+- preparation failure and queue continuation;
 - initial and repeated deployment;
-- profile switching;
-- restoration to vanilla;
-- manager-created targets without a vanilla original;
-- missing or changed prepared files;
+- profile switching and vanilla restoration;
+- Manager-created targets without vanilla originals;
+- missing or changed prepared payloads;
 - external target changes;
-- corrupt registries and active state;
-- staging/commit failure and rollback;
-- Windows and Linux process parsing.
+- corrupt registries, profiles, active state, baselines, and journals;
+- interrupted staging, commit failure, rollback, and recovery;
+- Windows and Linux process parsing;
+- dialog focus, resizing, themes, and button states.
 
 Automated tests must never discover and modify a real game installation.
 
-### GUI verification
+## Creator-tool contributions
 
-Confirm profiles, enable/disable, load-order movement, imports, preparation, conflict preview, update checks, path selection, game-running blocks, error handling, and resizing. CLI and GUI must use the same resolver and engine.
+Read:
+
+- [docs/MOD_CREATOR_GUIDE.md](docs/MOD_CREATOR_GUIDE.md);
+- [docs/MANAGER_MOD_MANIFEST.md](docs/MANAGER_MOD_MANIFEST.md);
+- [docs/MANAGER_ARCHITECTURE.md](docs/MANAGER_ARCHITECTURE.md).
+
+Creator tools should:
+
+- produce or edit normal Manager packages and workspaces;
+- preserve source provenance;
+- distinguish detected facts from suggestions;
+- validate before immutable import;
+- create new versions for edits and updates;
+- expose compatibility and option metadata through guided controls;
+- use external processes for large or separately licensed tools;
+- keep game writes behind the normal resolver and deployment engine.
+
+A creator feature is incomplete when the only usable path is “open this JSON and know what to type.” Advanced text editing may remain available, but it is not the primary UX.
 
 ## Provider contributions
 
 A provider supplies metadata and original downloaded archives to the store. It must not know the game `dat` path or deploy files.
 
-Preserve where available:
+Preserve when available:
 
 - provider name;
-- submission/project ID;
-- selected file/release ID;
-- author/submitter;
+- submission or project ID;
+- selected file or release ID;
+- author or submitter;
 - original filename and source URL;
-- remote version/update timestamp;
-- downloaded SHA-256;
+- remote version and update timestamp;
+- downloaded SHA-256 and size;
 - third-party license information.
 
-Use response fixtures or a local fake server for deterministic tests. Live API smoke tests should be optional and must not require personal credentials.
+Use fixtures or a local fake server for deterministic tests. Live API smoke tests should be optional and require no personal credentials.
+
+## External-tool adapters
+
+Adapters must record and display:
+
+- original project;
+- original authors and contributors;
+- source and release links;
+- selected local path;
+- version when detectable;
+- supported platforms;
+- output format;
+- license status;
+- whether code or binaries are bundled.
+
+Do not copy, modify, bundle, or redistribute an external project without a compatible license or explicit permission. Attribution is mandatory but does not create permission.
+
+Launch external tools without `shell=True`, use isolated workspaces where possible, bound imported outputs, and keep process-memory tools outside deployment privileges.
 
 ## Archive contributions
 
@@ -214,25 +238,48 @@ Every archive format must reject before extraction:
 - excessive member-name lengths;
 - excessive file counts;
 - excessive declared expanded size;
+- duplicate output paths;
 - output outside the staging directory.
 
-Do not support executable installers by launching them. Broader formats such as 7z/RAR require equally inspectable metadata and bounded extraction before being advertised.
+Do not support executable installers by launching them. Broader formats such as 7z or RAR require equally inspectable metadata and bounded extraction before being advertised.
+
+## Compatibility Studio contributions
+
+Existing UMML behavior remains guarded for feature parity, but new functionality should not be added there by default.
+
+When touching compatibility code:
+
+- keep platform discovery in `umml_platform.py` and `umml_autodetect/`;
+- keep game mutations blocked while the game runs;
+- parent and focus dialogs;
+- preserve upstream comparison where practical;
+- add tests around extracted services;
+- document the native replacement path.
+
+Legacy checks include:
+
+```bash
+bash scripts/check_legacy.sh
+python -m py_compile UMML.py UMML_core.py umml_platform.py umml_packaged.py
+```
+
+The preserved compatibility release version is `1.5.0-linux.6`.
 
 ## Runtime bridge contributions
 
-The runtime bridge is optional and fail-closed:
+The runtime bridge is optional and fail closed:
 
 - loopback communication only;
 - authentication on every command;
 - protocol and message-size limits;
 - exact-build compatibility gates;
-- unknown builds expose no hot-reload features;
-- profile changes are queued for restart;
+- unknown builds expose no mutation features;
+- profile changes are queued for restart unless explicitly proven hot-reload-safe;
 - injection and Unity hooks stay in separately disableable adapters;
-- no save, account, database, or network modification;
+- no save, account, database, ranking, currency, or network modification;
 - no arbitrary executable plugin loading.
 
-Runtime checks:
+Run:
 
 ```bash
 python -m py_compile umml_runtime/*.py tests/test_runtime.py
@@ -240,54 +287,32 @@ python -m unittest discover -s tests -p 'test_runtime.py' -v
 cargo test --manifest-path runtime_bridge/Cargo.toml
 ```
 
-The Rust protocol client currently forbids unsafe code. Native hook code belongs outside that core crate and requires independent review and game-build testing.
-
-## Documentation contributions
-
-Documentation must distinguish:
-
-- legacy UMML from UMML Manager;
-- source installers from DEB and AppImage packages;
-- package contents from shared user data;
-- safe offline work from game-file writes;
-- implemented features from proposed runtime work;
-- tested platforms from merely architecture-compatible platforms.
-
-Use exact commands and file names. Mark destructive/recovery operations and state what package removal preserves.
-
-Do not place a package's checksum inside documentation embedded in that same package. Generate and publish checksums externally after artifacts are final.
-
 ## Packaging contributions
 
-### Product boundaries
+Product paths remain stable:
 
 ```text
-umml-linux      /usr/lib/umml          umml, umml-doctor
-umml-manager    /usr/lib/umml-manager  umml-manager, umml-manager-cli
-manager source  ~/.local/share/umml-manager-app
-manager data    ~/.local/share/umml-manager
+package          /usr/lib/umml-manager
+commands         umml-manager, umml-manager-cli
+source app       ~/.local/share/umml-manager-app
+Linux state      ~/.local/share/umml-manager
+Windows state    %LOCALAPPDATA%\UMML Manager
 ```
 
-The DEB, AppImage, source install, and legacy loader must not claim each other's application files. Maintain separate versions where appropriate, desktop entries, icons, AppStream metadata, and payload boundaries.
-
-### Shared manager runtime rule
-
-Build once:
+Build the frozen Linux runtime once:
 
 ```bash
 scripts/build_manager_frozen.sh
 ```
 
-Then package the unchanged bundle twice:
+Package that unchanged bundle:
 
 ```bash
 scripts/build_manager_deb.sh
 scripts/build_manager_appimage.sh
 ```
 
-The AppImage build must extract the result and compare its embedded `umml-manager-bin` against the original frozen bundle. Do not maintain a second PyInstaller spec or package-specific copy of application code.
-
-### Package validation
+Validate:
 
 ```bash
 dpkg-deb --info dist/umml-manager_*_amd64.deb
@@ -296,16 +321,12 @@ dpkg-deb --contents dist/umml-manager_*_amd64.deb
 desktop-file-validate \
   packaging/linux/io.github.evelynlimab.ummlmanager.desktop \
   packaging/appimage/io.github.evelynlimab.ummlmanager.desktop
+
 appstream-util validate-relax \
   packaging/linux/io.github.evelynlimab.ummlmanager.metainfo.xml
-
-APPIMAGE_EXTRACT_AND_RUN=1 \
-  dist/umml-manager_*_x86_64.AppImage --version
-APPIMAGE_EXTRACT_AND_RUN=1 \
-  dist/umml-manager_*_x86_64.AppImage --cli --help
 ```
 
-Generate checksums only after both artifacts are final:
+Generate checksums only after artifacts are final:
 
 ```bash
 (
@@ -318,44 +339,45 @@ Generate checksums only after both artifacts are final:
 )
 ```
 
-When changing a manager release, update together:
+When changing a Manager release, update together:
 
 - `MANAGER_VERSION`;
 - `MANAGER_CHANGELOG.md`;
 - README installation examples;
-- manager AppStream release metadata;
+- AppStream release metadata;
 - version tests;
-- CI/release artifact names.
+- workflow artifact names.
 
 ## Pull-request description
 
 Include:
 
-- affected product/layer/package format;
+- affected layer and package formats;
 - problem and reproduction;
 - design and alternatives;
 - state or migration impact;
-- safety and rollback behavior;
+- safety, failure, and rollback behavior;
 - automated and manual checks;
 - platforms tested;
 - live-service or real-game checks still missing;
-- third-party tools, sources, hashes, and licenses.
+- third-party projects, versions, hashes, links, and licenses.
 
-Keep architecture, provider, packaging, and runtime work as draft PRs until the required real-machine checks are complete. Green CI is necessary, not magical.
+Keep architecture, provider, packaging, runtime, and destructive-recovery changes as draft PRs until their real-machine gates are complete. Green CI is evidence, not absolution.
 
 ## Review checklist
 
 - [ ] Scope and affected layer are clear.
 - [ ] No game data, user state, secrets, downloaded tools, or generated binaries are committed.
-- [ ] Relevant tests were added or updated.
+- [ ] Relevant synthetic regressions were added or updated.
 - [ ] Changed-layer checks pass.
-- [ ] Failure and recovery behavior is documented.
-- [ ] User docs match commands and paths.
-- [ ] Both package formats use the same frozen runtime.
-- [ ] Packaging metadata matches version/changelog.
-- [ ] Third-party licensing and tool hashes are compatible and attributed.
-- [ ] Untested platforms and live services are named honestly.
+- [ ] Failure and recovery behavior are documented.
+- [ ] User and creator docs match the implementation.
+- [ ] Automatic preparation remains automatic.
+- [ ] Imported source remains immutable.
+- [ ] Windows and Linux behavior are considered.
+- [ ] Third-party licensing and attribution are explicit.
+- [ ] Untested platforms, services, and game builds are named honestly.
 
 ## Security reports
 
-Do not publish credentials, private user data, exploitable archive samples, or account-sensitive behavior in a public PR. Follow [SECURITY.md](SECURITY.md) for private reporting guidance.
+Do not publish credentials, personal paths, private roster data, exploitable archives, account-sensitive behavior, or destructive recovery evidence in a public issue or pull request. Follow [SECURITY.md](SECURITY.md).
