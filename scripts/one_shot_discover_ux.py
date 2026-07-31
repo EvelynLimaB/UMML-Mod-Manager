@@ -1,0 +1,565 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+EXPERIENCE = r'''from __future__ import annotations
+
+import threading
+import tkinter as tk
+from datetime import datetime
+from tkinter import ttk
+from typing import Callable
+
+from .providers.gamebanana import GameBananaPage
+from .providers.gamebanana_previews import PreviewGameBananaClient
+from .ui_discover_actions import DiscoverActions
+
+
+class DiscoverExperienceActions:
+    """Keep online discovery useful without turning it into a modal maintenance task."""
+
+    def configure_discover_experience(self) -> None:
+        if getattr(self, "_discover_experience_configured", False):
+            return
+        self._discover_experience_configured = True
+        self._gb_catalog_loading = False
+        self._gb_catalog_serial = 0
+        self._gb_initial_attempted = False
+        self._gb_initial_scheduled = False
+        self._gb_loaded_at = ""
+
+        self.discover.browse_button.configure(text="Refresh")
+        self.discover.gb_meta.configure(
+            text=(
+                "Latest mods load automatically. Change region or sorting to refresh; "
+                "press Enter to run a text search."
+            )
+        )
+        self.discover.gb_region_box.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self.gamebanana_filter_changed(),
+            add="+",
+        )
+        self.discover.gb_sort_box.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self.gamebanana_filter_changed(),
+            add="+",
+        )
+
+        parent = self.discover.gb_tree.master
+        self._gb_catalog_message = ttk.Label(
+            parent,
+            text="Loading the latest GameBanana mods automatically…",
+            style="SurfaceMuted.TLabel",
+            anchor="center",
+            justify="center",
+            wraplength=520,
+            padding=24,
+        )
+        self._gb_catalog_message.grid(row=0, column=0, sticky="nsew")
+        self._gb_catalog_message.tkraise()
+
+        for tree in (
+            self.library.tree,
+            self.discover.gb_tree,
+            self.discover.local_tree,
+        ):
+            self._add_tree_horizontal_scrollbar(tree)
+        self._add_text_scrollbars(self.plan_text)
+
+    @staticmethod
+    def _add_tree_horizontal_scrollbar(tree) -> None:
+        if getattr(tree, "_umm_horizontal_scrollbar", None) is not None:
+            return
+        parent = tree.master
+        scrollbar = ttk.Scrollbar(parent, orient="horizontal", command=tree.xview)
+        tree.configure(xscrollcommand=scrollbar.set)
+        scrollbar.grid(row=1, column=0, sticky="ew")
+        tree._umm_horizontal_scrollbar = scrollbar
+
+    @staticmethod
+    def _add_text_scrollbars(widget: tk.Text) -> None:
+        if getattr(widget, "_umm_scrollbars", None) is not None:
+            return
+        parent = widget.master
+        vertical = ttk.Scrollbar(parent, orient="vertical", command=widget.yview)
+        horizontal = ttk.Scrollbar(parent, orient="horizontal", command=widget.xview)
+        widget.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        vertical.grid(row=1, column=1, sticky="ns")
+        horizontal.grid(row=2, column=0, sticky="ew")
+        widget._umm_scrollbars = (vertical, horizontal)
+
+    def schedule_initial_gamebanana_load(self, delay: int = 650) -> None:
+        if (
+            getattr(self, "_closing", False)
+            or getattr(self, "_gb_initial_scheduled", False)
+        ):
+            return
+        self._gb_initial_scheduled = True
+        try:
+            self.root.after(delay, self.ensure_gamebanana_catalog)
+        except tk.TclError:
+            self._closing = True
+
+    def ensure_gamebanana_catalog(self) -> None:
+        if (
+            getattr(self, "_closing", False)
+            or getattr(self, "_gb_catalog_loading", False)
+            or getattr(self, "_gb_initial_attempted", False)
+            or bool(getattr(self, "gb_results", {}))
+        ):
+            return
+        self.browse_gamebanana(automatic=True)
+
+    def discover_page_activated(self) -> None:
+        if getattr(self, "_gb_catalog_loading", False):
+            self.status.set("Refreshing the GameBanana catalogue…")
+            return
+        if self.gb_results:
+            suffix = f" · updated {self._gb_loaded_at}" if self._gb_loaded_at else ""
+            self.status.set(f"{len(self.gb_results)} GameBanana mod(s) loaded{suffix}")
+            return
+        if getattr(self, "_gb_initial_attempted", False):
+            self.status.set(
+                "GameBanana has not loaded yet. Refresh to retry; local imports still work."
+            )
+            return
+        self.status.set("Loading the latest GameBanana mods automatically…")
+        self.ensure_gamebanana_catalog()
+
+    def gamebanana_filter_changed(self) -> None:
+        self.gb_page = 1
+        self.save_settings(silent=True)
+        self.browse_gamebanana()
+
+    def browse_gamebanana(self, automatic: bool = False):
+        if getattr(self, "_closing", False):
+            return
+
+        signature = (
+            self.gb_region.get().strip().casefold() or "global",
+            self.gb_sort.get().strip().casefold() or "updated",
+            self.gb_query.get().strip(),
+        )
+        previous = getattr(self, "_gb_browse_signature", None)
+        if previous is not None and previous != signature:
+            self.gb_page = 1
+        self._gb_browse_signature = signature
+
+        if getattr(self, "_gb_catalog_loading", False):
+            return
+        self._gb_initial_attempted = True
+        self._gb_catalog_loading = True
+        self._gb_catalog_serial = getattr(self, "_gb_catalog_serial", 0) + 1
+        token = self._gb_catalog_serial
+        if not self.gb_results:
+            self._set_gamebanana_catalog_state(
+                "Loading the latest GameBanana mods…\n\n"
+                "You can keep using Library, Studio, and local imports."
+            )
+        self.status.set("Refreshing the GameBanana catalogue…")
+        self.discover.browse_button.configure(text="Loading…", state="disabled")
+        self.refresh_action_states()
+
+        region, sort, query = signature
+        page_number = self.gb_page
+
+        def worker() -> None:
+            try:
+                page = PreviewGameBananaClient().browse(
+                    region=region,
+                    page=page_number,
+                    sort=sort,
+                    query=query,
+                )
+            except Exception as exc:
+                self._schedule_gamebanana_catalog_callback(
+                    token,
+                    lambda error=exc: self._gamebanana_catalog_failed(
+                        token,
+                        error,
+                        automatic=automatic,
+                    ),
+                )
+            else:
+                self._schedule_gamebanana_catalog_callback(
+                    token,
+                    lambda value=page: self._gamebanana_catalog_loaded(token, value),
+                )
+
+        threading.Thread(
+            target=worker,
+            name=f"umm-gamebanana-catalog-{token}",
+            daemon=True,
+        ).start()
+
+    def _schedule_gamebanana_catalog_callback(
+        self,
+        token: int,
+        callback: Callable[[], None],
+    ) -> None:
+        if (
+            getattr(self, "_closing", False)
+            or token != getattr(self, "_gb_catalog_serial", -1)
+        ):
+            return
+        try:
+            self.root.after(0, callback)
+        except tk.TclError:
+            self._closing = True
+
+    def _gamebanana_catalog_loaded(self, token: int, page: GameBananaPage) -> None:
+        if (
+            getattr(self, "_closing", False)
+            or token != getattr(self, "_gb_catalog_serial", -1)
+        ):
+            return
+        previous_selection = self.discover.gb_tree.selection()
+        previous_id = previous_selection[0] if previous_selection else ""
+        self._gb_catalog_loading = False
+        DiscoverActions._show_gamebanana_page(self, page)
+        self._gb_loaded_at = datetime.now().strftime("%H:%M")
+
+        children = self.discover.gb_tree.get_children()
+        if children:
+            selected = previous_id if previous_id in children else children[0]
+            self._clear_gamebanana_catalog_state()
+            self.discover.gb_tree.selection_set(selected)
+            self.discover.gb_tree.focus(selected)
+            self.discover.gb_tree.see(selected)
+            self.select_gamebanana_mod()
+            self.status.set(
+                f"Loaded {len(page.mods)} GameBanana mod(s) · updated {self._gb_loaded_at}"
+            )
+        else:
+            query = self.gb_query.get().strip()
+            self._set_gamebanana_catalog_state(
+                "No matching mods were returned."
+                + (f"\n\nSearch: {query}" if query else "")
+                + "\n\nChange the filters or press Refresh."
+            )
+            self.status.set("GameBanana returned no matching mods")
+        self.discover.browse_button.configure(text="Refresh")
+        self.refresh_action_states()
+
+    def _gamebanana_catalog_failed(
+        self,
+        token: int,
+        error: Exception,
+        *,
+        automatic: bool,
+    ) -> None:
+        if (
+            getattr(self, "_closing", False)
+            or token != getattr(self, "_gb_catalog_serial", -1)
+        ):
+            return
+        self._gb_catalog_loading = False
+        message = " ".join(str(error).split())
+        if len(message) > 180:
+            message = message[:177] + "…"
+        if self.gb_results:
+            self.status.set(
+                "Could not refresh GameBanana; keeping the current results. " + message
+            )
+        else:
+            self._set_gamebanana_catalog_state(
+                "GameBanana is temporarily unavailable.\n\n"
+                "Press Refresh to retry. Local folders and imported mods still work.\n\n"
+                + message
+            )
+            self.discover.page_label.configure(text="Catalogue unavailable")
+            self.status.set(
+                "GameBanana could not be reached; no local or game files changed"
+            )
+        self.discover.browse_button.configure(text="Retry")
+        self.refresh_action_states()
+
+    def _set_gamebanana_catalog_state(self, message: str) -> None:
+        label = getattr(self, "_gb_catalog_message", None)
+        if label is None:
+            return
+        label.configure(text=message)
+        label.grid()
+        label.tkraise()
+
+    def _clear_gamebanana_catalog_state(self) -> None:
+        label = getattr(self, "_gb_catalog_message", None)
+        if label is not None:
+            label.grid_remove()
+
+    def change_gamebanana_page(self, delta: int):
+        target = self.gb_page + delta
+        if target < 1 or getattr(self, "_gb_catalog_loading", False):
+            return
+        self.gb_page = target
+        self.browse_gamebanana()
+'''
+
+TEST = r'''from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+from umml_manager.ui_discover_experience import DiscoverExperienceActions
+
+
+class _Root:
+    def __init__(self):
+        self.callbacks = []
+
+    def after(self, delay, callback):
+        self.callbacks.append((delay, callback))
+
+
+class DiscoverExperienceTests(unittest.TestCase):
+    def test_initial_catalog_load_is_scheduled_once(self):
+        actions = DiscoverExperienceActions()
+        actions.root = _Root()
+        actions._closing = False
+        calls = []
+        actions.ensure_gamebanana_catalog = lambda: calls.append("loaded")
+
+        actions.schedule_initial_gamebanana_load(25)
+        actions.schedule_initial_gamebanana_load(25)
+
+        self.assertEqual(len(actions.root.callbacks), 1)
+        delay, callback = actions.root.callbacks[0]
+        self.assertEqual(delay, 25)
+        callback()
+        self.assertEqual(calls, ["loaded"])
+
+    def test_filter_change_resets_page_saves_and_refreshes(self):
+        actions = DiscoverExperienceActions()
+        actions.gb_page = 7
+        events = []
+        actions.save_settings = lambda silent=False: events.append(("save", silent))
+        actions.browse_gamebanana = lambda: events.append(("browse", True))
+
+        actions.gamebanana_filter_changed()
+
+        self.assertEqual(actions.gb_page, 1)
+        self.assertEqual(events, [("save", True), ("browse", True)])
+
+    def test_discover_ui_has_explicit_refresh_region_and_file_labels(self):
+        source = Path("umml_manager/ui_discover.py").read_text(encoding="utf-8")
+        self.assertIn('text="Region"', source)
+        self.assertIn('text="Refresh"', source)
+        self.assertIn('text="Download file"', source)
+        self.assertIn('selectmode="browse"', source)
+
+    def test_smoke_mode_disables_background_network(self):
+        source = Path("umml_manager/gui.py").read_text(encoding="utf-8")
+        self.assertIn("ManagerGUI(root, store, auto_network=False)", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
+'''
+
+
+def replace_once(path: Path, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if old not in text:
+        raise SystemExit(f"Patch anchor missing in {path}: {old[:100]!r}")
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+def main() -> None:
+    (ROOT / "umml_manager/ui_discover_experience.py").write_text(
+        EXPERIENCE,
+        encoding="utf-8",
+    )
+    (ROOT / "tests/test_manager_discover_experience.py").write_text(
+        TEST,
+        encoding="utf-8",
+    )
+
+    gui = ROOT / "umml_manager/gui.py"
+    for old, new in (
+        (
+            "from .ui_discover_actions import DiscoverActions\n",
+            "from .ui_discover_actions import DiscoverActions\n"
+            "from .ui_discover_experience import DiscoverExperienceActions\n",
+        ),
+        (
+            "class ManagerGUI(\n    AutoPrepareActions,\n",
+            "class ManagerGUI(\n    DiscoverExperienceActions,\n    AutoPrepareActions,\n",
+        ),
+        (
+            "    def __init__(self, root: tk.Tk, store: ManagerStore | None = None):\n",
+            "    def __init__(\n"
+            "        self,\n"
+            "        root: tk.Tk,\n"
+            "        store: ManagerStore | None = None,\n"
+            "        *,\n"
+            "        auto_network: bool = True,\n"
+            "    ):\n",
+        ),
+        (
+            "        self._saving_detected_installation = False\n",
+            "        self._saving_detected_installation = False\n"
+            "        self._auto_network_enabled = auto_network\n",
+        ),
+        (
+            '        self.gb_sort = tk.StringVar(value="updated")\n',
+            "        self.gb_sort = tk.StringVar(\n"
+            '            value=str(settings.get("gamebanana_sort", "updated"))\n'
+            "        )\n",
+        ),
+        (
+            "        self._build_footer()\n        self.refresh()\n",
+            "        self._build_footer()\n"
+            "        self.configure_discover_experience()\n"
+            "        self.refresh()\n",
+        ),
+        (
+            "        self._refresh_game_status()\n        self.refresh_action_states()\n",
+            "        self._refresh_game_status()\n"
+            "        self.refresh_action_states()\n"
+            "        if self._auto_network_enabled:\n"
+            "            self.schedule_initial_gamebanana_load()\n",
+        ),
+        (
+            '        self.discover.gb_region_box.configure(state="disabled" if busy else "readonly")\n'
+            '        self.discover.gb_sort_box.configure(state="disabled" if busy else "readonly")\n'
+            '        self.discover.gb_query_entry.configure(state="disabled" if busy else "normal")\n'
+            '        self._configure_button(self.discover.browse_button, enabled=not busy)\n',
+            '        catalog_loading = bool(getattr(self, "_gb_catalog_loading", False))\n'
+            "        discover_busy = busy or catalog_loading\n"
+            "        self.discover.gb_region_box.configure(\n"
+            '            state="disabled" if discover_busy else "readonly"\n'
+            "        )\n"
+            "        self.discover.gb_sort_box.configure(\n"
+            '            state="disabled" if discover_busy else "readonly"\n'
+            "        )\n"
+            "        self.discover.gb_query_entry.configure(\n"
+            '            state="disabled" if discover_busy else "normal"\n'
+            "        )\n"
+            "        self._configure_button(\n"
+            "            self.discover.browse_button,\n"
+            "            enabled=not discover_busy,\n"
+            '            text="Loading…" if catalog_loading else "Refresh",\n'
+            "        )\n",
+        ),
+        (
+            '        if key == "conflicts":\n'
+            "            self.render_plan()\n"
+            "        self.refresh_action_states()\n",
+            '        if key == "conflicts":\n'
+            "            self.render_plan()\n"
+            '        elif key == "discover" and self._auto_network_enabled:\n'
+            "            self.discover_page_activated()\n"
+            "        self.refresh_action_states()\n",
+        ),
+        (
+            "        app = ManagerGUI(root, store)\n",
+            "        app = ManagerGUI(root, store, auto_network=False)\n",
+        ),
+    ):
+        replace_once(gui, old, new)
+
+    discover = ROOT / "umml_manager/ui_discover.py"
+    for old, new in (
+        (
+            'ttk.Label(bar, text="Game").pack(side="left")',
+            'ttk.Label(bar, text="Region").pack(side="left")',
+        ),
+        ('            text="Browse",\n', '            text="Refresh",\n'),
+        (
+            '            show="tree headings",\n        )\n',
+            '            show="tree headings",\n            selectmode="browse",\n        )\n',
+        ),
+        (
+            '            text="Global and Japan are separate GameBanana games.",\n',
+            '            text="Latest mods load automatically. Global and Japan use separate GameBanana catalogues.",\n',
+        ),
+        (
+            '        self.gb_files = ttk.Combobox(right, state="readonly")\n'
+            '        self.gb_files.grid(row=6, column=0, sticky="ew", pady=(10, 5))\n'
+            '        buttons = ttk.Frame(right, style="Surface.TFrame")\n'
+            '        buttons.grid(row=7, column=0, sticky="ew")\n',
+            '        ttk.Label(\n'
+            '            right,\n'
+            '            text="Download file",\n'
+            '            style="SurfaceMuted.TLabel",\n'
+            '        ).grid(row=6, column=0, sticky="w", pady=(10, 3))\n'
+            '        self.gb_files = ttk.Combobox(right, state="readonly")\n'
+            '        self.gb_files.grid(row=7, column=0, sticky="ew", pady=(0, 5))\n'
+            '        buttons = ttk.Frame(right, style="Surface.TFrame")\n'
+            '        buttons.grid(row=8, column=0, sticky="ew")\n',
+        ),
+        (
+            'ttk.Label(bar, text="Search roots").pack(side="left")',
+            'ttk.Label(bar, text="Folders to scan").pack(side="left")',
+        ),
+    ):
+        replace_once(discover, old, new)
+
+    system = ROOT / "umml_manager/ui_system_actions.py"
+    for old, new in (
+        (
+            "from .ui_theme import SURFACE, TEXT\n",
+            "from .ui_theme import SURFACE, TEXT\n"
+            "from .ui_windows import present_toplevel\n",
+        ),
+        (
+            '                    "gamebanana_region": self.gb_region.get(),\n',
+            '                    "gamebanana_region": self.gb_region.get(),\n'
+            '                    "gamebanana_sort": self.gb_sort.get().strip().casefold() or "updated",\n',
+        ),
+        (
+            '        window = tk.Toplevel(self.root)\n'
+            '        window.title("UMML diagnostics")\n'
+            '        window.geometry("920x620")\n'
+            '        box = tk.Text(\n'
+            '            window,\n'
+            '            wrap="none",\n'
+            '            background=SURFACE,\n'
+            '            foreground=TEXT,\n'
+            '            insertbackground=TEXT,\n'
+            '            font=("TkFixedFont", 10),\n'
+            '        )\n'
+            '        box.pack(fill="both", expand=True, padx=12, pady=12)\n'
+            '        box.insert("1.0", report)\n'
+            '        box.configure(state="disabled")\n',
+            '        window = tk.Toplevel(self.root)\n'
+            '        window.title("Uma Mod Manager diagnostics")\n'
+            '        window.transient(self.root)\n'
+            '        window.geometry("920x620")\n'
+            '        window.minsize(680, 440)\n'
+            '        window.columnconfigure(0, weight=1)\n'
+            '        window.rowconfigure(0, weight=1)\n'
+            '        box = tk.Text(\n'
+            '            window,\n'
+            '            wrap="none",\n'
+            '            background=SURFACE,\n'
+            '            foreground=TEXT,\n'
+            '            insertbackground=TEXT,\n'
+            '            font=("TkFixedFont", 10),\n'
+            '        )\n'
+            '        vertical = tk.Scrollbar(window, orient="vertical", command=box.yview)\n'
+            '        horizontal = tk.Scrollbar(window, orient="horizontal", command=box.xview)\n'
+            '        box.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)\n'
+            '        box.grid(row=0, column=0, sticky="nsew", padx=(12, 0), pady=(12, 0))\n'
+            '        vertical.grid(row=0, column=1, sticky="ns", padx=(0, 12), pady=(12, 0))\n'
+            '        horizontal.grid(row=1, column=0, sticky="ew", padx=(12, 0), pady=(0, 12))\n'
+            '        box.insert("1.0", report)\n'
+            '        box.configure(state="disabled")\n'
+            '        window.bind("<Escape>", lambda _event: window.destroy())\n'
+            '        present_toplevel(window, self.root)\n',
+        ),
+        (
+            '"Another UMML operation is still running."',
+            '"Another Uma Mod Manager operation is still running."',
+        ),
+        ('"UMML is busy"', '"Uma Mod Manager is busy"'),
+    ):
+        replace_once(system, old, new)
+
+
+if __name__ == "__main__":
+    main()
