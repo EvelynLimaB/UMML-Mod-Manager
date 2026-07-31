@@ -11,14 +11,15 @@ authors:
 repository-code: https://github.com/EvelynLimaB/Uma-Mod-Manager
 url: https://github.com/EvelynLimaB/Uma-Mod-Manager
 license: MIT
-version: 0.2.0-alpha18
-date-released: 2026-07-30
+version: 0.2.0-alpha.19
+date-released: 2026-07-31
 abstract: >-
   Cross-platform Umamusume Pretty Derby mod manager and mod-development
   workspace, forked from UMML / UmaMusume Mod Loader. It provides immutable
   package versions, automatic preparation, profiles, compatibility metadata,
-  creator workspaces, transactional deployment, recovery, and read-only data
-  integrations.
+  creator workspaces, transactional deployment, recovery, privacy-scrubbed
+  tester support bundles, repeatable Community Test releases, and read-only
+  data integrations.
 references:
   - type: software
     title: UMML / UmaMusume Mod Loader
