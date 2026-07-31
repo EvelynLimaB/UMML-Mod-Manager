@@ -4,9 +4,12 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
+
+from .extractor_packages import ManagedExtractor, install_extractor_archive
 
 
 @dataclass(frozen=True)
@@ -26,11 +29,11 @@ def build_external_launch(
 
     Werseter's source entry point imports sibling modules but writes relative
     output files. The bootstrap keeps the project directory importable while
-    changing only the process working directory to UMML's isolated inbox.
+    changing only the process working directory to the Manager's isolated inbox.
 
-    Frozen UMML packages must never use ``sys.executable`` as a Python
+    Frozen Manager packages must never use ``sys.executable`` as a Python
     interpreter: in that environment it points back to the Manager executable.
-    A real system Python is selected explicitly instead.
+    A real external Python is selected explicitly instead.
     """
 
     path = Path(extractor).expanduser().resolve()
@@ -80,20 +83,104 @@ def build_external_launch(
     )
 
 
+def configure_external_extractor(app, page) -> None:
+    """Select a program or install a recognized source ZIP as a managed tool."""
+
+    selected = filedialog.askopenfilename(
+        parent=app.root,
+        title="Install or choose a Veteran roster extractor",
+        filetypes=(
+            ("Extractor package or program", "*.zip *.exe *.py"),
+            ("Source ZIP", "*.zip"),
+            ("Standalone executable", "*.exe"),
+            ("Python source", "*.py"),
+            ("All files", "*"),
+        ),
+    )
+    if not selected:
+        return
+    path = Path(selected).expanduser().resolve()
+    if path.suffix.casefold() != ".zip":
+        _save_external_selection(page, path)
+        app.status.set(f"External extractor selected: {path}")
+        return
+
+    proceed = messagebox.askokcancel(
+        "Install external extractor source",
+        "Uma Mod Manager will validate this ZIP, install it in an isolated "
+        "Manager-owned tools directory, and create a private Python environment "
+        "when Python 3.14 is available. Only dependencies declared by the "
+        "package will be installed.\n\n"
+        "The extractor reads the running game's memory and remains a separate "
+        "upstream tool. Continue?",
+        parent=app.root,
+    )
+    if not proceed:
+        return
+
+    tools_root = page.store.root / "tools"
+
+    def completed(result: ManagedExtractor) -> None:
+        settings = page.store.load_settings()
+        settings.update(
+            {
+                "extractor_path": result.entrypoint,
+                "extractor_python": result.python_executable,
+                "extractor_package_root": result.install_root,
+                "extractor_provider": result.provider,
+                "extractor_version": result.version,
+                "extractor_archive_sha256": result.archive_sha256,
+            }
+        )
+        page.store.save_settings(settings)
+        app.status.set(
+            f"Installed {result.provider} {result.version}. "
+            f"{result.runtime_message}"
+        )
+        messagebox.showinfo(
+            "Extractor package installed",
+            f"Installed {result.provider} {result.version}.\n\n"
+            f"{result.runtime_message}\n\n"
+            "Use Run extractor while the game is open on a compatible screen. "
+            "Successful output will be imported automatically.",
+            parent=app.root,
+        )
+
+    def failed(exc: Exception) -> None:
+        app.status.set("External extractor installation failed")
+        messagebox.showerror(
+            "Could not install extractor ZIP",
+            str(exc),
+            parent=app.root,
+        )
+
+    app._run_task(
+        "Validating and installing extractor source…",
+        lambda: install_extractor_archive(path, tools_root),
+        completed,
+        failed=failed,
+    )
+
+
 def launch_configured_extractor(app, page) -> None:
-    configured = str(
-        page.store.load_settings().get("extractor_path") or ""
-    ).strip()
+    settings = page.store.load_settings()
+    configured = str(settings.get("extractor_path") or "").strip()
     if not configured:
-        page.choose_extractor()
-        configured = str(
-            page.store.load_settings().get("extractor_path") or ""
-        ).strip()
+        configure_external_extractor(app, page)
+        settings = page.store.load_settings()
+        configured = str(settings.get("extractor_path") or "").strip()
         if not configured:
             return
 
     try:
-        launch = build_external_launch(configured, page.store.inbox)
+        launch = build_external_launch(
+            configured,
+            page.store.inbox,
+            python_executable=(
+                str(settings.get("extractor_python") or "").strip()
+                or None
+            ),
+        )
     except (OSError, RuntimeError, ValueError) as exc:
         messagebox.showerror(
             "External extractor unavailable",
@@ -105,10 +192,10 @@ def launch_configured_extractor(app, page) -> None:
     if os.name != "nt":
         proceed = messagebox.askokcancel(
             "External process permissions",
-            "UMML launches the selected tool without sudo or root privileges. "
-            "Host ptrace/process-memory policy may still block it. Run the tool "
-            "separately and import its JSON when elevation is required.\n\n"
-            "Continue?",
+            "The Manager launches the selected tool without sudo or root "
+            "privileges. Host ptrace/process-memory policy may still block it. "
+            "Run the tool separately and import its JSON when elevation is "
+            "required.\n\nContinue?",
             parent=app.root,
         )
         if not proceed:
@@ -117,7 +204,7 @@ def launch_configured_extractor(app, page) -> None:
     log_path = page.store.inbox / "veteran-extractor.log"
     try:
         with log_path.open("ab") as log:
-            subprocess.Popen(
+            process = subprocess.Popen(
                 list(launch.command),
                 cwd=launch.cwd,
                 stdin=subprocess.DEVNULL,
@@ -134,8 +221,72 @@ def launch_configured_extractor(app, page) -> None:
         return
 
     app.status.set(
-        f"Launched {launch.provider_hint}. Import latest output after it finishes."
+        f"Running {launch.provider_hint}. "
+        "Output will be imported when it finishes."
     )
+    threading.Thread(
+        target=_wait_for_extractor,
+        args=(app, page, process, launch.provider_hint, log_path),
+        name=f"uma-extractor-wait-{process.pid}",
+        daemon=True,
+    ).start()
+
+
+def _wait_for_extractor(
+    app,
+    page,
+    process,
+    provider_hint: str,
+    log_path: Path,
+) -> None:
+    return_code = process.wait()
+
+    def completed() -> None:
+        if return_code != 0:
+            app.status.set(
+                f"{provider_hint} exited with code {return_code}. "
+                f"See {log_path.name}."
+            )
+            return
+        candidates = [
+            path
+            for path in page.store.inbox.glob("*.json")
+            if path.is_file()
+        ]
+        if not candidates:
+            app.status.set(
+                f"{provider_hint} finished but produced no JSON roster. "
+                f"See {log_path.name}."
+            )
+            return
+        app.status.set(
+            f"{provider_hint} finished; importing its latest output…"
+        )
+        page.import_latest_output()
+
+    try:
+        app.root.after(0, completed)
+    except Exception:
+        return
+
+
+def _save_external_selection(page, path: Path) -> None:
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"External extractor does not exist: {path}"
+        )
+    settings = page.store.load_settings()
+    settings.update(
+        {
+            "extractor_path": str(path),
+            "extractor_python": "",
+            "extractor_package_root": "",
+            "extractor_provider": "user-selected external tool",
+            "extractor_version": "",
+            "extractor_archive_sha256": "",
+        }
+    )
+    page.store.save_settings(settings)
 
 
 def _select_python_command(
@@ -144,7 +295,12 @@ def _select_python_command(
     requires_python_314: bool,
 ) -> tuple[str, ...]:
     if explicit:
-        return (explicit,)
+        resolved = Path(explicit).expanduser().resolve()
+        if not resolved.is_file():
+            raise RuntimeError(
+                f"Configured extractor Python is missing: {resolved}"
+            )
+        return (str(resolved),)
 
     frozen = bool(getattr(sys, "frozen", False))
     if not frozen:
@@ -179,8 +335,8 @@ def _select_python_command(
     requirement = "Python 3.14" if requires_python_314 else "Python 3"
     raise RuntimeError(
         f"{requirement} was not found for the selected source extractor. "
-        "Install the required interpreter or choose the extractor's standalone "
-        "executable release instead."
+        "Select the source ZIP again after installing it, or choose the "
+        "extractor's standalone executable release instead."
     )
 
 
