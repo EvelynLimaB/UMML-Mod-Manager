@@ -1,0 +1,189 @@
+name: Testing feedback
+description: Report a successful, partial, or failed pass against a named testing release
+title: "[Testing] "
+labels:
+  - testing
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Uma Mod Manager. Successful passes are useful too.
+
+        Read the [Testing and feedback guide](../../blob/main/docs/TESTING_AND_FEEDBACK.md) first. Do not attach copyrighted game files, decrypted databases, private roster dumps, credentials, or third-party mods without redistribution permission.
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: Safety and privacy
+      options:
+        - label: I tested on expendable or independently backed-up data where writes or recovery were involved.
+          required: true
+        - label: I inspected any support bundle before attaching it.
+          required: true
+        - label: I did not attach copyrighted game assets, decrypted databases, credentials, or unauthorized mod copies.
+          required: true
+
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Test outcome
+      options:
+        - Passed
+        - Passed with UX/documentation problems
+        - Partially passed
+        - Failed safely without data changes
+        - Failed and may have changed data
+        - Could not start the test
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Exact MANAGER_VERSION
+      description: Run the CLI with --version or copy the version shown by the build.
+      placeholder: 0.2.0~alpha19
+    validations:
+      required: true
+
+  - type: input
+    id: artifact
+    attributes:
+      label: Artifact filename and SHA-256
+      placeholder: umml-manager_0.2.0-alpha19_win64.zip — abc123…
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package format
+      options:
+        - Windows portable
+        - Debian package
+        - AppImage
+        - Source installation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version, desktop environment, native Windows/Proton/Wine/DMM, game region, and unusual filesystem or Steam-library layout.
+      placeholder: |
+        OS: Windows 11 24H2
+        Game layout: Steam Global, native Windows
+        Region: Global
+        Manager install: upgrade from alpha18
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Test area
+      multiple: true
+      options:
+        - Installation / launch / upgrade
+        - Game and metadata detection
+        - Game-running safety block
+        - Local import
+        - GameBanana import
+        - Automatic preparation
+        - Library and profiles
+        - Package configuration / variants
+        - Conflict planning
+        - Apply / switch / restore
+        - Recovery / external-change protection
+        - Inspect & edit / package builder
+        - Themes / focus / responsive layout
+        - Diagnostics / support bundle
+        - Veteran Roster
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: starting_state
+    attributes:
+      label: Starting state
+      description: Clean install or upgrade, active profile, game open/closed, installed mods, and any relevant previous failure.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Exact steps
+      description: Number the actions so another person can repeat the same test.
+      placeholder: |
+        1. Launch Uma Mod Manager.
+        2. Import …
+        3. Wait for automatic preparation …
+        4. Apply profile …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data_change
+    attributes:
+      label: Did any game or Manager data change unexpectedly?
+      options:
+        - No
+        - Unsure
+        - Yes, Manager data
+        - Yes, game data
+        - Yes, both
+        - Not applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: mod_sources
+    attributes:
+      label: Relevant mod sources
+      description: Link the original submission and file ID when possible. Do not upload someone else's mod here.
+
+  - type: textarea
+    id: support_bundle
+    attributes:
+      label: Support bundle and additional evidence
+      description: Create one through Settings → Create support bundle, inspect it, then attach the ZIP. Add screenshots only when they communicate state that text does not.
+      placeholder: Drag the privacy-reviewed support bundle here.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suggested severity
+      options:
+        - Critical — possible trusted-data loss, wrong-target write, or destroyed recovery evidence
+        - High — Apply/restore/safety/upgrade failure
+        - Medium — important workflow broken with data preserved
+        - Low — visual, focus, wording, or minor compatibility issue
+        - Suggestion — workflow works but can be clearer or shorter
+        - Pass report — no defect found
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Workarounds, repeatability, comparison with the previous build, or documentation mismatches.
