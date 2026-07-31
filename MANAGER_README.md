@@ -1,29 +1,37 @@
-# UMML-Manager User Guide
+# Uma Mod Manager user guide
 
-UMML-Manager is the primary desktop mod manager and development workspace for **Umamusume Pretty Derby**. It is a fork and continuation of UMML, with the original editor and loader functionality preserved through a guarded compatibility Studio while native workflows replace it piece by piece.
+**Uma Mod Manager** is the primary desktop mod manager and creator workspace in this repository. It is a fork and continuation of UMML, with the original editor and loader functionality preserved through a guarded compatibility Studio while tested native workflows replace it piece by piece.
 
-> **Preview:** `0.2.0~alpha18`. The application includes bounded imports, immutable versions, provider browsing, automatic preparation and source analysis, profile-scoped configuration, visual package editing, read-only veteran data tools, verified deployment, recovery journals, installation detection, and native Linux/Windows packages. Real-game and destructive-recovery testing are still required before a stable release.
+> **Preview:** `0.2.0~alpha18`. The application includes bounded imports, immutable versions, provider browsing, automatic preparation and source analysis, profile-scoped configuration, visual package editing, read-only veteran-data tools, verified deployment, recovery journals, installation detection, and native Linux/Windows packages. Real-game and destructive-recovery testing are still required before a stable release.
+
+## Naming and compatibility
+
+The public product and repository are named **Uma Mod Manager**. Existing technical identifiers remain unchanged during the migration so upgrades do not abandon user data or install a second application by accident:
+
+```text
+Linux package:     umml-manager
+CLI:               umml-manager-cli
+Python module:     umml_manager
+Desktop/AppStream: io.github.evelynlimab.ummlmanager
+Windows data root: %LOCALAPPDATA%\UMML Manager
+Linux data root:   ~/.local/share/umml-manager
+```
+
+See [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).
 
 ## Install
 
 ### Windows portable
 
-1. Download the `umml-manager-windows-portable` workflow artifact.
-2. Extract the artifact ZIP.
-3. Extract `umml-manager_0.2.0-alpha18_win64.zip`.
-4. Run:
+1. Download the latest `umml-manager-windows-portable` workflow artifact.
+2. Extract the artifact ZIP and then the portable application ZIP.
+3. Run:
 
 ```text
-UMML Manager.cmd
+Uma Mod Manager.cmd
 ```
 
-New Windows state is stored under:
-
-```text
-%LOCALAPPDATA%\UMML Manager
-```
-
-An early-preview data root is preserved when detected.
+A compatibility launcher named `UMML Manager.cmd` may remain during the migration window. No Python installation is required for the packaged build.
 
 ### Debian package
 
@@ -47,13 +55,7 @@ The AppImage also exposes the CLI:
 ./umml-manager_0.2.0-alpha18_x86_64.AppImage --cli browse --region global
 ```
 
-Linux state is stored under:
-
-```text
-~/.local/share/umml-manager
-```
-
-The Debian package and AppImage are built from the same frozen runtime. Native Windows uses a separately built portable runtime. Published artifacts receive external checksums:
+The Debian package, AppImage, and native Windows portable are built and validated independently. Verify published artifacts using the accompanying checksum file:
 
 ```bash
 sha256sum -c SHA256SUMS
@@ -61,7 +63,7 @@ sha256sum -c SHA256SUMS
 
 ## First launch
 
-UMML-Manager checks saved paths, then searches supported installation layouts. The Settings page shows:
+Uma Mod Manager checks saved paths, then searches supported installation layouts. Settings shows:
 
 - game directory;
 - `Persistent/dat` target;
@@ -84,7 +86,7 @@ Library owns imported packages, versions, profiles, configuration, load order, e
 - **Enable / Disable** changes only the active profile.
 - **Move up / Move down** changes deterministic conflict priority.
 - **Configure profile** edits package-declared choices.
-- **Inspect & edit** creates an editable workspace without touching the imported source.
+- **Inspect & edit** creates an editable workspace without touching imported source.
 - **New package** starts a creator workspace.
 - **Apply profile** remains explicit and is blocked while the game is running or the plan has blockers.
 
@@ -122,7 +124,7 @@ Later enabled entries win ordinary file conflicts unless package policy blocks t
 
 Studio currently contains:
 
-- the original UMML editor and loader tools behind process guards;
+- original UMML editor and loader tools behind process guards;
 - native package and creator entry points;
 - the read-only Veteran Roster workspace.
 
@@ -146,25 +148,18 @@ Upstream extractor code and binaries are not bundled when their repository does 
 
 ### Settings
 
-Settings manages:
-
-- installation selection and automatic detection;
-- Manager data and workspace locations;
-- Light, Dark, and System appearance;
-- diagnostics;
-- metadata preparation identity;
-- external tool paths.
+Settings manages installation selection, automatic detection, Manager data and workspace locations, Light/Dark/System appearance, diagnostics, metadata identity, and external-tool paths.
 
 Manager-owned windows should open centered, raised, focused, and briefly topmost so new dialogs do not hide behind the main window like paperwork attempting escape.
 
 ## Player workflow
 
-1. Launch UMML-Manager.
+1. Launch Uma Mod Manager.
 2. Confirm the detected installation in Settings.
 3. Import a mod from Discover or a local package.
 4. Wait for automatic preparation and source analysis to report **Ready**.
 5. Enable the mod in a profile.
-6. Configure package options, when present.
+6. Configure package options when present.
 7. Set load order.
 8. Review Conflicts.
 9. Close the game.
@@ -188,21 +183,13 @@ See [docs/MOD_CREATOR_GUIDE.md](docs/MOD_CREATOR_GUIDE.md) and [docs/MANAGER_MOD
 
 ## Automatic preparation
 
-Preparation is an internal background stage that converts creator-facing inputs into a verified deployable view.
+Preparation is an internal background stage that converts creator-facing inputs into a verified deployable view. The user does not manage it manually.
 
-The user does not manage it manually. UMML-Manager automatically queues:
-
-- newly imported compatible packages;
-- packages prepared with older metadata;
-- stale metadata fingerprints;
-- older preparation layouts requiring migration;
-- source analysis that has not yet completed.
-
-Preparation never writes game files. A failure preserves the imported source and any prior verified prepared cache, continues the remaining queue, and reports an actionable package-specific issue.
+Uma Mod Manager automatically queues newly imported compatible packages, stale metadata, older preparation layouts requiring migration, and source analysis that has not completed. Preparation never writes game files. Failure preserves the imported source and prior verified cache, continues the remaining queue, and reports a package-specific issue.
 
 ## Safety and recovery
 
-UMML-Manager uses:
+Uma Mod Manager uses:
 
 - target-bound vanilla baselines;
 - immutable imported versions;
@@ -218,26 +205,6 @@ UMML-Manager uses:
 
 Corrupt preferences are quarantined and reset with their original bytes preserved. Corrupt deployment, baseline, profile, library, or recovery state blocks mutation rather than silently starting over.
 
-## Historical source-install cleanup
-
-Early previews mixed application code with Manager state. Do not use an old alpha1 `uninstall-manager.sh`, because it could delete the mixed directory.
-
-Remove only stale launchers while preserving the library and recovery state:
-
-```bash
-rm -f ~/.local/bin/umml-manager ~/.local/bin/umml-manager-cli
-rm -f ~/.local/share/applications/io.github.evelynlimab.ummlmanager.desktop
-update-desktop-database ~/.local/share/applications 2>/dev/null || true
-hash -r
-```
-
-Current source installs use:
-
-```text
-application: ~/.local/share/umml-manager-app
-state:       ~/.local/share/umml-manager
-```
-
 ## Command-line interface
 
 The CLI and GUI use the same store, resolver, safety checks, and deployment engine.
@@ -250,11 +217,12 @@ umml-manager-cli network-smoke
 umml-manager-cli self-test
 ```
 
-Do not use the CLI as a secret back door around GUI blockers. It is deliberately equally paranoid.
+The legacy technical command name is intentional during the compatibility window. The CLI is not a back door around GUI blockers; it is deliberately equally paranoid.
 
 ## Further documentation
 
 - [Project vision](docs/PROJECT_VISION.md)
+- [Branding and compatibility](docs/BRANDING_AND_COMPATIBILITY.md)
 - [Mod creator guide](docs/MOD_CREATOR_GUIDE.md)
 - [Architecture](docs/MANAGER_ARCHITECTURE.md)
 - [Manifest reference](docs/MANAGER_MOD_MANIFEST.md)
@@ -262,3 +230,4 @@ Do not use the CLI as a secret back door around GUI blockers. It is deliberately
 - [Packaging](docs/PACKAGING.md)
 - [Security](SECURITY.md)
 - [Release checklist](docs/MANAGER_RELEASE_CHECKLIST.md)
+- [Third-party notices](NOTICE.md)
