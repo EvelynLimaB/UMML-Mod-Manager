@@ -5,7 +5,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE="${1:-$ROOT/build/manager-frozen/umml-manager}"
 OUT_DIR="${2:-$ROOT/dist}"
 VERSION="$(tr -d '[:space:]' < "$ROOT/MANAGER_VERSION")"
-DISPLAY_VERSION="${VERSION//\~/-}"
+DISPLAY_VERSION="${VERSION/~alpha/-alpha.}"
 ARCH="x86_64"
 DESKTOP_ID="io.github.evelynlimab.ummlmanager"
 BUILD_ROOT="$ROOT/build/appimage"
@@ -70,6 +70,9 @@ install -m 0644 "$ROOT/NOTICE.md" "$APPDIR/usr/share/doc/umml-manager/NOTICE.md"
 install -m 0644 "$ROOT/README.md" "$APPDIR/usr/share/doc/umml-manager/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$APPDIR/usr/share/doc/umml-manager/MANAGER_README.md"
 install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$APPDIR/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md"
+install -m 0644 "$ROOT/docs/TESTING_AND_FEEDBACK.md" "$APPDIR/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md"
+install -m 0644 "$ROOT/docs/RELEASE_PROCESS.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_PROCESS.md"
+install -m 0644 "$ROOT/docs/releases/0.2.0-alpha.19.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_NOTES.md"
 install -m 0644 "$ROOT/MANAGER_CHANGELOG.md" "$APPDIR/usr/share/doc/umml-manager/changelog"
 
 cat > "$APPDIR/AppRun" <<'EOF_APPRUN'
@@ -151,6 +154,9 @@ diff -qr \
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/applications/$DESKTOP_ID.desktop" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/NOTICE.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_PROCESS.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_NOTES.md" ]]
 rm -rf "$VERIFY_ROOT"
 trap - EXIT
 
