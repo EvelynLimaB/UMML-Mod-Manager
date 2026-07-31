@@ -1,141 +1,226 @@
-# UMML Manager release checklist
+# Uma Mod Manager release checklist
 
-This is the stable Manager release checklist. Merging the alpha preview into `main` does not claim these larger real-game, destructive-recovery, platform, and corpus gates are complete. PR #2 follows the smaller, explicit [main-promotion gate](MANAGER_MAIN_PROMOTION.md); stable DEB/AppImage release advertising still requires every applicable item below to pass or be explicitly excluded.
+This checklist separates three claims that software projects routinely blur until users are debugging the difference:
 
-## Automated verification
+1. **Build candidate:** CI produced internally consistent packages.
+2. **Community Test:** exact prerelease artifacts are available for structured feedback.
+3. **Stable release:** the applicable real-machine, real-mod, recovery, upgrade, and service gates passed.
 
-- [x] Compile every manager Python file.
-- [x] Run the structural AST and architecture audit.
-- [x] Audit every visible Tk button callback against ManagerGUI and its action mixins.
-- [x] Install the complete pinned runtime dependency set before manager regressions.
-- [x] Verify the default provider registry uses the preview-aware GameBanana client.
-- [x] Exercise preview URL normalization, host/redirect restrictions, MIME handling, byte limits, pixel limits, malformed images, and provider wiring.
-- [x] Exercise selection, busy-task, paging, blocker, game-running, unknown-status, Studio-host, and Settings target-edit button states headlessly.
-- [x] Verify changed GameBanana region/sort/query starts from page 1 and stale availability is restored after tasks.
-- [x] Verify typed target path or region changes revoke stale installation verification while detected targets retain it.
-- [x] Verify recovery checks the game before rollback and preserves journals when process inspection fails or the game starts between checks.
-- [x] Verify active ownership and live targets still match captured snapshots immediately before mutation.
-- [x] Refuse first-time ownership of an already matching mod file when no vanilla baseline exists.
-- [x] Migrate a complete legacy `dat.backup` set explicitly, preserve the old backups, and reject incomplete migration without partial baselines.
-- [x] Preserve prepared state across identical immutable re-imports and preserve profile bindings across enable/reorder edits.
-- [x] Reject implicitly saved metadata without a recorded fingerprint and distinguish auto-detected saves from later manual edits.
-- [x] Audit the source installer for the complete Manager, auto-detection, and legacy Studio runtime payload.
-- [x] Route Manager source, DEB, and AppImage installation retries and diagnostics through fresh robust Steam/Proton discovery.
-- [x] Exercise native Mint/Debian Steam-root detection through source, frozen, extracted DEB, installed DEB, and AppImage runtimes.
-- [x] Build one frozen runtime and compare it against complete DEB/AppImage runtime trees.
-- [x] Verify bundled certifi data and Pillow's compiled imaging extension in both packages.
-- [x] Exercise disposable import, conflict, apply, switch, restore, external-change, legacy-migration, and interrupted-recovery paths through the packaged CLI.
-- [x] Render every native Manager page against disposable state from source, the frozen runtime, the DEB payload, the installed DEB, and the AppImage under Xvfb.
-- [x] Exercise historical source-install migration plus install/uninstall state preservation in an isolated XDG home.
-- [x] Install and remove the real Debian package in CI while verifying Manager user data survives.
-- [x] Configure the Manager workflow to run for Manager changes pushed to `main`.
+A merge to `main`, a green workflow, or a Community Test prerelease does not by itself claim stability.
 
-## Real mod corpus
+## Exact candidate identity
 
-- [ ] Import and prepare at least one ZIP package and one extracted-folder mod.
-- [x] Confirm the UM:PD Dark Mode self-installing EXE is rejected by the generic asset importer and is not executed.
-- [ ] Import and prepare a standard hash-addressed ZIP such as Master Chocolate Cake or Doro Hat.
-- [ ] Import and automatically prepare a deeply nested loose legacy GameBanana package such as Cafe Cat Keyhole Bra.
-- [ ] Apply two non-conflicting mods and verify exact vanilla restoration.
-- [ ] Apply two mods replacing the same hash and verify the load-order winner.
-- [ ] Switch between at least three profiles without stale targets.
-- [ ] Update one remotely sourced mod and verify version coexistence and rollback.
-- [ ] Confirm an enabled unprepared mod blocks apply with a clear explanation.
-- [ ] Change an active file outside UMML Manager and confirm normal deployment refuses to overwrite it.
-- [ ] Corrupt a copy of `active.json` and confirm deployment fails before changing a game file.
-- [ ] Exercise explicit force recovery and record the expected ownership result.
+Record before testing:
 
-## Platforms, HTTPS, previews, controls, and game updates
+- [ ] commit SHA;
+- [ ] `MANAGER_VERSION`;
+- [ ] portable version and Git tag;
+- [ ] Windows ZIP filename and SHA-256;
+- [ ] Debian filename and SHA-256;
+- [ ] AppImage filename and SHA-256;
+- [ ] workflow run URLs;
+- [ ] versioned release-notes path;
+- [ ] known exclusions.
 
-- [x] Add unit coverage for Fedora/Bazzite CA-bundle fallback and explicit certificate environment variables.
-- [x] Bundle `certifi/cacert.pem` and verify its presence in both package formats.
-- [ ] Browse and download a current GameBanana mod from the packaged AppImage on Bazzite without certificate environment variables.
-- [x] Confirm diagnostics reports the Bazzite system trust store or bundled certifi fallback.
-- [ ] Verify selected-mod previews on Bazzite/KDE, including JPEG/PNG/WebP rendering.
-- [ ] Rapidly switch selections and confirm a slow old preview cannot replace the current mod.
-- [ ] Confirm missing or malformed previews remain nonfatal and do not disable Install/Open page.
-- [ ] Verify Library controls with no selection, enabled/disabled mods, first/middle/last load order, prepared/stale/unprepared state, blockers, and game-running state.
-- [ ] Verify Discover controls across first/last page, a changed query, incomplete file metadata, confirmed no-file submissions, local scan with and without a selected candidate, and a background import.
-- [ ] Verify all legacy Studio cards show **Close game first** while Umamusume runs and reopen after it closes.
-- [ ] Verify direct Settings entry edits clear verified target identity after Save, while Auto-detect preserves its new identity.
-- [ ] Verify all shared-state operation buttons disable during a background task and restore afterward.
-- [ ] Force game process detection to fail and confirm the badge reports unknown status while Apply and Studio writes remain blocked.
-- [ ] Repeat GameBanana browse/download from the Debian package on a Debian/Ubuntu-family system.
-- [ ] Test game-running detection on native Windows.
-- [ ] Test game-running detection under Proton.
-- [ ] Test after the game replaces `meta` and `dat` during an update.
-- [ ] Verify prepared caches are invalidated or rebuilt when metadata changes.
-- [ ] Verify a game update cannot silently replace the stored vanilla baseline.
-- [ ] Test a game installation and Proton prefix on different Steam libraries.
-- [ ] Test a machine with both Global and Japan installed and add an explicit installation chooser if automatic preference is ambiguous.
+For the current prepared campaign:
 
-## Providers and archives
+```text
+MANAGER_VERSION: 0.2.0~alpha19
+Portable:        0.2.0-alpha.19
+Tag:             v0.2.0-alpha.19
+```
 
-- [ ] Verify current GameBanana API response fields, file ordering, redirects, filenames, and preview hosts against multiple live submissions.
-- [ ] Confirm switching pages/queries cannot install the previously selected submission.
-- [x] Retain explicit file pinning, source metadata, archive SHA-256, size, and fetch time.
-- [ ] Add safely inspected 7z/RAR support before advertising broad one-click compatibility for those formats.
-- [x] Add extracted-file count and uncompressed-size limits before importing untrusted large archives.
-- [ ] Confirm failed downloads and extraction leave no importable partial record on a real filesystem.
-- [ ] Verify third-party license and attribution metadata remain visible.
-- [ ] Add native Hachimi-runtime deployment or clearly keep pure Hachimi packages non-deployable and unprepared.
+## Automated candidate gates
 
-## Profiles and compatibility
+All are required for a build candidate.
 
-- [x] Enforce declared Global/Japan/Taiwan region compatibility during profile planning.
-- [x] Parse and enforce declared dependency and incompatibility IDs during planning.
-- [ ] Add dependency discovery/install UX before advertising automatic dependency handling.
-- [ ] Add profile duplicate, rename, and delete actions.
-- [ ] Add a visible update action and version-switch workflow in the GUI.
-- [ ] Verify older immutable versions remain discoverable and selectable after an update.
+### Source and architecture
 
-## Separate Debian package
+- [x] Compile every Manager Python file and packaged entry point.
+- [x] Run the structural, layering, dangerous-call, duplicate-definition, and visible-button audit.
+- [x] Run the public-branding and compatibility-identifier audit.
+- [x] Run the exact release metadata audit.
+- [x] Install pinned runtime and build dependencies and run `pip check`.
+- [x] Run all `test_manager*.py` regressions on Linux and Windows.
+- [x] Render every native page in Light and Dark themes from source and packaged runtimes.
+- [x] Reject mutable or malformed critical state instead of silently resetting it.
+- [x] Preserve settings recovery separately from critical deployment state.
 
-- [x] CI builds `umml-manager_<MANAGER_VERSION>_amd64.deb` successfully.
-- [x] Package metadata reports `Package: umml-manager` and the expected version.
-- [ ] Install beside `umml-linux` and confirm there are no owned-file conflicts.
-- [ ] Launch GUI from the desktop menu without a terminal.
-- [ ] Confirm the Debian desktop entry starts `/usr/bin/umml-manager`, not a user PATH shadow.
-- [ ] Test migration from the historical alpha1 `~/.local/bin` and per-user desktop entry.
-- [ ] Run `umml-manager-cli --version` and an isolated-root `list` command from the installed package.
-- [ ] Confirm the package does not need system `pip` or legacy UMML.
-- [ ] Remove `umml-manager` and confirm legacy UMML remains installed and usable.
-- [ ] Confirm package removal does not delete user library, profiles, state, or backups.
+### Import, preparation, profiles, and providers
+
+- [x] Bound archive paths, links, entry counts, name lengths, and uncompressed size.
+- [x] Keep imported versions immutable and serialize concurrent registry/profile updates.
+- [x] Prepare compatible imports automatically without a visible Prepare/Re-prepare workflow.
+- [x] Preserve imported source and the prior verified cache after preparation failure.
+- [x] Support one source bundle owning multiple final targets.
+- [x] Enforce profile-scoped options, dependencies, incompatibilities, region, and relative load order.
+- [x] Keep providers download/import-only and retain source URL/file/hash/size/time provenance.
+- [x] Reject unsupported self-installing executable patches through the generic importer.
+- [x] Validate Veteran roster shape and scrub known account fields before snapshot storage.
+
+### Deployment and recovery
+
+- [x] Resolve every blocker before mutation begins.
+- [x] Require verified, target-bound vanilla baselines.
+- [x] Block writes while the game runs or process inspection is uncertain.
+- [x] Use durable journals, captured snapshots, hash verification, rollback, and recovery.
+- [x] Re-check live ownership and external changes immediately before mutation.
+- [x] Preserve recovery evidence when recovery cannot proceed safely.
+- [x] Exercise disposable import, Apply, switch, restore, external-change, migration, and interrupted-recovery paths through the packaged CLI.
+
+### Tester support and privacy
+
+- [x] Expose **Settings → Create support bundle**.
+- [x] Include version/platform, configuration-presence, bounded library/profile summaries, and read-only diagnostics.
+- [x] Exclude game assets, mod payloads, downloaded archives, baselines, transaction contents, roster snapshots, and raw settings.
+- [x] Redact known paths, viewer/account names and IDs, credentials, tokens, cookies, and authorization fields.
+- [x] Reject directory and symlink support-bundle destinations.
+- [x] Bound long free-form text.
+- [x] Ship tester guidance and release notes in every package format.
+
+### Finished packages
+
+- [x] Build one frozen runtime shared by Debian and AppImage.
+- [x] Build the native Windows portable runtime on Windows.
+- [x] Verify exact filenames, package version, architecture, and tag conversion.
+- [x] Run version, CLI self-test, autodetection fixture, and GUI theme smoke against finished packages.
+- [x] Compare frozen runtime trees across Debian and AppImage.
+- [x] Verify certifi CA data and Pillow native imaging support.
 - [x] Validate desktop and AppStream metadata.
+- [x] Install and remove the Debian package in CI while preserving user data.
+- [x] Generate and verify external SHA-256 files.
+- [x] Refuse silently replacing artifacts under an existing Community Test tag.
 
-## Separate AppImage
+## Community Test publication gates
 
-- [x] CI builds the exact expected portable filename.
-- [x] Version and CLI smoke tests run without FUSE through extraction mode.
-- [x] Complete frozen runtime matches the shared source bundle and Debian payload.
-- [x] Bundled certifi CA data and Pillow imaging support are present.
-- [ ] Launch the alpha15 graphical interface on Bazzite/KDE.
-- [ ] Launch on a second supported distribution.
-- [ ] Verify Library, Discover, Studio, Conflicts, Settings, and diagnostics.
-- [ ] Confirm AppImage and DEB see the same XDG manager data.
+Required before publishing a GitHub prerelease:
 
-## Source installer
+- [ ] Exact-head Linux and Windows workflows passed.
+- [ ] `python scripts/audit_release.py --tag <tag>` passed.
+- [ ] The manual testing-release workflow completed once with publication disabled.
+- [ ] Downloaded workflow artifacts independently match their checksums.
+- [ ] Windows portable launched on a real Windows machine without development Python.
+- [ ] At least one exact Linux package launched on a real desktop.
+- [ ] Settings, diagnostics, and support-bundle creation worked on those machines.
+- [ ] Release notes list current limitations and do not imply stable support.
+- [ ] The structured Testing feedback form is available.
+- [ ] Previous package artifacts remain available for rollback.
 
-- [ ] Install without legacy UMML using a supported Python/Tk environment.
-- [ ] Install with legacy UMML and confirm its isolated Python is reused.
-- [ ] Confirm source code lives in `~/.local/share/umml-manager-app` while user data remains in `~/.local/share/umml-manager`.
-- [ ] Confirm source-specific desktop ID and launchers do not shadow the Debian package.
-- [ ] Run the current source uninstaller and confirm it preserves library, profiles, settings, baseline, transactions, downloads, and workspaces.
-- [ ] Migrate an historical mixed alpha1 source install without deleting user data.
+Publication must use `--prerelease`. Do not mark a Community Test as the latest stable release.
 
-## Release behavior
+## Community Test matrix
 
-- [ ] Keep remote installation opt-in.
-- [ ] Preserve previous versions for rollback.
-- [ ] Never execute code from downloaded mods.
-- [ ] Keep runtime/native plugins outside the desktop manager.
-- [ ] Attach sanitized logs and state manifests for release-candidate smoke tests.
-- [x] Generate and verify external SHA-256 checksums for both package artifacts.
-- [x] Update `MANAGER_VERSION`, changelog, READMEs, AppStream metadata, and artifact names together for alpha15.
+Use [TESTING_AND_FEEDBACK.md](TESTING_AND_FEEDBACK.md) for detailed instructions. Record passes as well as failures.
 
-## Runtime boundary
+### Installation and upgrade
 
-- [ ] Do not bundle an injector or Unity hook in either manager package.
-- [ ] Unknown game builds expose zero hot-reload features.
-- [ ] Queue profile changes for restart rather than writing game files in-process.
-- [ ] Keep any future native adapter independently disableable and version-gated.
+- [ ] Windows portable launches without Python and folder-opening actions work.
+- [ ] Debian upgrades from the previous alpha without losing library, profiles, settings, baselines, journals, or workspaces.
+- [ ] AppImage and Debian see the same XDG Manager data.
+- [ ] Application rollback preserves all external Manager data.
+- [ ] System, Light, and Dark themes persist after restart.
+- [ ] Manager-owned windows open centered, raised, and focused.
+
+### Real package corpus
+
+- [ ] Import and prepare a normal hash-addressed ZIP.
+- [ ] Import and prepare an extracted-folder package.
+- [ ] Import a deeply nested loose legacy package.
+- [ ] Import a package where one source bundle maps to several final targets.
+- [ ] Confirm an individual preparation failure does not stop unrelated packages.
+- [ ] Confirm imported source bytes remain unchanged.
+- [ ] Confirm unsupported Hachimi-only or executable-patch layouts fail clearly and safely.
+
+### Profiles and planning
+
+- [ ] Create, enable, disable, and reorder a profile.
+- [ ] Select different authored variants from one package in two profiles.
+- [ ] Verify exact conflict winner follows load order.
+- [ ] Verify dependency, incompatibility, region, stale metadata, and invalid-option blockers.
+- [ ] Switch among at least three profiles without stale target ownership.
+
+### Apply, switch, restore, and recovery
+
+Use expendable or independently backed-up game data.
+
+- [ ] Apply two non-conflicting mods.
+- [ ] Apply overlapping mods and verify the planned winner.
+- [ ] Switch profiles and verify removed targets restore correctly.
+- [ ] Restore exact vanilla bytes from a trusted baseline.
+- [ ] Change an active file externally and verify normal deployment refuses it.
+- [ ] Interrupt a disposable deployment and verify recovery evidence remains complete.
+- [ ] Exercise explicit force recovery only with a documented expected ownership result.
+
+### Creator workflow
+
+- [ ] Create a new package workspace.
+- [ ] Open **Inspect & edit** and verify focus.
+- [ ] Review source bundles, final targets, likely types/parts, characters, and dresses.
+- [ ] Correct identity and compatibility metadata without JSON.
+- [ ] Generate optional components or mutually exclusive variants.
+- [ ] Import the workspace as a new immutable version.
+- [ ] Confirm older versions remain intact and selectable.
+- [ ] Test Apply, switch, and vanilla restoration before publishing the mod.
+
+### Services and read-only data
+
+- [ ] Browse and download current GameBanana files from Windows, Debian, and AppImage packages.
+- [ ] Verify current preview hosts, MIME handling, redirects, and stale-selection protection.
+- [ ] Import real classic `data.json` and Werseter `trained_chara_data.json` Veteran samples.
+- [ ] Reject unrelated support-card, trophy, friend, card, and replay JSON.
+- [ ] Inspect a support bundle manually for usefulness and privacy.
+
+## Stable-release gates
+
+All applicable items below must pass or be explicitly excluded with justification.
+
+### Platform coverage
+
+- [ ] Native Windows launch, detection, game-running guard, Apply/restore, upgrade, and rollback.
+- [ ] Bazzite/KDE AppImage launch, GameBanana, previews, folders, themes, Apply/restore, and rollback.
+- [ ] Mint/Debian DEB install, upgrade, removal preservation, desktop menu, Apply/restore, and rollback.
+- [ ] A second supported Linux distribution.
+- [ ] Multiple Steam libraries and separate game/Proton-prefix libraries.
+- [ ] Machines with both Global and Japan installations.
+- [ ] Native/DMM/Wine layouts claimed by documentation.
+
+### Game updates and long-lived state
+
+- [ ] Test after a game update replaces metadata and assets.
+- [ ] Verify preparation invalidates or rebuilds against changed metadata.
+- [ ] Verify a game update cannot silently replace a trusted baseline.
+- [ ] Verify old active state cannot be applied to a different installation.
+- [ ] Verify corrupt library, profile, baseline, active, and journal documents fail closed with actionable diagnostics.
+
+### Provider and format claims
+
+- [ ] Test multiple current GameBanana submissions and file-order edge cases.
+- [ ] Verify failed download/extraction leaves no importable partial record.
+- [ ] Add and test 7z/RAR before advertising those formats.
+- [ ] Add native Hachimi deployment or clearly keep Hachimi-only packages non-deployable.
+- [ ] Verify third-party credits and license status remain visible.
+
+### Distribution and security
+
+- [ ] Signed release artifacts or a documented signing strategy.
+- [ ] Signed or authenticated update metadata before automatic updates.
+- [ ] Private vulnerability-reporting path verified.
+- [ ] Support-bundle privacy reviewed against a broader real corpus.
+- [ ] No injector, arbitrary executable plugin, or Unity hook bundled in ordinary packages.
+- [ ] Unknown game builds expose zero unsupported runtime features.
+
+## Campaign closeout
+
+Before promoting or replacing a Community Test, publish a summary containing:
+
+- exact commit, artifacts, and checksums;
+- automated workflow evidence;
+- successful platform/package passes;
+- tested mod layouts;
+- Apply/switch/restore and rollback evidence;
+- open critical/high failures;
+- medium/low UX and documentation findings;
+- deferred and untested gates;
+- the next build or promotion decision.
+
+The absence of reports is not a pass. It is an empty dataset wearing confidence as a hat.
