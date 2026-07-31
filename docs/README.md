@@ -9,6 +9,7 @@ Start with the document matching the job at hand. Reading every architecture not
 | Document | Audience | Purpose |
 | --- | --- | --- |
 | [`../README.md`](../README.md) | Everyone | Project identity, features, downloads, workflows, layout, and status |
+| [`DOWNLOADS.md`](DOWNLOADS.md) | Everyone | Live total and per-release asset download counters and their limitations |
 | [`releases/0.2.0-alpha.19.md`](releases/0.2.0-alpha.19.md) | Testers | Exact alpha19 Community Test changes, priorities, known limitations, safety, and feedback |
 | [`TESTING_AND_FEEDBACK.md`](TESTING_AND_FEEDBACK.md) | Testers | Exact-build evidence, player/creator test matrix, support bundles, severity, privacy, and reporting |
 | [`../MANAGER_README.md`](../MANAGER_README.md) | Players | Installation, interface, automatic preparation, profiles, deployment, recovery, support bundles, and CLI |
@@ -26,7 +27,8 @@ Start with the document matching the job at hand. Reading every architecture not
 | [`MANAGER_THEMES.md`](MANAGER_THEMES.md) | Persistent Light/System/Dark behavior and package smoke tests |
 | [`AUTODETECTION.md`](AUTODETECTION.md) | Steam, Proton, Wine-prefix, and Persistent-data discovery |
 | [`LINUX.md`](LINUX.md) | Linux compatibility and source-install notes |
-| [`UMAEXTRACTOR_INTEGRATION.md`](UMAEXTRACTOR_INTEGRATION.md) | Veteran-data provider lineage, formats, privacy, licensing, and process boundaries |
+| [`GAMEBANANA_PROVIDER.md`](GAMEBANANA_PROVIDER.md) | API fallback, outage cache, download integrity, provider boundaries, and known limitations |
+| [`UMAEXTRACTOR_INTEGRATION.md`](UMAEXTRACTOR_INTEGRATION.md) | Veteran-data provider lineage, managed source-ZIP installation, formats, privacy, licensing, and process boundaries |
 
 ## Architecture and development
 
