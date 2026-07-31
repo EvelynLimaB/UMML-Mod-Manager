@@ -22,9 +22,11 @@ on:
       - 'docs/**'
       - 'scripts/audit_manager.py'
       - 'scripts/audit_branding.py'
+      - 'scripts/audit_release.py'
       - 'scripts/test_manager_theme_runtime.py'
       - 'packaging/pyinstaller/umml-manager.spec'
       - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/manager-testing-release.yml'
       - '.github/workflows/manager-windows-checks.yml'
 
 permissions:
@@ -55,9 +57,10 @@ jobs:
       - name: Compile and audit Manager source
         shell: pwsh
         run: |
-          python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/audit_branding.py scripts/test_manager_theme_runtime.py
+          python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/audit_branding.py scripts/audit_release.py scripts/test_manager_theme_runtime.py
           python scripts/audit_manager.py
           python scripts/audit_branding.py
+          python scripts/audit_release.py
       - name: Run Manager regressions on Windows
         shell: pwsh
         run: |
@@ -80,6 +83,9 @@ jobs:
           & $exe cli self-test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test_manager_theme_runtime.py -- $exe gui
+          if (!(Test-Path 'build/windows-dist/umml-manager/docs/TESTING_AND_FEEDBACK.md')) { throw 'Testing guide missing from frozen runtime' }
+          if (!(Test-Path 'build/windows-dist/umml-manager/docs/RELEASE_PROCESS.md')) { throw 'Release process missing from frozen runtime' }
+          if (!(Test-Path 'build/windows-dist/umml-manager/docs/releases/0.2.0-alpha.19.md')) { throw 'Release notes missing from frozen runtime' }
       - name: Assemble portable ZIP and checksums
         shell: pwsh
         run: |
@@ -88,7 +94,7 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($versionRaw)) {
             throw "MANAGER_VERSION was empty: $versionFile"
           }
-          $version = $versionRaw -replace '~', '-'
+          $version = $versionRaw -replace '~alpha', '-alpha.'
           $stageRoot = 'dist/windows'
           $stage = Join-Path $stageRoot "Uma-Mod-Manager-$version-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
@@ -101,8 +107,10 @@ jobs:
           # breaking while the public product name changes.
           Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
           Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
+          Copy-Item 'docs/TESTING_AND_FEEDBACK.md' (Join-Path $stage 'TESTING_AND_FEEDBACK.md')
+          Copy-Item 'docs/releases/0.2.0-alpha.19.md' (Join-Path $stage 'RELEASE_NOTES.md')
           Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
-          Uma Mod Manager Windows portable preview
+          Uma Mod Manager Windows portable Community Test
 
           Start the graphical application with "Uma Mod Manager.cmd".
           Start CLI mode with "Uma Mod Manager CLI.cmd".
@@ -110,10 +118,13 @@ jobs:
           The older UMML Manager launcher names remain as compatibility aliases.
           All launchers open the same application and use the same external data root.
 
+          Create a privacy-scrubbed report through Settings → Create support bundle.
+          Read RELEASE_NOTES.md and TESTING_AND_FEEDBACK.md before filing feedback.
+
           Deleting the portable application folder does not remove the mod library,
           profiles, vanilla baselines, transaction journals, or creator workspaces.
 
-          Close Umamusume before Apply, restore, or legacy Studio writes.
+          Close Umamusume before Apply, restore, recovery, baseline, or legacy Studio writes.
           '@
           $zip = "dist/umml-manager_${version}_win64.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $zip -CompressionLevel Optimal
