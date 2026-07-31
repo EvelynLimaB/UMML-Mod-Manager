@@ -27,6 +27,10 @@ datas = [
     (str(ROOT / "docs" / "TESTING_AND_FEEDBACK.md"), "docs"),
     (str(ROOT / "docs" / "RELEASE_PROCESS.md"), "docs"),
     (
+        str(ROOT / "docs" / "releases" / "0.2.0-alpha.19.md"),
+        "docs/releases",
+    ),
+    (
         str(ROOT / "docs" / "releases" / "0.2.0-alpha.20.md"),
         "docs/releases",
     ),
