@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=UMML Manager
-GenericName=UM:PD Mod Manager
-Comment=Manage mod libraries, profiles, conflicts, editing tools, and deployment
+Name=UMML-Manager
+GenericName=Umamusume Mod Manager and Creator Toolkit
+Comment=Install, configure, inspect, create, and safely deploy Umamusume mods
 Exec=umml-manager
 Icon=io.github.evelynlimab.ummlmanager
 Terminal=false
-Categories=Game;Utility;
-Keywords=UMML;Mod;Manager;Profiles;GameBanana;Steam;Proton;
+Categories=Game;Utility;Development;
+Keywords=UMML;Umamusume;Mod;Manager;Creator;Profiles;GameBanana;Steam;Proton;Unity;
 StartupNotify=true
