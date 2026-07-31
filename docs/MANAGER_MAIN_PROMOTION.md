@@ -1,6 +1,6 @@
 # Uma Mod Manager main-promotion policy
 
-This document defines the evidence required before a Manager development branch can become `main`. It does not declare a stable release merely because CI is green, a Community Test exists, or a desktop opened once without visible smoke.
+This document defines the evidence required before a Manager development branch can become `main`. It does not declare a stable Manager release merely because CI is green, a Community Test exists, or a desktop opened once without visible smoke.
 
 Use [RELEASE_PROCESS.md](RELEASE_PROCESS.md) for Community Test publication and [MANAGER_RELEASE_CHECKLIST.md](MANAGER_RELEASE_CHECKLIST.md) for stable-release gates.
 
