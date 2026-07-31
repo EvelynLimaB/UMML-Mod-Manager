@@ -31,7 +31,7 @@ class DiscoverPage(ttk.Frame):
         page.rowconfigure(1, weight=1)
         bar = ttk.Frame(page)
         bar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-        ttk.Label(bar, text="Game").pack(side="left")
+        ttk.Label(bar, text="Region").pack(side="left")
         self.gb_region_box = ttk.Combobox(
             bar,
             textvariable=self.app.gb_region,
@@ -54,7 +54,7 @@ class DiscoverPage(ttk.Frame):
         self.gb_query_entry.bind("<Return>", lambda _event: self.app.browse_gamebanana())
         self.browse_button = ttk.Button(
             bar,
-            text="Browse",
+            text="Refresh",
             style="Accent.TButton",
             command=self.app.browse_gamebanana,
         )
@@ -68,6 +68,7 @@ class DiscoverPage(ttk.Frame):
             left,
             columns=("author", "version", "downloads"),
             show="tree headings",
+            selectmode="browse",
         )
         for col, title, width in (
             ("#0", "Mod", 280),
@@ -97,7 +98,7 @@ class DiscoverPage(ttk.Frame):
         self.gb_title.grid(row=0, column=0, sticky="w")
         self.gb_meta = ttk.Label(
             right,
-            text="Global and Japan are separate GameBanana games.",
+            text="Latest mods load automatically. Global and Japan use separate GameBanana catalogues.",
             style="SurfaceMuted.TLabel",
             wraplength=400,
         )
@@ -149,10 +150,15 @@ class DiscoverPage(ttk.Frame):
         )
         self.gb_description.grid(row=5, column=0, sticky="nsew")
         self.gb_description.configure(state="disabled")
+        ttk.Label(
+            right,
+            text="Download file",
+            style="SurfaceMuted.TLabel",
+        ).grid(row=6, column=0, sticky="w", pady=(10, 3))
         self.gb_files = ttk.Combobox(right, state="readonly")
-        self.gb_files.grid(row=6, column=0, sticky="ew", pady=(10, 5))
+        self.gb_files.grid(row=7, column=0, sticky="ew", pady=(0, 5))
         buttons = ttk.Frame(right, style="Surface.TFrame")
-        buttons.grid(row=7, column=0, sticky="ew")
+        buttons.grid(row=8, column=0, sticky="ew")
         self.open_gb_button = ttk.Button(
             buttons,
             text="Open page",
@@ -194,7 +200,7 @@ class DiscoverPage(ttk.Frame):
         page.rowconfigure(1, weight=1)
         bar = ttk.Frame(page)
         bar.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        ttk.Label(bar, text="Search roots").pack(side="left")
+        ttk.Label(bar, text="Folders to scan").pack(side="left")
         self.scan_roots_entry = ttk.Entry(bar, textvariable=self.app.scan_roots)
         self.scan_roots_entry.pack(side="left", fill="x", expand=True, padx=8)
         self.scan_roots_entry.bind("<Return>", lambda _event: self.app.scan_local_mods())
