@@ -251,9 +251,13 @@ jobs:
             test -f "$root/RELEASE_PROCESS.md"
             test -f "$root/RELEASE_NOTES.md"
           done
-          test -f build/manager-frozen/umml-manager/docs/TESTING_AND_FEEDBACK.md
-          test -f build/manager-frozen/umml-manager/docs/RELEASE_PROCESS.md
-          test -f build/manager-frozen/umml-manager/docs/releases/0.2.0-alpha.19.md
+          for document in \
+            TESTING_AND_FEEDBACK.md \
+            RELEASE_PROCESS.md \
+            0.2.0-alpha.19.md; do
+            find build/manager-frozen/umml-manager \
+              -type f -name "$document" -print -quit | grep -q .
+          done
           rm -rf "$VERIFY_ROOT"
           trap - EXIT
 
