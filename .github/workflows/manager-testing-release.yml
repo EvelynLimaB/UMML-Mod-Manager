@@ -35,6 +35,9 @@ jobs:
           python-version: '3.11'
       - name: Audit exact version and tester contract
         run: |
+          set -Eeuo pipefail
+          python scripts/audit_manager.py
+          python scripts/audit_branding.py
           python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
           test -f "$RELEASE_NOTES"
           test -f docs/TESTING_AND_FEEDBACK.md
@@ -56,12 +59,16 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install -r requirements.txt -r requirements-build.txt
           python -m pip check
       - name: Audit and test source
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/audit_branding.py scripts/audit_release.py scripts/test_manager_theme_runtime.py
           python scripts/audit_manager.py
           python scripts/audit_branding.py
@@ -70,22 +77,40 @@ jobs:
       - name: Build and exercise native portable runtime
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           pyinstaller --noconfirm --clean `
             --distpath build/windows-dist `
             --workpath build/windows-work `
             packaging/pyinstaller/umml-manager.spec
-          $exe = 'build/windows-dist/umml-manager/umml-manager-bin.exe'
-          if (!(Test-Path $exe)) { throw "Windows Manager executable was not built: $exe" }
+          $bundleRoot = 'build/windows-dist/umml-manager'
+          $exe = Join-Path $bundleRoot 'umml-manager-bin.exe'
+          if (!(Test-Path $exe)) {
+            throw "Windows Manager executable was not built: $exe"
+          }
           & $exe --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $exe cli self-test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test_manager_theme_runtime.py -- $exe gui
+          $requiredDocuments = @(
+            'TESTING_AND_FEEDBACK.md',
+            'RELEASE_PROCESS.md',
+            '0.2.0-alpha.19.md'
+          )
+          $allDocuments = Get-ChildItem -Path $bundleRoot -Recurse -File
+          foreach ($document in $requiredDocuments) {
+            if (!($allDocuments | Where-Object Name -EQ $document | Select-Object -First 1)) {
+              throw "Required documentation missing from frozen runtime: $document"
+            }
+          }
       - name: Assemble Windows Community Test
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $raw = [System.IO.File]::ReadAllText((Join-Path $PWD 'MANAGER_VERSION')).Trim()
-          if ([string]::IsNullOrWhiteSpace($raw)) { throw 'MANAGER_VERSION is empty' }
+          if ([string]::IsNullOrWhiteSpace($raw)) {
+            throw 'MANAGER_VERSION is empty'
+          }
           $display = $raw -replace '~alpha', '-alpha.'
           $expectedTag = "v$display"
           if ($expectedTag -ne '${{ inputs.release_tag }}') {
@@ -115,6 +140,9 @@ jobs:
           '@
           $zip = "dist/umml-manager_${display}_win64.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $zip -CompressionLevel Optimal
+          if (!(Test-Path $zip)) {
+            throw "Portable ZIP was not created: $zip"
+          }
           $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
           "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content -Encoding ascii 'dist/SHA256SUMS-WINDOWS'
           Get-Content 'dist/SHA256SUMS-WINDOWS'
@@ -142,6 +170,7 @@ jobs:
             requirements-build.txt
       - name: Install build and validation dependencies
         run: |
+          set -Eeuo pipefail
           sudo apt-get update
           sudo apt-get install -y \
             appstream-util \
@@ -157,10 +186,12 @@ jobs:
           python -m pip check
       - name: Audit and test source
         run: |
+          set -Eeuo pipefail
           python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
           bash scripts/check_manager.sh
       - name: Build Debian package and AppImage
         run: |
+          set -Eeuo pipefail
           bash scripts/build_manager_frozen.sh
           bash scripts/build_manager_deb.sh
           bash scripts/build_manager_appimage.sh
