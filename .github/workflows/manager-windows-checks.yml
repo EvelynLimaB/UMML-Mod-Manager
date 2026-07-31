@@ -1,10 +1,9 @@
-name: UMML Manager Windows checks
+name: Uma Mod Manager Windows checks
 
 on:
   push:
     branches:
       - main
-      - agent/umml-manager-foundation
   pull_request:
     paths:
       - 'umml_manager/**'
@@ -15,6 +14,8 @@ on:
       - 'MANAGER_VERSION'
       - 'MANAGER_README.md'
       - 'MANAGER_CHANGELOG.md'
+      - 'NOTICE.md'
+      - 'CITATION.cff'
       - 'docs/**'
       - 'scripts/audit_manager.py'
       - 'scripts/test_manager_theme_runtime.py'
@@ -83,22 +84,28 @@ jobs:
           }
           $version = $versionRaw -replace '~', '-'
           $stageRoot = 'dist/windows'
-          $stage = Join-Path $stageRoot "UMML-Manager-$version-win64"
+          $stage = Join-Path $stageRoot "Uma-Mod-Manager-$version-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force 'build/windows-dist/umml-manager/*' $stage
           $guiLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" gui %*"
           $cliLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" cli %*"
+          Set-Content -Path (Join-Path $stage 'Uma Mod Manager.cmd') -Encoding ascii -Value $guiLauncher
+          Set-Content -Path (Join-Path $stage 'Uma Mod Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
+          # Compatibility aliases prevent existing shortcuts and documentation from
+          # breaking while the public product name changes.
           Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
           Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
           Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
-          UMML Manager Windows portable preview
+          Uma Mod Manager Windows portable preview
 
-          Start the graphical Manager with "UMML Manager.cmd".
-          Start CLI mode with "UMML Manager CLI.cmd".
+          Start the graphical application with "Uma Mod Manager.cmd".
+          Start CLI mode with "Uma Mod Manager CLI.cmd".
 
-          This portable preview stores user data outside this folder. Deleting the
-          application folder does not remove the Manager library, profiles, baselines,
-          transactions, or workspaces.
+          The older UMML Manager launcher names remain as compatibility aliases.
+          All launchers open the same application and use the same external data root.
+
+          Deleting the portable application folder does not remove the mod library,
+          profiles, vanilla baselines, transaction journals, or creator workspaces.
 
           Close Umamusume before Apply, restore, or legacy Studio writes.
           '@
