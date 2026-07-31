@@ -5,6 +5,8 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE="${1:-$ROOT/build/manager-frozen/umml-manager}"
 OUT_DIR="${2:-$ROOT/dist}"
 VERSION="$(tr -d '[:space:]' < "$ROOT/MANAGER_VERSION")"
+# Keep the technical package identifier stable so existing installations upgrade
+# in place and continue using the same state, desktop ID, and recovery paths.
 PACKAGE="umml-manager"
 ARCH="amd64"
 BUILD_ROOT="$ROOT/build/deb/${PACKAGE}_${VERSION}_${ARCH}"
@@ -51,9 +53,11 @@ install -m 0644 "$ROOT/assets/umml-manager.svg" \
 install -m 0644 "$ROOT/packaging/linux/$DESKTOP_ID.metainfo.xml" \
   "$BUILD_ROOT/usr/share/metainfo/$DESKTOP_ID.metainfo.xml"
 install -m 0644 "$ROOT/LICENSE" "$BUILD_ROOT/usr/share/doc/$PACKAGE/copyright"
+install -m 0644 "$ROOT/NOTICE.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/NOTICE.md"
 install -m 0644 "$ROOT/README.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_README.md"
 install -m 0644 "$ROOT/CONTRIBUTING.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/CONTRIBUTING.md"
+install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/BRANDING_AND_COMPATIBILITY.md"
 install -m 0644 "$ROOT/docs/MANAGER_ARCHITECTURE.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_ARCHITECTURE.md"
 install -m 0644 "$ROOT/docs/MANAGER_DEVELOPMENT.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_DEVELOPMENT.md"
 install -m 0644 "$ROOT/docs/PACKAGING.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/PACKAGING.md"
@@ -70,14 +74,15 @@ Architecture: $ARCH
 Maintainer: EvelynLimaB <lara_f@id.uff.br>
 Installed-Size: $INSTALLED_SIZE
 Depends: libc6 (>= 2.35), libstdc++6, libx11-6, libxext6, libxrender1, libxcb1, libfontconfig1, libfreetype6, zlib1g
-Suggests: umml-linux
-Homepage: https://github.com/EvelynLimaB/UMML-Linux
-Description: Deterministic UM:PD mod profiles and deployment
- UMML Manager keeps mods in an immutable library and applies ordered profiles
- transactionally. It provides conflict previews, vanilla restoration,
- external-change protection, legacy UMML asset preparation, and GameBanana
- imports and update checks. This package is independent from umml-linux and
- includes its own frozen Python runtime.
+Homepage: https://github.com/EvelynLimaB/Uma-Mod-Manager
+Description: Umamusume mod manager and creator toolkit
+ Uma Mod Manager keeps imported mod versions immutable, prepares compatible
+ packages automatically, resolves ordered profiles, and applies or restores
+ game assets transactionally. It provides conflict previews, target-bound
+ vanilla baselines, recovery journals, external-change protection, creator
+ workspaces, compatibility metadata, GameBanana discovery, and guarded access
+ to original UMML tools. The technical package name remains umml-manager so
+ existing installations and user state upgrade in place.
 EOF_CONTROL
 
 cat > "$BUILD_ROOT/DEBIAN/postinst" <<'EOF_POSTINST'
@@ -114,7 +119,9 @@ dpkg-deb --contents "$OUTPUT" > "$CONTENTS"
 grep -q 'usr/bin/umml-manager$' "$CONTENTS"
 grep -q 'usr/bin/umml-manager-cli$' "$CONTENTS"
 grep -q "usr/share/metainfo/$DESKTOP_ID.metainfo.xml$" "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/NOTICE.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md$' "$CONTENTS"
 rm -f "$CONTENTS"
 trap - EXIT
 
-printf 'Built separate UMML Manager Debian package: %s\n' "$OUTPUT"
+printf 'Built Uma Mod Manager Debian package: %s\n' "$OUTPUT"
