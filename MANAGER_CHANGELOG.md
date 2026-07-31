@@ -1,5 +1,31 @@
 # Uma Mod Manager changelog
 
+## 0.2.0~alpha19 - 2026-07-31
+
+### Community Test release track
+
+- Added a repeatable Community Test release process for exact Windows portable, Debian, and AppImage packages built from the same source revision.
+- Added a manual prerelease workflow that audits version metadata, runs Linux and Windows regressions, exercises finished packages, publishes external SHA-256 checksums, and refuses to replace an existing published tag.
+- Added an exact release audit tying `MANAGER_VERSION`, README status, player guide, changelog, AppStream metadata, release notes, tester documentation, package contents, issue forms, and workflows together.
+- Added alpha19 Community Test notes with a prioritized player/creator matrix, known limitations, rollback guidance, privacy rules, and reporting instructions.
+- Added a structured Testing feedback issue form which accepts successful, partial, and failed passes instead of treating silence as evidence.
+
+### Tester diagnostics and privacy
+
+- Added **Settings → Create support bundle**.
+- Support bundles contain version/platform information, configuration-presence flags, high-level library/profile summaries, and read-only diagnostics.
+- Support bundles exclude game assets, mod payloads, downloaded archives, trusted baselines, transaction contents, Veteran snapshots, raw settings, credentials, and known account identifiers.
+- Added path and sensitive-key redaction plus tests proving representative paths, trainer/account names, viewer IDs, tokens, and authorization values do not enter the generated report.
+- Added an inspect-before-upload warning because custom mod names and free-form errors remain capable of containing personal text, software's traditional little loophole in every privacy promise.
+
+### Documentation and packaging reinforcement
+
+- Added `docs/TESTING_AND_FEEDBACK.md`, `docs/RELEASE_PROCESS.md`, and versioned release notes under `docs/releases/`.
+- Updated the repository landing page and player guide around alpha19 Community Test installation, rollback, exact-build reporting, and support bundles.
+- Added tester documentation to Windows, Debian, AppImage, and frozen-runtime payloads.
+- Extended package and CI checks to verify tester documents and release metadata inside finished artifacts.
+- Preserved all technical package, command, desktop-ID, artifact, and data-root identifiers so alpha19 upgrades existing Manager installations in place.
+
 ## 0.2.0~alpha18 - 2026-07-30
 
 ### Project identity and repository cleanup
