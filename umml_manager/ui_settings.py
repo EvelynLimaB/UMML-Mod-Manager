@@ -155,7 +155,8 @@ class SettingsPage(ttk.Frame):
         ).grid(row=0, column=0, sticky="w", padx=(0, 18))
         testing_controls = ttk.Frame(testing, style="Surface.TFrame")
         testing_controls.grid(row=0, column=1, sticky="e")
-        testing_controls.columnconfigure((0, 1), weight=1)
+        testing_controls.columnconfigure(0, weight=1)
+        testing_controls.columnconfigure(1, weight=1)
         self.support_bundle_button = ttk.Button(
             testing_controls,
             text="Create support bundle",
