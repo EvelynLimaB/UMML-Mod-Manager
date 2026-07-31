@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Read the [Testing and feedback guide](../../blob/main/docs/TESTING_AND_FEEDBACK.md) for exact-build and privacy guidance.
+        Read the [Testing and feedback guide](https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/docs/TESTING_AND_FEEDBACK.md) for exact-build and privacy guidance.
 
         Do not attach game assets, decrypted databases, real roster dumps, credentials, private logs, or mod archives you cannot redistribute. Create a support bundle through Settings, inspect its JSON, and attach it when useful.
 
