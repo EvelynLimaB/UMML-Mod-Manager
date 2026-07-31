@@ -110,6 +110,13 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         "MANAGER_VERSION",
     )
     require_contains(
+        "umml_manager/ui_settings.py",
+        "Create support bundle",
+        "Testing guide",
+        "Report feedback",
+        "testing_feedback.yml",
+    )
+    require_contains(
         ".github/workflows/manager-testing-release.yml",
         "workflow_dispatch",
         "scripts/audit_release.py",
