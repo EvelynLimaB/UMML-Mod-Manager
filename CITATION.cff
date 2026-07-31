@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+title: Uma Mod Manager
+message: >-
+  Please cite this repository and preserve the original UMML lineage when
+  referring to the software in publications, tools, or derived projects.
+type: software
+authors:
+  - family-names: Lima
+    given-names: Evelyn
+    alias: EvelynLimaB
+repository-code: https://github.com/EvelynLimaB/Uma-Mod-Manager
+url: https://github.com/EvelynLimaB/Uma-Mod-Manager
+license: MIT
+version: 0.2.0-alpha18
+date-released: 2026-07-30
+abstract: >-
+  Cross-platform Umamusume Pretty Derby mod manager and mod-development
+  workspace, forked from UMML / UmaMusume Mod Loader. It provides immutable
+  package versions, automatic preparation, profiles, compatibility metadata,
+  creator workspaces, transactional deployment, recovery, and read-only data
+  integrations.
+references:
+  - type: software
+    title: UMML / UmaMusume Mod Loader
+    repository-code: https://github.com/tumugu/UmaMusume_Mod_Loader
