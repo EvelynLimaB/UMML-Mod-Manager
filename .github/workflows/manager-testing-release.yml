@@ -15,7 +15,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: uma-mod-manager-testing-release-${{ inputs.release_tag }}
@@ -251,6 +251,8 @@ jobs:
       - windows
       - linux
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
