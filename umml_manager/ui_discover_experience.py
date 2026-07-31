@@ -8,11 +8,10 @@ from typing import Callable
 
 from .providers.gamebanana import GameBananaPage
 from .providers.gamebanana_previews import PreviewGameBananaClient
-from .ui_discover_actions import DiscoverActions
 
 
 class DiscoverExperienceActions:
-    """Keep online discovery useful without turning it into a modal maintenance task."""
+    """Keep online discovery useful without turning it into a modal task."""
 
     def configure_discover_experience(self) -> None:
         if getattr(self, "_discover_experience_configured", False):
@@ -20,9 +19,11 @@ class DiscoverExperienceActions:
         self._discover_experience_configured = True
         self._gb_catalog_loading = False
         self._gb_catalog_serial = 0
+        self._gb_catalog_request_signature: tuple[str, str, str, int] | None = None
         self._gb_initial_attempted = False
         self._gb_initial_scheduled = False
         self._gb_loaded_at = ""
+        self._gb_last_region_value = self.gb_region.get().strip().casefold()
 
         self.discover.browse_button.configure(text="Refresh")
         self.discover.gb_meta.configure(
@@ -31,15 +32,14 @@ class DiscoverExperienceActions:
                 "press Enter to run a text search."
             )
         )
-        self.discover.gb_region_box.bind(
-            "<<ComboboxSelected>>",
-            lambda _event: self.gamebanana_filter_changed(),
-            add="+",
-        )
         self.discover.gb_sort_box.bind(
             "<<ComboboxSelected>>",
             lambda _event: self.gamebanana_filter_changed(),
             add="+",
+        )
+        self._gb_region_trace = self.gb_region.trace_add(
+            "write",
+            self._gamebanana_region_changed,
         )
 
         parent = self.discover.gb_tree.master
@@ -85,6 +85,24 @@ class DiscoverExperienceActions:
         horizontal.grid(row=2, column=0, sticky="ew")
         widget._umm_scrollbars = (vertical, horizontal)
 
+    def _gamebanana_filter_signature(self) -> tuple[str, str, str]:
+        return (
+            self.gb_region.get().strip().casefold() or "global",
+            self.gb_sort.get().strip().casefold() or "updated",
+            self.gb_query.get().strip(),
+        )
+
+    def _gamebanana_request_signature(self) -> tuple[str, str, str, int]:
+        return (*self._gamebanana_filter_signature(), max(1, int(self.gb_page)))
+
+    def _gamebanana_region_changed(self, *_args) -> None:
+        current = self.gb_region.get().strip().casefold() or "global"
+        if current == getattr(self, "_gb_last_region_value", ""):
+            return
+        self._gb_last_region_value = current
+        if getattr(self, "_auto_network_enabled", True):
+            self.gamebanana_filter_changed()
+
     def schedule_initial_gamebanana_load(self, delay: int = 650) -> None:
         if (
             getattr(self, "_closing", False)
@@ -105,7 +123,7 @@ class DiscoverExperienceActions:
             or bool(getattr(self, "gb_results", {}))
         ):
             return
-        self.browse_gamebanana(automatic=True)
+        self.browse_gamebanana()
 
     def discover_page_activated(self) -> None:
         if getattr(self, "_gb_catalog_loading", False):
@@ -122,13 +140,11 @@ class DiscoverExperienceActions:
                 "GameBanana has not loaded yet. Refresh to retry; local imports still work."
             )
             return
-        self._set_discover_status(
-            "Loading the latest GameBanana mods automatically…"
-        )
+        self._set_discover_status("Loading the latest GameBanana mods automatically…")
         self.ensure_gamebanana_catalog()
 
     def _set_discover_status(self, message: str) -> None:
-        if getattr(self, "_current_page", "") == "discover":
+        if getattr(self, "_current_page", "discover") == "discover":
             self.status.set(message)
 
     def gamebanana_filter_changed(self) -> None:
@@ -136,37 +152,45 @@ class DiscoverExperienceActions:
         self.save_settings(silent=True)
         self.browse_gamebanana()
 
-    def browse_gamebanana(self, automatic: bool = False):
+    def browse_gamebanana(self) -> None:
         if getattr(self, "_closing", False):
             return
 
-        signature = (
-            self.gb_region.get().strip().casefold() or "global",
-            self.gb_sort.get().strip().casefold() or "updated",
-            self.gb_query.get().strip(),
-        )
+        filter_signature = self._gamebanana_filter_signature()
         previous = getattr(self, "_gb_browse_signature", None)
-        if previous is not None and previous != signature:
+        if previous is not None and previous != filter_signature:
             self.gb_page = 1
-        self._gb_browse_signature = signature
+        self._gb_browse_signature = filter_signature
+        request_signature = self._gamebanana_request_signature()
 
         if getattr(self, "_gb_catalog_loading", False):
-            return
+            if request_signature == getattr(
+                self,
+                "_gb_catalog_request_signature",
+                None,
+            ):
+                return
+            # A programmatic region change can occur while startup discovery is
+            # running. Invalidate that response and immediately request the new
+            # catalogue rather than displaying data under the wrong filter.
+            self._gb_catalog_serial = getattr(self, "_gb_catalog_serial", 0) + 1
+            self._gb_catalog_loading = False
+
         self._gb_initial_attempted = True
         self._gb_catalog_loading = True
         self._gb_catalog_serial = getattr(self, "_gb_catalog_serial", 0) + 1
         token = self._gb_catalog_serial
+        self._gb_catalog_request_signature = request_signature
         if not self.gb_results:
             self._set_gamebanana_catalog_state(
                 "Loading the latest GameBanana mods…\n\n"
                 "You can keep using Library, Studio, and local imports."
             )
-        self.status.set("Refreshing the GameBanana catalogue…")
+        self._set_discover_status("Refreshing the GameBanana catalogue…")
         self.discover.browse_button.configure(text="Loading…", state="disabled")
         self.refresh_action_states()
 
-        region, sort, query = signature
-        page_number = self.gb_page
+        region, sort, query, page_number = request_signature
 
         def worker() -> None:
             try:
@@ -181,14 +205,18 @@ class DiscoverExperienceActions:
                     token,
                     lambda error=exc: self._gamebanana_catalog_failed(
                         token,
+                        request_signature,
                         error,
-                        automatic=automatic,
                     ),
                 )
             else:
                 self._schedule_gamebanana_catalog_callback(
                     token,
-                    lambda value=page: self._gamebanana_catalog_loaded(token, value),
+                    lambda value=page: self._gamebanana_catalog_loaded(
+                        token,
+                        request_signature,
+                        value,
+                    ),
                 )
 
         threading.Thread(
@@ -212,16 +240,35 @@ class DiscoverExperienceActions:
         except tk.TclError:
             self._closing = True
 
-    def _gamebanana_catalog_loaded(self, token: int, page: GameBananaPage) -> None:
-        if (
-            getattr(self, "_closing", False)
-            or token != getattr(self, "_gb_catalog_serial", -1)
-        ):
+    def _catalog_callback_is_current(
+        self,
+        token: int,
+        request_signature: tuple[str, str, str, int],
+    ) -> bool:
+        return bool(
+            not getattr(self, "_closing", False)
+            and token == getattr(self, "_gb_catalog_serial", -1)
+            and request_signature
+            == getattr(self, "_gb_catalog_request_signature", None)
+        )
+
+    def _gamebanana_catalog_loaded(
+        self,
+        token: int,
+        request_signature: tuple[str, str, str, int],
+        page: GameBananaPage,
+    ) -> None:
+        if not self._catalog_callback_is_current(token, request_signature):
             return
+        if request_signature != self._gamebanana_request_signature():
+            self._gb_catalog_loading = False
+            self.browse_gamebanana()
+            return
+
         previous_selection = self.discover.gb_tree.selection()
         previous_id = previous_selection[0] if previous_selection else ""
         self._gb_catalog_loading = False
-        DiscoverActions._show_gamebanana_page(self, page)
+        self._show_gamebanana_page(page)
         self._gb_loaded_at = datetime.now().strftime("%H:%M")
 
         children = self.discover.gb_tree.get_children()
@@ -249,15 +296,16 @@ class DiscoverExperienceActions:
     def _gamebanana_catalog_failed(
         self,
         token: int,
+        request_signature: tuple[str, str, str, int],
         error: Exception,
-        *,
-        automatic: bool,
     ) -> None:
-        if (
-            getattr(self, "_closing", False)
-            or token != getattr(self, "_gb_catalog_serial", -1)
-        ):
+        if not self._catalog_callback_is_current(token, request_signature):
             return
+        if request_signature != self._gamebanana_request_signature():
+            self._gb_catalog_loading = False
+            self.browse_gamebanana()
+            return
+
         self._gb_catalog_loading = False
         message = " ".join(str(error).split())
         if len(message) > 180:
@@ -279,6 +327,35 @@ class DiscoverExperienceActions:
         self.discover.browse_button.configure(text="Retry")
         self.refresh_action_states()
 
+    def _show_gamebanana_page(self, page: GameBananaPage) -> None:
+        """Render catalogue data without overwriting another page's footer."""
+
+        tree = self.discover.gb_tree
+        tree.delete(*tree.get_children())
+        self.gb_results = {}
+        self._clear_gamebanana_selection()
+        for mod in page.mods:
+            key = str(mod.id)
+            self.gb_results[key] = mod
+            tree.insert(
+                "",
+                "end",
+                iid=key,
+                text=mod.name,
+                values=(
+                    mod.author,
+                    mod.version or "—",
+                    f"{mod.downloads:,}",
+                ),
+            )
+        self.gb_page = page.page
+        self.discover.page_label.configure(
+            text=f"Page {page.page}"
+            + (f" • {page.total} records" if page.total else "")
+        )
+        self._gb_can_previous = page.page > 1
+        self._gb_can_next = bool(page.has_more)
+
     def _set_gamebanana_catalog_state(self, message: str) -> None:
         label = getattr(self, "_gb_catalog_message", None)
         if label is None:
@@ -292,7 +369,7 @@ class DiscoverExperienceActions:
         if label is not None:
             label.grid_remove()
 
-    def change_gamebanana_page(self, delta: int):
+    def change_gamebanana_page(self, delta: int) -> None:
         target = self.gb_page + delta
         if target < 1 or getattr(self, "_gb_catalog_loading", False):
             return
