@@ -17,6 +17,8 @@ The application serves two equally important groups:
 No user should need to manually prepare or re-prepare a mod. That is internal plumbing, and plumbing belongs inside the wall rather than beside the Apply button.
 
 > **Current status:** `0.2.0~alpha18` preview. Windows portable, Debian, and AppImage builds are produced by CI. Keep backups, close the game before any write operation, and treat alpha packages as test builds.
+>
+> The preserved original UMML compatibility layer remains version `1.5.0-linux.6`; it is not the version of the new Manager application.
 
 ## Start here
 
