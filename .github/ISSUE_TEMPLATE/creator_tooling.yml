@@ -1,0 +1,86 @@
+name: Creator tooling request
+description: Propose a workflow that would make creating, inspecting, testing, or publishing mods easier
+title: "[Creator tooling]: "
+labels:
+  - creator-tooling
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The best requests describe the creator's task, current workaround, evidence available to automate it, and where uncertainty must remain visible.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Creator goal
+      description: What are you trying to make or change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workflow
+      description: List every tool, manual file operation, JSON edit, conversion, and test step currently required.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired UMML-Manager workflow
+      description: Describe the simplest useful interface from starting asset to tested package.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Tool category
+      options:
+        - Asset inspection
+        - Character or dress targeting
+        - Model or texture workflow
+        - Audio workflow
+        - Animation workflow
+        - Package and manifest creation
+        - Compatibility and dependency editing
+        - Variant or optional-component authoring
+        - Preview or comparison
+        - Test sandbox
+        - Game update rebase
+        - External tool adapter
+        - Documentation or sample package
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Detection evidence
+      description: What filenames, metadata, IDs, bundle structure, or external output can support the workflow without guessing?
+
+  - type: textarea
+    id: tools
+    attributes:
+      label: External projects
+      description: List original project links, authors, versions, platforms, and declared licenses for any tool involved.
+
+  - type: textarea
+    id: limits
+    attributes:
+      label: Known limits and unsafe shortcuts
+      description: Explain what must not be automated or claimed without stronger evidence.
+
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Project principles
+      options:
+        - label: The ordinary workflow should not require manual preparation or re-preparation.
+          required: true
+        - label: Imported source should remain immutable and edits should create a new version.
+          required: true
+        - label: External projects must retain attribution and require a compatible license before bundling.
+          required: true

@@ -1,0 +1,97 @@
+name: Bug report
+description: Report a reproducible UMML-Manager failure or regression
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach game assets, decrypted databases, real roster dumps, credentials, private logs, or mod archives you cannot redistribute.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Library and profiles
+        - Discover and provider browsing
+        - Import and archive validation
+        - Automatic preparation and source analysis
+        - Inspect and edit
+        - Conflicts and resolver
+        - Apply, restore, or recovery
+        - Veteran data tools
+        - Compatibility Studio
+        - Settings and autodetection
+        - Packaging or installer
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows portable
+        - Debian or Ubuntu package
+        - Bazzite or Fedora AppImage
+        - Other Linux AppImage
+        - Source install
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: 0.2.0~alpha18 or commit SHA
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the visible failure and the result you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open ...
+        2. Import ...
+        3. Select ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: package
+    attributes:
+      label: Package or mod structure
+      description: Describe filenames, folders, package type, provider ID, and relevant metadata. Use synthetic examples and redact personal paths.
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and logs
+      description: Paste the smallest redacted excerpt that shows the failure. Do not paste complete private logs.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed game assets, decrypted databases, account data, credentials, and private paths.
+          required: true
+        - label: I stated whether the game was running when the failure occurred.
+          required: true
+        - label: I am not attaching an archive or external tool without redistribution permission.
+          required: true

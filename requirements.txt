@@ -2,3 +2,5 @@ UnityPy==1.25.2
 vdf==3.4
 apsw-sqlite3mc==3.53.3.1
 PyYAML==6.0.3
+certifi==2026.6.17
+Pillow==11.3.0

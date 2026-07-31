@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: User guide
+    url: https://github.com/EvelynLimaB/UMML-Linux/blob/main/MANAGER_README.md
+    about: Installation, profiles, automatic preparation, deployment, recovery, and CLI guidance
+  - name: Mod creator guide
+    url: https://github.com/EvelynLimaB/UMML-Linux/blob/main/docs/MOD_CREATOR_GUIDE.md
+    about: Package workspaces, targeting, options, compatibility, testing, and publishing
+  - name: Security report
+    url: https://github.com/EvelynLimaB/UMML-Linux/security
+    about: Use private vulnerability reporting when available; do not post sensitive details publicly

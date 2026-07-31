@@ -1,0 +1,173 @@
+# UMML-Manager changelog
+
+## 0.2.0~alpha18 - 2026-07-30
+
+### Project identity and repository cleanup
+
+- Repositioned the repository as **UMML-Manager**, a full cross-platform mod manager and mod-development workspace forked from UMML.
+- Made the Manager the primary product and documented the original UMML code as a guarded compatibility layer.
+- Rewrote the repository landing page, user guide, documentation index, contribution guide, security policy, roadmap, desktop metadata, and AppStream description around player and creator workflows.
+- Added a project vision, a practical mod-creator guide, creator-focused issue forms, and clearer third-party attribution and licensing rules.
+- Expanded ignore rules for local game data, Manager state, extractor output, minidumps, build trees, and generated packages.
+
+### Automatic preparation and source inspection
+
+- Removed the visible Prepare/Re-prepare maintenance action from Library; imports, stale metadata, and older prepared records are queued and refreshed automatically.
+- Added isolated source-bundle indexing during preparation so one authored Unity bundle may safely own several final game targets.
+- Added multi-target configurable payloads while preserving the older one-source/one-target registry fields for migration compatibility.
+- Preparation failures remain non-destructive, do not stop the remaining queue, and are shown in the selected mod details instead of demanding a manual retry ritual.
+
+### Visual mod editing
+
+- Replaced the ambiguous edit-copy flow with a focused **Inspect & edit** window.
+- Added detected source bundles, game targets, likely content types, parts, character IDs, and dress IDs.
+- Added simple package, compatibility, dependency, incompatibility, and load-order fields without requiring JSON editing.
+- Added optional per-profile component controls at the source-bundle boundary. Non-overlapping bundles become checkboxes; overlapping targets become mutually exclusive variants.
+- Detection remains evidence-based: names and metadata may suggest a target, but the Manager does not claim to retarget arbitrary Unity bundles automatically.
+
+### Veteran-data providers
+
+- Added a read-only Veteran Roster workspace with immutable scrubbed snapshots, search, inspection, JSON export, and filtered CSV export.
+- Added compatibility with classic `data.json` from the rockisch/umadump lineage and related UmaExtractor forks.
+- Added compatibility with Werseter/umadump 2.0 `trained_chara_data.json`, including snake_case/camelCase fields and multi-output selection guards.
+- Added a credited provider browser and shell-free external extractor launching while keeping unlicensed scanner code and binaries outside UMML-Manager packages.
+
+### Window and Library UX
+
+- Added reliable transient-window centering, raising, focus, and temporary topmost handling for the primary editing and configuration flows.
+- Enlarged and clarified Library actions, removed tiny arrow-only load-order controls, and made automatic preparation status explicit.
+
+## 0.2.0~alpha17 - 2026-07-30
+
+### Package targeting and compatibility
+
+- Added creator-declared targets for affected characters, dresses or costumes, content types, and searchable tags.
+- Added dependency, incompatibility, relative load-before/load-after, region, and compatibility-note editing through one validated package policy.
+- Relative order constraints block deployment only when both referenced mods are enabled in the wrong order.
+- Invalid policy is rejected before immutable source copying or registry updates.
+
+### Character and variant customization
+
+- Added semantic option kinds and choice target labels for character, dress, colour, audio, quality, feature, variant, and custom selectors.
+- Added a character-selector template that creates authored `assets/characters/<choice>` folders and profile-scoped choices.
+- Different profiles can resolve different authored character variants from one immutable imported version without renaming or editing source files.
+- Character targeting metadata remains descriptive; arbitrary Unity bundles are not silently rewritten from one character ID to another.
+
+### Native package editor
+
+- Added **Edit package**, which creates an editable workspace copy and opens a tabbed manifest editor for identity, targets, compatibility, and advanced option groups.
+- Added **Save manifest** and **Save and import** flows; saving changes the workspace only, while import creates a new immutable version through the normal validated library boundary.
+- Expanded the New Package builder with targeting, compatibility, generic variants, and character-selectable templates.
+- Added regressions for target persistence, contradictory policy, clean rejection, character profile isolation, load-order blockers, and generated character workspaces.
+
+## 0.2.0~alpha16 - 2026-07-29
+
+### Configurable packages
+
+- Added native `option_groups` metadata for single-choice and multiple-choice package variants.
+- Added profile-scoped selections so profiles can choose different variants from one imported version.
+- Preparation records source paths to final hashed targets without changing imported files.
+- Resolution filters prepared claims by the active profile before conflict planning.
+- Invalid, unknown, ambiguous, stale, or empty configuration blocks Apply and appears in the plan.
+
+### Creator workflow
+
+- Added **Library → New package** for timestamped editable package workspaces.
+- The builder creates a manifest, `assets/`, instructions, and an optional two-choice template without importing or applying it.
+- Added a native configuration dialog using radio buttons for single-choice groups and checkboxes for multiple-choice groups.
+- Added creator manifest documentation and a comparative manager design review.
+
+### Validation
+
+- Configurable manifests are validated before immutable import.
+- Include patterns reject traversal, absolute paths, unmatched patterns, and files controlled by multiple choices or groups.
+- Older configurable prepared caches originally required re-preparation to gain source-to-target mapping; alpha18 now performs this maintenance automatically.
+- Expanded callback auditing to the configuration and package-builder dialogs.
+- Added regression coverage for manifests, defaults, profile choices, resolver filtering, blockers, imports, and package workspaces.
+
+## 0.2.0~alpha15 - 2026-07-26
+
+- Connected all Manager entry points and packages to fresh robust Steam and Proton discovery.
+- Added scored detection evidence and package-level Mint and Debian layout regressions.
+- Added persistent Light, System, and Dark appearance modes with package smoke tests.
+- Fixed packaged Linux folder opening by restoring the host environment and reporting helper failures.
+
+## 0.2.0~alpha14 - 2026-07-25
+
+- Added package-level disposable import, deployment, restoration, and interrupted-recovery self-tests.
+- Added read-only diagnostics, network smoke testing, real-profile verification on temporary copies, and native Tk page rendering.
+- Expanded source, Debian, AppImage, and runtime-parity promotion gates.
+
+## 0.2.0~alpha13 - 2026-07-23
+
+- Added explicit all-or-nothing migration from legacy backups into Manager-owned target-bound baselines.
+- Prevented modified files from becoming vanilla baselines and added actionable first-apply recovery guidance.
+
+## 0.2.0~alpha12 - 2026-07-23
+
+- Hardened interrupted recovery, process checks, snapshot races, and active-state verification before mutation.
+- Prevented unsafe first adoption without a known baseline.
+- Preserved profile installation identity and added explicit verified-target rebinding.
+
+## 0.2.0~alpha11 - 2026-07-23
+
+- Centralized fail-closed deployment and immutable import through guarded public boundaries.
+- Enforced every resolver blocker for GUI, CLI, package tests, and compatibility callers.
+- Added typed provider fallback, concurrent import serialization, and stronger diagnostics.
+
+## 0.2.0~alpha10 - 2026-07-23
+
+- Fixed deeply nested provider-confirmed legacy package imports.
+- Synchronized controls with selection, background work, blockers, paging, metadata, and game-running state.
+- Added visible browser and folder failures plus static callback auditing.
+
+## 0.2.0~alpha9 - 2026-07-22
+
+- Added automatic preparation after compatible imports while keeping Apply explicit.
+- Preserved sources after preparation failures.
+- Added safe normalization for provider-confirmed loose legacy archives and rejected unsupported payloads.
+
+## 0.2.0~alpha8 - 2026-07-22
+
+- Fixed GameBanana installation when catalogue rows omitted full file metadata.
+- Added asynchronous detail hydration, exact file selection, and an Install latest retry path.
+
+## 0.2.0~alpha7 - 2026-07-22
+
+- Completed preview-provider wiring and full pinned dependency coverage in Manager CI.
+- Verified image support and complete Debian and AppImage runtime parity.
+
+## 0.2.0~alpha6 - 2026-07-22
+
+- Added architecture, input-safety, state, archive, and deployment audits and regressions.
+- Added versioned state, verified transactions, target-scoped baselines, durable recovery, and tamper detection.
+- Added provider and backend contracts, profile binding, dependency planning, and bounded previews.
+
+## 0.2.0~alpha5 - 2026-07-22
+
+- Fixed portable mandatory HTTPS trust across common Linux layouts.
+- Added validated environment trust paths, bundled certificate fallback, diagnostics, and package inspection.
+
+## 0.2.0~alpha4 - 2026-07-22
+
+- Added an AppImage built from the same frozen runtime as the Debian package.
+- Added checksums, runtime parity, bounded extraction, and pinned packaging tools.
+
+## 0.2.0~alpha3 - 2026-07-21
+
+- Separated application files from persistent Manager data and stopped stale launchers from shadowing packages.
+- Hardened profiles, critical state, version coexistence, selection, and uninstall preservation.
+
+## 0.2.0~alpha2 - 2026-07-21
+
+- Added first-launch installation detection and automatic readable-metadata preparation.
+- Added guided installation settings.
+
+## 0.2.0~alpha1 - 2026-07-21
+
+- Added Library, Discover, Studio, Conflicts, and Settings pages.
+- Added provider browsing, local discovery, editable workspaces, Studio compatibility, and CLI tools.
+
+## 0.1.0~alpha1 - 2026-07-21
+
+- Initial separately packaged Manager foundation with immutable library records, profiles, conflict planning, verified deployment, baselines, local and provider import, GUI, CLI, tests, and Debian packaging.

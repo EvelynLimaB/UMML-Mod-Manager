@@ -1,0 +1,122 @@
+name: UMML Manager Windows checks
+
+on:
+  push:
+    branches:
+      - main
+      - agent/umml-manager-foundation
+  pull_request:
+    paths:
+      - 'umml_manager/**'
+      - 'umml_manager_packaged.py'
+      - 'tests/test_manager*.py'
+      - 'requirements.txt'
+      - 'requirements-build.txt'
+      - 'MANAGER_VERSION'
+      - 'MANAGER_README.md'
+      - 'MANAGER_CHANGELOG.md'
+      - 'docs/**'
+      - 'scripts/audit_manager.py'
+      - 'scripts/test_manager_theme_runtime.py'
+      - 'packaging/pyinstaller/umml-manager.spec'
+      - '.github/workflows/manager-windows-checks.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-manager:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+      - name: Install Manager dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt -r requirements-build.txt
+          python -m pip check
+      - name: Compile and audit Manager source
+        shell: pwsh
+        run: |
+          python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/test_manager_theme_runtime.py
+          python scripts/audit_manager.py
+      - name: Run Manager regressions on Windows
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p 'test_manager*.py' -v
+      - name: Render source GUI pages in both themes
+        shell: pwsh
+        run: |
+          python scripts/test_manager_theme_runtime.py -- python -m umml_manager.gui
+      - name: Build native Windows portable runtime
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean `
+            --distpath build/windows-dist `
+            --workpath build/windows-work `
+            packaging/pyinstaller/umml-manager.spec
+          $exe = 'build/windows-dist/umml-manager/umml-manager-bin.exe'
+          if (!(Test-Path $exe)) { throw "Windows Manager executable was not built: $exe" }
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $exe cli self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test_manager_theme_runtime.py -- $exe gui
+      - name: Assemble portable ZIP and checksums
+        shell: pwsh
+        run: |
+          $versionFile = Join-Path $PWD 'MANAGER_VERSION'
+          $versionRaw = [System.IO.File]::ReadAllText($versionFile).Trim()
+          if ([string]::IsNullOrWhiteSpace($versionRaw)) {
+            throw "MANAGER_VERSION was empty: $versionFile"
+          }
+          $version = $versionRaw -replace '~', '-'
+          $stageRoot = 'dist/windows'
+          $stage = Join-Path $stageRoot "UMML-Manager-$version-win64"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Recurse -Force 'build/windows-dist/umml-manager/*' $stage
+          $guiLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" gui %*"
+          $cliLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" cli %*"
+          Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
+          Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
+          Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
+          UMML Manager Windows portable preview
+
+          Start the graphical Manager with "UMML Manager.cmd".
+          Start CLI mode with "UMML Manager CLI.cmd".
+
+          This portable preview stores user data outside this folder. Deleting the
+          application folder does not remove the Manager library, profiles, baselines,
+          transactions, or workspaces.
+
+          Close Umamusume before Apply, restore, or legacy Studio writes.
+          '@
+          $zip = "dist/umml-manager_${version}_win64.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $zip -CompressionLevel Optimal
+          if (!(Test-Path $zip)) { throw "Portable ZIP was not created: $zip" }
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content -Encoding ascii 'dist/SHA256SUMS-WINDOWS'
+          Get-Content 'dist/SHA256SUMS-WINDOWS'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umml-manager-windows-portable
+          path: dist/umml-manager_*_win64.zip
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: umml-manager-windows-checksums
+          path: dist/SHA256SUMS-WINDOWS
+          if-no-files-found: error
+          retention-days: 30

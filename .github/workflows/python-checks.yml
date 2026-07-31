@@ -7,25 +7,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Compile source
-        run: |
-          python -m py_compile \
-            UMML.py UMML_core.py umml_platform.py umml_packaged.py \
-            umml_autodetect/*.py
-      - name: Run regression tests
-        run: python -m unittest discover -s tests -v
-      - name: Validate shell scripts
-        run: |
-          bash -n install.sh uninstall.sh \
-            scripts/build_release.sh scripts/build_frozen.sh \
-            scripts/build_deb.sh scripts/build_appimage.sh
-      - name: Build source archives
-        run: scripts/build_release.sh
+      - name: Run legacy validation
+        run: bash scripts/check_legacy.sh

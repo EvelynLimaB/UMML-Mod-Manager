@@ -1,0 +1,300 @@
+import json
+import sqlite3
+import tempfile
+import unittest
+from pathlib import Path
+
+from umml_manager.engine import ApplyEngine
+from umml_manager.legacy_adapter import LegacyAssetAdapter
+from umml_manager.library import ManagerStore
+from umml_manager.models import Profile
+from umml_manager.resolver import resolve_profile
+from umml_manager.safety import hash_file
+
+
+class ManagerConfigurableDeploymentTests(unittest.TestCase):
+    def test_two_authored_variants_can_share_one_target_and_switch_profiles(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "package"
+            assets = package / "assets"
+            (assets / "common").mkdir(parents=True)
+            (assets / "characters" / "special-week").mkdir(parents=True)
+            (assets / "characters" / "silence-suzuka").mkdir(parents=True)
+
+            common_source = assets / "common" / "shared"
+            special_source = assets / "characters" / "special-week" / "body"
+            suzuka_source = assets / "characters" / "silence-suzuka" / "body"
+            common_bytes = b"shared package payload"
+            special_bytes = b"special week payload"
+            suzuka_bytes = b"silence suzuka payload"
+            common_source.write_bytes(common_bytes)
+            special_source.write_bytes(special_bytes)
+            suzuka_source.write_bytes(suzuka_bytes)
+
+            (package / "umml-mod.json").write_text(
+                json.dumps(
+                    {
+                        "id": "creator.character-variants",
+                        "title": "Character variants",
+                        "mod_version": "1",
+                        "targets": {
+                            "characters": ["Special Week", "Silence Suzuka"],
+                            "content": ["model"],
+                        },
+                        "option_groups": {
+                            "character": {
+                                "name": "Affected character",
+                                "kind": "character",
+                                "type": "single",
+                                "default": "special-week",
+                                "choices": {
+                                    "special-week": {
+                                        "name": "Special Week",
+                                        "target": "1001",
+                                        "include": ["characters/special-week/**"],
+                                    },
+                                    "silence-suzuka": {
+                                        "name": "Silence Suzuka",
+                                        "target": "1002",
+                                        "include": ["characters/silence-suzuka/**"],
+                                    },
+                                },
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            common_hash_name = "aa" + "1" * 62
+            character_hash_name = "bb" + "2" * 62
+            common_target = f"aa/{common_hash_name}"
+            character_target = f"bb/{character_hash_name}"
+            meta = root / "meta.db"
+            connection = sqlite3.connect(meta)
+            try:
+                connection.execute("CREATE TABLE a (n TEXT, h TEXT, e INTEGER)")
+                connection.executemany(
+                    "INSERT INTO a (n, h, e) VALUES (?, ?, ?)",
+                    [
+                        ("common/shared", common_hash_name, 0),
+                        ("characters/special-week/body", character_hash_name, 0),
+                        ("characters/silence-suzuka/body", character_hash_name, 0),
+                    ],
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            class FakeDecoder:
+                def decrypt_assets_internal(self, input_root, output, **_kwargs):
+                    source = next(path for path in Path(input_root).rglob("*") if path.is_file())
+                    payload = source.read_bytes()
+                    target_name = (
+                        common_hash_name
+                        if payload == common_bytes
+                        else character_hash_name
+                    )
+                    destination = Path(output)
+                    destination.mkdir(parents=True, exist_ok=True)
+                    (destination / target_name).write_bytes(payload)
+                    return 1, 0
+
+            class TestAdapter(LegacyAssetAdapter):
+                def _decoder(self):
+                    return FakeDecoder()
+
+            store = ManagerStore(root / "manager")
+            imported = store.import_folder(package)
+            original_source_bytes = {
+                path.relative_to(Path(imported.source_path)).as_posix(): path.read_bytes()
+                for path in Path(imported.source_path).rglob("*")
+                if path.is_file()
+            }
+            prepared = TestAdapter(store, meta).prepare(imported)
+
+            self.assertEqual(
+                prepared.source_files["characters/special-week/body"],
+                character_target,
+            )
+            self.assertEqual(
+                prepared.source_files["characters/silence-suzuka/body"],
+                character_target,
+            )
+            self.assertNotEqual(
+                prepared.source_hashes["characters/special-week/body"],
+                prepared.source_hashes["characters/silence-suzuka/body"],
+            )
+            self.assertNotEqual(
+                prepared.source_roots["characters/special-week/body"],
+                prepared.source_roots["characters/silence-suzuka/body"],
+            )
+            self.assertEqual(
+                prepared.source_payloads["characters/special-week/body"],
+                {character_target: prepared.source_hashes["characters/special-week/body"]},
+            )
+
+            dat = root / "game" / "Persistent" / "dat"
+            common_game = dat / common_target
+            character_game = dat / character_target
+            common_game.parent.mkdir(parents=True)
+            character_game.parent.mkdir(parents=True)
+            vanilla_common = b"vanilla shared"
+            vanilla_character = b"vanilla character"
+            common_game.write_bytes(vanilla_common)
+            character_game.write_bytes(vanilla_character)
+            fingerprint = hash_file(meta)
+            engine = ApplyEngine(
+                store,
+                dat,
+                game_dir=root / "game",
+                process_check=lambda _game_dir: (),
+            )
+
+            special_profile = Profile(
+                "Special",
+                [prepared.id],
+                options={prepared.id: {"character": "special-week"}},
+            )
+            special = resolve_profile(
+                special_profile,
+                [prepared],
+                metadata_fingerprint=fingerprint,
+            )
+            self.assertFalse(special.blocking_issues)
+            self.assertEqual(set(special.winners), {common_target, character_target})
+            engine.apply(special)
+            self.assertEqual(common_game.read_bytes(), common_bytes)
+            self.assertEqual(character_game.read_bytes(), special_bytes)
+
+            suzuka_profile = Profile(
+                "Suzuka",
+                [prepared.id],
+                options={prepared.id: {"character": "silence-suzuka"}},
+            )
+            suzuka = resolve_profile(
+                suzuka_profile,
+                [prepared],
+                metadata_fingerprint=fingerprint,
+            )
+            self.assertFalse(suzuka.blocking_issues)
+            self.assertEqual(
+                suzuka.known_mod_hashes[character_target],
+                tuple(
+                    sorted(
+                        (
+                            prepared.source_hashes["characters/special-week/body"],
+                            prepared.source_hashes["characters/silence-suzuka/body"],
+                        )
+                    )
+                ),
+            )
+            engine.apply(suzuka)
+            self.assertEqual(common_game.read_bytes(), common_bytes)
+            self.assertEqual(character_game.read_bytes(), suzuka_bytes)
+
+            restored = resolve_profile(Profile("Vanilla", []), [prepared])
+            engine.apply(restored)
+            self.assertEqual(common_game.read_bytes(), vanilla_common)
+            self.assertEqual(character_game.read_bytes(), vanilla_character)
+
+            current_source_bytes = {
+                path.relative_to(Path(imported.source_path)).as_posix(): path.read_bytes()
+                for path in Path(imported.source_path).rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(current_source_bytes, original_source_bytes)
+
+    def test_one_source_bundle_can_prepare_and_deploy_multiple_targets(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "package"
+            assets = package / "assets" / "bdy109165"
+            assets.mkdir(parents=True)
+            source = assets / "asset_body.bundle"
+            source.write_bytes(b"authored bundle")
+            (package / "umml-mod.json").write_text(
+                json.dumps(
+                    {
+                        "id": "creator.multi-target-bundle",
+                        "title": "Multi-target bundle",
+                        "mod_version": "1",
+                        "option_groups": {
+                            "components": {
+                                "name": "Components",
+                                "type": "multiple",
+                                "default": ["body"],
+                                "choices": {
+                                    "body": {
+                                        "name": "Body bundle",
+                                        "include": ["bdy109165/asset_body.bundle"],
+                                    }
+                                },
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            meta = root / "meta.db"
+            connection = sqlite3.connect(meta)
+            try:
+                connection.execute("CREATE TABLE a (n TEXT, h TEXT, e INTEGER)")
+                connection.commit()
+            finally:
+                connection.close()
+
+            first_name = "aa" + "1" * 62
+            second_name = "bb" + "2" * 62
+            first_target = f"aa/{first_name}"
+            second_target = f"bb/{second_name}"
+
+            class FakeDecoder:
+                def decrypt_assets_internal(self, _input, output, **_kwargs):
+                    destination = Path(output)
+                    destination.mkdir(parents=True, exist_ok=True)
+                    (destination / first_name).write_bytes(b"first payload")
+                    (destination / second_name).write_bytes(b"second payload")
+                    return 2, 0
+
+            class TestAdapter(LegacyAssetAdapter):
+                def _decoder(self):
+                    return FakeDecoder()
+
+            store = ManagerStore(root / "manager")
+            imported = store.import_folder(package)
+            prepared = TestAdapter(store, meta).prepare(imported)
+            payload = prepared.source_payloads["bdy109165/asset_body.bundle"]
+            self.assertEqual(set(payload), {first_target, second_target})
+            self.assertEqual(set(prepared.files), {first_target, second_target})
+
+            dat = root / "game" / "Persistent" / "dat"
+            for target, vanilla in (
+                (first_target, b"vanilla first"),
+                (second_target, b"vanilla second"),
+            ):
+                path = dat / target
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(vanilla)
+
+            resolution = resolve_profile(
+                Profile("Default", [prepared.id]),
+                [prepared],
+                metadata_fingerprint=hash_file(meta),
+            )
+            self.assertFalse(resolution.blocking_issues)
+            self.assertEqual(set(resolution.winners), {first_target, second_target})
+            engine = ApplyEngine(
+                store,
+                dat,
+                game_dir=root / "game",
+                process_check=lambda _game_dir: (),
+            )
+            engine.apply(resolution)
+            self.assertEqual((dat / first_target).read_bytes(), b"first payload")
+            self.assertEqual((dat / second_target).read_bytes(), b"second payload")
+
+
+if __name__ == "__main__":
+    unittest.main()

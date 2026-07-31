@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.evelynlimab.ummlmanager</id>
+  <name>UMML-Manager</name>
+  <summary>Manage, inspect, configure, and create Umamusume mods</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>UMML-Manager is a cross-platform mod manager and mod-development workspace for Umamusume Pretty Derby, forked from the original UMML project.</p>
+    <p>Players can browse and import mods, use named profiles, configure package variants, inspect conflicts, and apply or restore verified transactional deployments.</p>
+    <p>Creators can inspect source bundles and final targets, describe affected characters, dresses, parts, and content types, edit compatibility policy, build configurable packages, and test new immutable versions.</p>
+    <p>Compatible imports prepare and analyze automatically. Manual Prepare or Re-prepare maintenance is not part of the user workflow.</p>
+    <p>The guarded compatibility Studio preserves original UMML editing tools while native Manager workflows replace them. Read-only veteran-data tools can import credited external umadump and UmaExtractor output without bundling unlicensed scanners.</p>
+  </description>
+  <launchable type="desktop-id">io.github.evelynlimab.ummlmanager.desktop</launchable>
+  <url type="homepage">https://github.com/EvelynLimaB/UMML-Linux</url>
+  <url type="bugtracker">https://github.com/EvelynLimaB/UMML-Linux/issues</url>
+  <url type="help">https://github.com/EvelynLimaB/UMML-Linux/blob/main/MANAGER_README.md</url>
+  <provides>
+    <binary>umml-manager</binary>
+    <binary>umml-manager-cli</binary>
+  </provides>
+  <categories>
+    <category>Game</category>
+    <category>Utility</category>
+    <category>Development</category>
+  </categories>
+  <keywords>
+    <keyword>Umamusume</keyword>
+    <keyword>mod manager</keyword>
+    <keyword>modding</keyword>
+    <keyword>GameBanana</keyword>
+    <keyword>profiles</keyword>
+    <keyword>Unity</keyword>
+  </keywords>
+  <releases>
+    <release version="0.2.0-alpha.18" date="2026-07-30">
+      <description>
+        <p>Rebrands the repository around UMML-Manager, removes manual preparation controls, supports multi-target source bundles, adds visual Inspect and edit workflows, improves focused windows and Library actions, and expands credited veteran-data provider compatibility.</p>
+      </description>
+    </release>
+    <release version="0.2.0-alpha.17" date="2026-07-30">
+      <description>
+        <p>Adds package targeting, character and dress metadata, semantic profile options, compatibility editing, relative load-order rules, and native package editing.</p>
+      </description>
+    </release>
+    <release version="0.2.0-alpha.16" date="2026-07-29">
+      <description>
+        <p>Adds profile-scoped configurable packages, source-to-target option mapping, guided creator workspaces, and the comparative manager design review.</p>
+      </description>
+    </release>
+    <release version="0.2.0-alpha.15" date="2026-07-26">
+      <description>
+        <p>Connects all Manager entry points to robust installation discovery, adds persistent themes, and fixes packaged Linux folder opening.</p>
+      </description>
+    </release>
+    <release version="0.1.0-alpha.1" date="2026-07-21">
+      <description>
+        <p>Initial separately packaged Manager foundation with an immutable library, profiles, conflict planning, verified deployment, baselines, providers, GUI, CLI, tests, and Debian packaging.</p>
+      </description>
+    </release>
+  </releases>
+</component>
