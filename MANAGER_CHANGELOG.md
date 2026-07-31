@@ -1,6 +1,14 @@
-# UMML Manager changelog
+# UMML-Manager changelog
 
 ## 0.2.0~alpha18 - 2026-07-30
+
+### Project identity and repository cleanup
+
+- Repositioned the repository as **UMML-Manager**, a full cross-platform mod manager and mod-development workspace forked from UMML.
+- Made the Manager the primary product and documented the original UMML code as a guarded compatibility layer.
+- Rewrote the repository landing page, user guide, documentation index, contribution guide, security policy, roadmap, desktop metadata, and AppStream description around player and creator workflows.
+- Added a project vision, a practical mod-creator guide, creator-focused issue forms, and clearer third-party attribution and licensing rules.
+- Expanded ignore rules for local game data, Manager state, extractor output, minidumps, build trees, and generated packages.
 
 ### Automatic preparation and source inspection
 
@@ -16,6 +24,13 @@
 - Added simple package, compatibility, dependency, incompatibility, and load-order fields without requiring JSON editing.
 - Added optional per-profile component controls at the source-bundle boundary. Non-overlapping bundles become checkboxes; overlapping targets become mutually exclusive variants.
 - Detection remains evidence-based: names and metadata may suggest a target, but the Manager does not claim to retarget arbitrary Unity bundles automatically.
+
+### Veteran-data providers
+
+- Added a read-only Veteran Roster workspace with immutable scrubbed snapshots, search, inspection, JSON export, and filtered CSV export.
+- Added compatibility with classic `data.json` from the rockisch/umadump lineage and related UmaExtractor forks.
+- Added compatibility with Werseter/umadump 2.0 `trained_chara_data.json`, including snake_case/camelCase fields and multi-output selection guards.
+- Added a credited provider browser and shell-free external extractor launching while keeping unlicensed scanner code and binaries outside UMML-Manager packages.
 
 ### Window and Library UX
 
@@ -53,7 +68,7 @@
 - Added profile-scoped selections so profiles can choose different variants from one imported version.
 - Preparation records source paths to final hashed targets without changing imported files.
 - Resolution filters prepared claims by the active profile before conflict planning.
-- Invalid, unknown, ambiguous, stale, or empty configuration blocks apply and appears in the plan.
+- Invalid, unknown, ambiguous, stale, or empty configuration blocks Apply and appears in the plan.
 
 ### Creator workflow
 
@@ -66,7 +81,7 @@
 
 - Configurable manifests are validated before immutable import.
 - Include patterns reject traversal, absolute paths, unmatched patterns, and files controlled by multiple choices or groups.
-- Older configurable prepared caches require one explicit re-prepare to gain source-to-target mapping.
+- Older configurable prepared caches originally required re-preparation to gain source-to-target mapping; alpha18 now performs this maintenance automatically.
 - Expanded callback auditing to the configuration and package-builder dialogs.
 - Added regression coverage for manifests, defaults, profile choices, resolver filtering, blockers, imports, and package workspaces.
 
@@ -108,7 +123,7 @@
 
 ## 0.2.0~alpha9 - 2026-07-22
 
-- Added automatic preparation after compatible imports while keeping apply explicit.
+- Added automatic preparation after compatible imports while keeping Apply explicit.
 - Preserved sources after preparation failures.
 - Added safe normalization for provider-confirmed loose legacy archives and rejected unsupported payloads.
 
