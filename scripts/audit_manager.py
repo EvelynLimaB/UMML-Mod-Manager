@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static structural audit for the UMML Manager source tree.
+"""Static structural audit for the Uma Mod Manager source tree.
 
 This deliberately uses only the Python standard library so every contributor and
 CI runner can execute it before packaging. It does not pretend to replace tests
@@ -195,6 +195,24 @@ def _duplicate_definitions(path: Path, tree: ast.Module) -> list[Finding]:
     return findings
 
 
+def _is_callback_owner(node: ast.ClassDef) -> bool:
+    """Return whether a class may legitimately own a visible UI callback.
+
+    Page and dialog classes often own small local actions such as opening help,
+    exporting a report, or applying a filter. Action mixins and ManagerGUI own
+    application-wide operations. Treating page methods as missing encouraged
+    hiding valid callbacks inside lambdas, which made the audit quieter rather
+    than the code safer.
+    """
+
+    return (
+        node.name in ACTION_CLASS_NAMES
+        or node.name.endswith("Page")
+        or node.name.endswith("Dialog")
+        or node.name.endswith("Window")
+    )
+
+
 def _action_methods(files: list[Path]) -> set[str]:
     methods: set[str] = set(WIDGET_METHOD_CALLBACKS)
     for path in files:
@@ -203,7 +221,7 @@ def _action_methods(files: list[Path]) -> set[str]:
         except (OSError, SyntaxError, UnicodeError):
             continue
         for node in tree.body:
-            if isinstance(node, ast.ClassDef) and node.name in ACTION_CLASS_NAMES:
+            if isinstance(node, ast.ClassDef) and _is_callback_owner(node):
                 methods.update(
                     child.name
                     for child in node.body
@@ -254,7 +272,7 @@ def audit_button_callbacks(files: list[Path]) -> list[Finding]:
                     Finding(
                         path,
                         node.lineno,
-                        f"button callback {callback!r} is not implemented by ManagerGUI, a dialog, or an action mixin",
+                        f"button callback {callback!r} is not implemented by ManagerGUI, a page, a dialog, or an action mixin",
                     )
                 )
     return findings
@@ -265,12 +283,12 @@ def main() -> int:
     findings = [finding for path in files for finding in audit_file(path)]
     findings.extend(audit_button_callbacks(files))
     if findings:
-        print("UMML Manager source audit failed:", file=sys.stderr)
+        print("Uma Mod Manager source audit failed:", file=sys.stderr)
         for finding in findings:
             print(f"  {finding.render()}", file=sys.stderr)
         return 1
     print(
-        f"UMML Manager source audit passed for {len(files)} Python files, "
+        f"Uma Mod Manager source audit passed for {len(files)} Python files, "
         "including visible button callbacks."
     )
     return 0
