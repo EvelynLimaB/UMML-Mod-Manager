@@ -9,28 +9,43 @@
 
 > Make installing mods safe and boring, and make creating mods easy enough that more people actually make them.
 
-The application serves two equally important groups:
-
-- **Players** get installation detection, discovery, validated imports, profiles, options, conflict explanations, verified deployment, restoration, and diagnostics.
+- **Players** get installation detection, validated imports, automatic preparation, profiles, options, conflict explanations, verified deployment, restoration, and diagnostics.
 - **Mod creators** get package workspaces, source-bundle inspection, character/dress/part targeting, compatibility editing, configurable variants, validation, testing, and growing asset/data tools.
 
 No user should need to manually prepare or re-prepare a mod. That is internal plumbing, and plumbing belongs inside the wall rather than beside the Apply button.
 
-> **Current status:** `0.2.0~alpha18` preview. Windows portable, Debian, and AppImage builds are produced by CI. Keep backups, close the game before any write operation, and treat alpha packages as test builds.
+> **Current status:** `0.2.0~alpha19` Community Test. Windows portable, Debian, and AppImage builds are testing prereleases. Keep the previous package for rollback, verify checksums, close the game before any write operation, and use expendable or independently backed-up data for recovery testing.
 >
 > The preserved original UMML compatibility layer remains version `1.5.0-linux.6`; it is not the version of the new Manager application.
 
 ## Start here
 
+- [Alpha19 Community Test notes](docs/releases/0.2.0-alpha.19.md)
+- [Testing and feedback](docs/TESTING_AND_FEEDBACK.md)
 - [Player guide](MANAGER_README.md)
 - [Mod creator guide](docs/MOD_CREATOR_GUIDE.md)
 - [Package manifest reference](docs/MANAGER_MOD_MANIFEST.md)
+- [Release process](docs/RELEASE_PROCESS.md)
 - [Project vision](docs/PROJECT_VISION.md)
 - [Architecture and safety boundaries](docs/MANAGER_ARCHITECTURE.md)
 - [Branding and compatibility identifiers](docs/BRANDING_AND_COMPATIBILITY.md)
 - [Third-party notices and lineage](NOTICE.md)
 - [Documentation index](docs/README.md)
 - [Contributing](CONTRIBUTING.md)
+
+## Community Test programme
+
+Alpha19 is designed to collect reproducible player and creator feedback rather than vague reports that “something was weird.” The release contract provides:
+
+- one exact version across Windows, Debian, AppImage, AppStream, and Git tags;
+- SHA-256 checksums for every published package;
+- an explicit platform and workflow test matrix;
+- a structured **Testing feedback** issue form for successful, partial, and failed passes;
+- a privacy-scrubbed support archive through **Settings → Create support bundle**;
+- known limitations and rollback guidance in every Community Test release note;
+- a manual prerelease workflow that refuses version drift and refuses to replace published artifacts silently.
+
+Read [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before using a test build. Successful test passes are valuable evidence too. Silence remains maddeningly compatible with both perfection and nobody launching the application.
 
 ## Player features
 
@@ -86,12 +101,13 @@ Uma Mod Manager credits and launches user-supplied external tools, but does not 
 
 ## Downloads
 
-Until alpha builds are published as permanent GitHub Releases, use the latest successful workflow artifacts from `main`:
+Permanent Community Test builds are published as GitHub prereleases after exact-head validation. Short-lived development artifacts remain available from successful workflows:
 
+- [Community Test release workflow](https://github.com/EvelynLimaB/Uma-Mod-Manager/actions/workflows/manager-testing-release.yml)
 - [Windows portable workflow](https://github.com/EvelynLimaB/Uma-Mod-Manager/actions/workflows/manager-windows-checks.yml?query=branch%3Amain)
 - [Debian and AppImage workflow](https://github.com/EvelynLimaB/Uma-Mod-Manager/actions/workflows/manager-checks.yml?query=branch%3Amain)
 
-Technical package and command identifiers remain `umml-manager` for upgrade compatibility during the rebrand. See [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).
+Technical package and command identifiers remain `umml-manager` for upgrade compatibility. See [Branding and compatibility](docs/BRANDING_AND_COMPATIBILITY.md).
 
 ### Windows portable
 
@@ -101,20 +117,20 @@ Extract the portable archive and run:
 Uma Mod Manager.cmd
 ```
 
-A compatibility launcher named `UMML Manager.cmd` may remain during the migration window.
+A compatibility launcher named `UMML Manager.cmd` remains during the migration window.
 
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha18_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha19_amd64.deb
 /usr/bin/umml-manager
 ```
 
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha18_x86_64.AppImage
-./umml-manager_0.2.0-alpha18_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha.19_x86_64.AppImage
+./umml-manager_0.2.0-alpha.19_x86_64.AppImage
 ```
 
 Verify published artifacts using the accompanying checksum file:
@@ -132,6 +148,7 @@ sha256sum -c SHA256SUMS
 5. Review Conflicts until the plan has no blockers.
 6. Close the game and apply the profile.
 7. Switch profiles or restore vanilla through the same verified deployment engine.
+8. For a test report, use **Settings → Create support bundle**, inspect the JSON, and attach it to the structured issue form.
 
 ## Creator workflow
 
@@ -143,15 +160,15 @@ sha256sum -c SHA256SUMS
 6. Test it in a dedicated profile, review conflicts, apply, switch, and restore.
 7. Publish the package with its manifest, credits, version, and compatibility notes.
 
-The detailed workflow is in [docs/MOD_CREATOR_GUIDE.md](docs/MOD_CREATOR_GUIDE.md).
+The detailed workflow is in [Mod creator guide](docs/MOD_CREATOR_GUIDE.md).
 
 ## Repository layout
 
 | Area | Purpose |
 | --- | --- |
-| `umml_manager/` | Main application, library, providers, inspection, profiles, UI, resolver, and deployment |
-| `docs/` | Player, creator, architecture, packaging, safety, and roadmap documentation |
-| `tests/` | Synthetic regression, failure-injection, GUI, package, and platform tests |
+| `umml_manager/` | Main application, library, providers, inspection, profiles, UI, resolver, deployment, diagnostics, and support reports |
+| `docs/` | Player, creator, testing, release, architecture, packaging, safety, and roadmap documentation |
+| `tests/` | Synthetic regression, failure-injection, GUI, package, privacy, and platform tests |
 | `scripts/`, `packaging/` | Windows, Debian, AppImage, source-install, metadata, and release tooling |
 | `UMML.py`, `UMML_core.py`, `umml_autodetect/` | Original UMML compatibility layer and reusable upstream-derived behavior |
 | `umml_runtime/`, `runtime_bridge/` | Optional experimental runtime protocol, kept outside ordinary mod deployment |
@@ -165,21 +182,24 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt -r requirements-build.txt
 python -m pip check
 python scripts/audit_manager.py
+python scripts/audit_branding.py
+python scripts/audit_release.py
 bash scripts/check_manager.sh
 ```
 
 Windows contributors can use the equivalent PowerShell virtual-environment activation and run the same Python checks. Native Windows packaging is validated in its own workflow.
 
-## Contributing
+## Contributing and testing
 
-Mod-manager improvements, creator tools, asset-analysis workflows, provider adapters, package manifests, UI/UX work, documentation, and synthetic tests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md).
+Mod-manager improvements, creator tools, asset-analysis workflows, provider adapters, package manifests, UI/UX work, documentation, synthetic tests, and real-machine pass reports are welcome. Read [Contributing](CONTRIBUTING.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md).
 
-Do not commit copyrighted game assets, decrypted metadata, personal roster data, downloaded mods without redistribution permission, credentials, or generated packages.
+Do not commit or attach copyrighted game assets, decrypted metadata, personal roster data, downloaded mods without redistribution permission, credentials, generated packages, or unreviewed support reports.
 
-The most valuable contributions are often unglamorous:
+Useful contributions include:
 
 - document a real package layout;
 - provide a redistributable synthetic fixture reproducing a failure;
+- report a successful exact-build test pass;
 - improve character/dress/part detection without inventing certainty;
 - remove an unexplained creator step;
 - replace a legacy editor with a tested native workflow;
