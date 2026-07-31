@@ -49,8 +49,8 @@ class PreviewImageLoader:
     """Fetch and decode one untrusted remote preview without touching game state."""
 
     USER_AGENT = (
-        "UMML-Manager/0.2 "
-        "(+https://github.com/EvelynLimaB/UMML-Linux)"
+        "Uma-Mod-Manager/0.2 "
+        "(+https://github.com/EvelynLimaB/Uma-Mod-Manager)"
     )
 
     def __init__(self, opener: Callable[..., Any] | None = None):
