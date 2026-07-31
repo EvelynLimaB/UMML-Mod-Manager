@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single frozen entry point for the UMML Manager GUI, CLI, and legacy-tool host."""
+"""Single frozen entry point for the UMML-Manager GUI, CLI, and compatibility host."""
 
 from __future__ import annotations
 
