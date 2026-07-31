@@ -31,6 +31,7 @@ PUBLIC_NAME_FILES = {
     "packaging/linux/io.github.evelynlimab.ummlmanager.metainfo.xml": "<name>Uma Mod Manager</name>",
     ".github/workflows/manager-checks.yml": "name: Uma Mod Manager Linux checks",
     ".github/workflows/manager-windows-checks.yml": "name: Uma Mod Manager Windows checks",
+    ".github/workflows/manager-testing-release.yml": "name: Uma Mod Manager testing release",
     "umml_manager/gui.py": 'PRODUCT_NAME = "Uma Mod Manager"',
     "umml_manager/ui_veterans_window.py": 'window.title("Uma Mod Manager · Veteran Roster")',
 }
@@ -39,6 +40,8 @@ REQUIRED_FILES = (
     "NOTICE.md",
     "CITATION.cff",
     "docs/BRANDING_AND_COMPATIBILITY.md",
+    "docs/TESTING_AND_FEEDBACK.md",
+    "docs/RELEASE_PROCESS.md",
 )
 
 # These names intentionally remain stable until an explicit state/package
@@ -113,7 +116,16 @@ def _read(relative: str) -> str:
     try:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise AssertionError(f"Could not read required branding file {relative}: {exc}") from exc
+        raise AssertionError(
+            f"Could not read required branding file {relative}: {exc}"
+        ) from exc
+
+
+def _manager_version() -> str:
+    version = _read("MANAGER_VERSION").strip()
+    if not version:
+        raise AssertionError("MANAGER_VERSION is empty")
+    return version
 
 
 def _tracked_files() -> list[Path]:
@@ -125,8 +137,16 @@ def _tracked_files() -> list[Path]:
             capture_output=True,
         )
     except (OSError, subprocess.CalledProcessError):
-        return [path for path in ROOT.rglob("*") if path.is_file() and ".git" not in path.parts]
-    return [ROOT / item.decode("utf-8") for item in result.stdout.split(b"\0") if item]
+        return [
+            path
+            for path in ROOT.rglob("*")
+            if path.is_file() and ".git" not in path.parts
+        ]
+    return [
+        ROOT / item.decode("utf-8")
+        for item in result.stdout.split(b"\0")
+        if item
+    ]
 
 
 def _assert_no_stale_repository_urls(errors: list[str]) -> None:
@@ -140,7 +160,9 @@ def _assert_no_stale_repository_urls(errors: list[str]) -> None:
         relative = path.relative_to(ROOT).as_posix()
         for token in STALE_REPOSITORY_TOKENS:
             if token in text:
-                errors.append(f"{relative}: stale repository reference {token!r}")
+                errors.append(
+                    f"{relative}: stale repository reference {token!r}"
+                )
 
 
 def main() -> int:
@@ -148,7 +170,9 @@ def main() -> int:
 
     for relative in REQUIRED_FILES:
         if not (ROOT / relative).is_file():
-            errors.append(f"Missing required identity/attribution file: {relative}")
+            errors.append(
+                f"Missing required identity/attribution file: {relative}"
+            )
 
     for relative, expected in PUBLIC_NAME_FILES.items():
         try:
@@ -157,7 +181,9 @@ def main() -> int:
             errors.append(str(exc))
             continue
         if expected not in text:
-            errors.append(f"{relative}: missing public identity marker {expected!r}")
+            errors.append(
+                f"{relative}: missing public identity marker {expected!r}"
+            )
 
     for relative, markers in COMPATIBILITY_CONTRACT.items():
         try:
@@ -167,7 +193,9 @@ def main() -> int:
             continue
         for marker in markers:
             if marker not in text:
-                errors.append(f"{relative}: compatibility marker disappeared: {marker!r}")
+                errors.append(
+                    f"{relative}: compatibility marker disappeared: {marker!r}"
+                )
 
     for relative, upstream_url in UPSTREAM_CONTRACT.items():
         try:
@@ -178,10 +206,18 @@ def main() -> int:
         if upstream_url not in text:
             errors.append(f"{relative}: original UMML lineage URL is missing")
 
+    try:
+        manager_version = _manager_version()
+    except AssertionError as exc:
+        errors.append(str(exc))
+        manager_version = ""
+
     readme = _read("README.md")
-    for version in ("0.2.0~alpha18", "1.5.0-linux.6"):
-        if version not in readme:
-            errors.append(f"README.md: expected active/compatibility version {version!r}")
+    for version in (manager_version, "1.5.0-linux.6"):
+        if version and version not in readme:
+            errors.append(
+                f"README.md: expected active/compatibility version {version!r}"
+            )
 
     _assert_no_stale_repository_urls(errors)
 
@@ -191,7 +227,10 @@ def main() -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    print("Branding audit passed: public identity, upstream lineage, and stable compatibility names agree.")
+    print(
+        "Branding audit passed: public identity, upstream lineage, current "
+        "version, and stable compatibility names agree."
+    )
     return 0
 
 
