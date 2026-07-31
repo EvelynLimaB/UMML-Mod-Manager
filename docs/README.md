@@ -1,15 +1,17 @@
-# UMML-Manager documentation
+# Uma Mod Manager documentation
 
-UMML-Manager is now the repository's primary product. The original UMML loader and editors remain as a compatibility layer while native Manager workflows replace them without dropping working features.
+Uma Mod Manager is the repository's primary product. The original UMML loader and editors remain as a compatibility layer while native Manager workflows replace them without dropping working features.
 
-Start with the document matching what you are trying to do. Reading every architecture note before installing one pink costume remains optional, despite what software repositories seem to imply.
+Start with the document matching the job at hand. Reading every architecture note before installing one pink costume remains optional, despite what software repositories seem to imply.
 
 ## Start here
 
 | Document | Audience | Purpose |
 | --- | --- | --- |
 | [`../README.md`](../README.md) | Everyone | Project identity, features, downloads, workflows, layout, and status |
-| [`PROJECT_VISION.md`](PROJECT_VISION.md) | Everyone | Mission, audiences, product pillars, priorities, non-goals, and definition of success |
+| [`PROJECT_VISION.md`](PROJECT_VISION.md) | Everyone | Mission, audiences, product pillars, priorities, non-goals, and success criteria |
+| [`BRANDING_AND_COMPATIBILITY.md`](BRANDING_AND_COMPATIBILITY.md) | Everyone | Public name, stable technical identifiers, data-root compatibility, and future migration rules |
+| [`../NOTICE.md`](../NOTICE.md) | Everyone | Original UMML lineage, external-tool credits, licensing boundaries, and third-party notices |
 | [`../MANAGER_README.md`](../MANAGER_README.md) | Players | Installation, interface, automatic preparation, profiles, deployment, recovery, and CLI |
 | [`MOD_CREATOR_GUIDE.md`](MOD_CREATOR_GUIDE.md) | Mod creators | Workspace, targeting, options, compatibility, validation, testing, and publishing workflow |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Contributors | Repository boundaries, development checks, safety rules, fixtures, and review requirements |
@@ -31,7 +33,7 @@ Start with the document matching what you are trying to do. Reading every archit
 | [`MANAGER_ARCHITECTURE.md`](MANAGER_ARCHITECTURE.md) | Library, profiles, resolver, preparation, deployment, providers, state, and safety boundaries |
 | [`MANAGER_DEVELOPMENT.md`](MANAGER_DEVELOPMENT.md) | Development environment, tests, debugging, extension points, and fixtures |
 | [`MANAGER_AUDIT.md`](MANAGER_AUDIT.md) | Source and package audit results, known risks, and evidence |
-| [`MANAGER_BSTAR_REVIEW.md`](MANAGER_BSTAR_REVIEW.md) | Blue Star Manager comparison, adopted product ideas, rejected implementation patterns, and acceptance rules |
+| [`MANAGER_BSTAR_REVIEW.md`](MANAGER_BSTAR_REVIEW.md) | Blue Star Manager comparison, independently adopted product ideas, rejected patterns, and acceptance rules |
 | [`MANAGER_FEATURE_ROADMAP.md`](MANAGER_FEATURE_ROADMAP.md) | Planned player, creator, provider, backend, Studio, runtime, and polish work |
 | [`RUNTIME_BRIDGE.md`](RUNTIME_BRIDGE.md) | Optional fail-closed runtime protocol and adapter boundary |
 
@@ -40,7 +42,7 @@ Start with the document matching what you are trying to do. Reading every archit
 | Document | Purpose |
 | --- | --- |
 | [`PACKAGING.md`](PACKAGING.md) | Native Windows, frozen runtime, Debian, AppImage, source-install, and artifact validation |
-| [`MANAGER_MAIN_PROMOTION.md`](MANAGER_MAIN_PROMOTION.md) | Exact code, CI, package, and real-machine evidence required before promotion |
+| [`MANAGER_MAIN_PROMOTION.md`](MANAGER_MAIN_PROMOTION.md) | Code, CI, package, and real-machine evidence expected before major promotion |
 | [`MANAGER_RELEASE_CHECKLIST.md`](MANAGER_RELEASE_CHECKLIST.md) | Stable-release and destructive-recovery gates |
 | [`../MANAGER_CHANGELOG.md`](../MANAGER_CHANGELOG.md) | Manager release history |
 | [`../SECURITY.md`](../SECURITY.md) | Vulnerability reporting, sensitive data, archive/provider risks, and process-memory tools |
@@ -49,23 +51,13 @@ Start with the document matching what you are trying to do. Reading every archit
 
 ### Primary application
 
-`umml_manager/` owns:
-
-- immutable mod library and versions;
-- profiles and load order;
-- automatic preparation and source analysis;
-- provider browsing and validated imports;
-- package targeting and configuration;
-- conflict planning;
-- transactional deployment and restoration;
-- native player and creator UI;
-- read-only external-data workspaces.
+`umml_manager/` owns the immutable mod library, profiles, automatic preparation, provider browsing, validated imports, package configuration, conflict planning, transactional deployment/restoration, native UI, creator workflows, and read-only external-data workspaces.
 
 ### Compatibility layer
 
 The original UMML paths, including `UMML.py`, `UMML_core.py`, platform discovery, and existing editing tools, remain available through a guarded Studio host.
 
-New features should not extend the compatibility layer merely because it is easier to add one more callback. Extract reusable logic into services and build native Manager workflows with tests and recovery behavior.
+New features should not extend the compatibility layer merely because adding one more callback is convenient. Extract reusable logic into services and build native Manager workflows with tests and recovery behavior.
 
 ### Optional runtime work
 
@@ -73,16 +65,6 @@ New features should not extend the compatibility layer merely because it is easi
 
 ## Files that never belong in source control
 
-Do not commit:
-
-- game executables or assets;
-- encrypted or decrypted game databases;
-- real `Persistent/dat` trees or backups;
-- Wine prefixes, Steam credentials, cookies, or account identifiers;
-- real veteran-roster data;
-- downloaded mods without redistribution permission;
-- unlicensed external tools;
-- Manager libraries, profiles, baselines, recovery state, logs, or caches;
-- virtual environments, AppDirs, PyInstaller work trees, DEBs, AppImages, portable ZIPs, or other generated packages.
+Do not commit game executables or assets, decrypted game databases, real `Persistent/dat` trees, Wine prefixes, Steam credentials, account identifiers, veteran-roster data, unlicensed external tools, downloaded mods without redistribution permission, Manager state, recovery data, virtual environments, package build trees, or generated release artifacts.
 
 Use synthetic, redistributable fixtures for tests and documentation.
