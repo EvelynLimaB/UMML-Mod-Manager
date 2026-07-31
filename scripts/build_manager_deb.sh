@@ -61,6 +61,9 @@ install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$BUILD_ROOT/usr/shar
 install -m 0644 "$ROOT/docs/MANAGER_ARCHITECTURE.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_ARCHITECTURE.md"
 install -m 0644 "$ROOT/docs/MANAGER_DEVELOPMENT.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_DEVELOPMENT.md"
 install -m 0644 "$ROOT/docs/PACKAGING.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/PACKAGING.md"
+install -m 0644 "$ROOT/docs/TESTING_AND_FEEDBACK.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/TESTING_AND_FEEDBACK.md"
+install -m 0644 "$ROOT/docs/RELEASE_PROCESS.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/RELEASE_PROCESS.md"
+install -m 0644 "$ROOT/docs/releases/0.2.0-alpha.19.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/RELEASE_NOTES.md"
 install -m 0644 "$ROOT/MANAGER_CHANGELOG.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/changelog"
 gzip -n -9 "$BUILD_ROOT/usr/share/doc/$PACKAGE/changelog"
 
@@ -80,9 +83,10 @@ Description: Umamusume mod manager and creator toolkit
  packages automatically, resolves ordered profiles, and applies or restores
  game assets transactionally. It provides conflict previews, target-bound
  vanilla baselines, recovery journals, external-change protection, creator
- workspaces, compatibility metadata, GameBanana discovery, and guarded access
- to original UMML tools. The technical package name remains umml-manager so
- existing installations and user state upgrade in place.
+ workspaces, compatibility metadata, GameBanana discovery, privacy-scrubbed
+ tester support bundles, and guarded access to original UMML tools. The
+ technical package name remains umml-manager so existing installations and
+ user state upgrade in place.
 EOF_CONTROL
 
 cat > "$BUILD_ROOT/DEBIAN/postinst" <<'EOF_POSTINST'
@@ -121,6 +125,9 @@ grep -q 'usr/bin/umml-manager-cli$' "$CONTENTS"
 grep -q "usr/share/metainfo/$DESKTOP_ID.metainfo.xml$" "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/NOTICE.md$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/RELEASE_PROCESS.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/RELEASE_NOTES.md$' "$CONTENTS"
 rm -f "$CONTENTS"
 trap - EXIT
 
