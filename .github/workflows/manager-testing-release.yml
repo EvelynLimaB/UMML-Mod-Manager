@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Exact prerelease tag derived from MANAGER_VERSION
         required: true
-        default: v0.2.0-alpha.19
+        default: v0.2.0-alpha.20
         type: string
       publish_release:
         description: Publish a GitHub prerelease after every build and test passes
@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_NOTES: docs/releases/0.2.0-alpha.19.md
+  RELEASE_NOTES: docs/releases/0.2.0-alpha.20.md
 
 jobs:
   validate:
@@ -42,6 +42,9 @@ jobs:
           test -f "$RELEASE_NOTES"
           test -f docs/TESTING_AND_FEEDBACK.md
           test -f docs/RELEASE_PROCESS.md
+          test -f docs/GAMEBANANA_PROVIDER.md
+          test -f docs/UMAEXTRACTOR_INTEGRATION.md
+          test -f docs/DOWNLOADS.md
 
   windows:
     name: Build Windows Community Test
@@ -91,10 +94,15 @@ jobs:
           & $exe --version
           & $exe cli self-test
           python scripts/test_manager_theme_runtime.py -- $exe gui
+          $raw = [System.IO.File]::ReadAllText((Join-Path $PWD 'MANAGER_VERSION')).Trim()
+          $display = $raw -replace '~alpha', '-alpha.'
           $requiredDocuments = @(
             'TESTING_AND_FEEDBACK.md',
             'RELEASE_PROCESS.md',
-            '0.2.0-alpha.19.md'
+            'GAMEBANANA_PROVIDER.md',
+            'UMAEXTRACTOR_INTEGRATION.md',
+            'DOWNLOADS.md',
+            "$display.md"
           )
           $allDocuments = Get-ChildItem -Path $bundleRoot -Recurse -File
           foreach ($document in $requiredDocuments) {
@@ -116,6 +124,10 @@ jobs:
           if ($expectedTag -ne '${{ inputs.release_tag }}') {
             throw "Release tag mismatch: expected $expectedTag"
           }
+          $notes = Join-Path 'docs/releases' "$display.md"
+          if (!(Test-Path $notes)) {
+            throw "Release notes are missing: $notes"
+          }
           $stage = Join-Path 'dist/windows' "Uma-Mod-Manager-$display-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force 'build/windows-dist/umml-manager/*' $stage
@@ -126,7 +138,10 @@ jobs:
           Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
           Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
           Copy-Item 'docs/TESTING_AND_FEEDBACK.md' (Join-Path $stage 'TESTING_AND_FEEDBACK.md')
-          Copy-Item 'docs/releases/0.2.0-alpha.19.md' (Join-Path $stage 'RELEASE_NOTES.md')
+          Copy-Item 'docs/GAMEBANANA_PROVIDER.md' (Join-Path $stage 'GAMEBANANA_PROVIDER.md')
+          Copy-Item 'docs/UMAEXTRACTOR_INTEGRATION.md' (Join-Path $stage 'UMAEXTRACTOR_INTEGRATION.md')
+          Copy-Item 'docs/DOWNLOADS.md' (Join-Path $stage 'DOWNLOADS.md')
+          Copy-Item $notes (Join-Path $stage 'RELEASE_NOTES.md')
           Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
           Uma Mod Manager Windows portable Community Test
 
@@ -201,8 +216,10 @@ jobs:
           VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
           DISPLAY="${VERSION/~alpha/-alpha.}"
           test "v$DISPLAY" = "${{ inputs.release_tag }}"
+          NOTES="docs/releases/$DISPLAY.md"
           DEB="dist/umml-manager_${VERSION}_amd64.deb"
           APPIMAGE="dist/umml-manager_${DISPLAY}_x86_64.AppImage"
+          test -f "$NOTES"
           test -f "$DEB"
           test -x "$APPIMAGE"
           test "$(dpkg-deb --field "$DEB" Version)" = "$VERSION"
@@ -213,16 +230,26 @@ jobs:
           VERIFY_ROOT="$(mktemp -d)"
           trap 'rm -rf "$VERIFY_ROOT"' EXIT
           dpkg-deb -x "$DEB" "$VERIFY_ROOT/deb"
-          test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md"
-          test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/RELEASE_PROCESS.md"
-          test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/RELEASE_NOTES.md"
+          for document in \
+            TESTING_AND_FEEDBACK.md \
+            RELEASE_PROCESS.md \
+            GAMEBANANA_PROVIDER.md \
+            UMAEXTRACTOR_INTEGRATION.md \
+            DOWNLOADS.md \
+            RELEASE_NOTES.md
+          do
+            test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/$document"
+          done
           "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli self-test
           xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
             "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" gui
           rm -rf "$VERIFY_ROOT"
           trap - EXIT
           cp docs/TESTING_AND_FEEDBACK.md dist/TESTING_AND_FEEDBACK.md
-          cp docs/releases/0.2.0-alpha.19.md dist/RELEASE_NOTES.md
+          cp docs/GAMEBANANA_PROVIDER.md dist/GAMEBANANA_PROVIDER.md
+          cp docs/UMAEXTRACTOR_INTEGRATION.md dist/UMAEXTRACTOR_INTEGRATION.md
+          cp docs/DOWNLOADS.md dist/DOWNLOADS.md
+          cp "$NOTES" dist/RELEASE_NOTES.md
           (
             cd dist
             sha256sum \
@@ -239,6 +266,9 @@ jobs:
             dist/umml-manager_*_x86_64.AppImage
             dist/SHA256SUMS-LINUX
             dist/TESTING_AND_FEEDBACK.md
+            dist/GAMEBANANA_PROVIDER.md
+            dist/UMAEXTRACTOR_INTEGRATION.md
+            dist/DOWNLOADS.md
             dist/RELEASE_NOTES.md
           if-no-files-found: error
           retention-days: 30
@@ -269,7 +299,9 @@ jobs:
           python scripts/audit_release.py --tag "$TAG"
           VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
           DISPLAY="${VERSION/~alpha/-alpha.}"
+          NOTES="docs/releases/$DISPLAY.md"
           test "$TAG" = "v$DISPLAY"
+          test -f "$NOTES"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release already exists; refusing to replace published artifacts: $TAG" >&2
             exit 1
@@ -291,5 +323,5 @@ jobs:
             release-assets/SHA256SUMS \
             --target "$GITHUB_SHA" \
             --title "Uma Mod Manager $DISPLAY Community Test" \
-            --notes-file "docs/releases/0.2.0-alpha.19.md" \
+            --notes-file "$NOTES" \
             --prerelease
