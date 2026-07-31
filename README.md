@@ -1,153 +1,190 @@
-# UMML for Linux
+# UMML-Manager
 
-[![Latest release](https://img.shields.io/github/v/release/EvelynLimaB/UMML-Linux?display_name=tag&sort=semver)](https://github.com/EvelynLimaB/UMML-Linux/releases/latest)
 [![Python checks](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/python-checks.yml/badge.svg)](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/python-checks.yml)
-[![Manager checks](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml/badge.svg)](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml)
+[![Linux Manager checks](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml/badge.svg)](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml)
+[![Windows Manager checks](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-windows-checks.yml/badge.svg)](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-windows-checks.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-7651a8.svg)](LICENSE)
 
-Linux, Steam Proton, packaging, and mod-management work for **Umamusume Pretty Derby**.
+**UMML-Manager** is a cross-platform mod manager and mod-development workspace for **Umamusume Pretty Derby**. It is a fork and continuation of UMML, redesigned around one slightly desperate objective:
 
-| Application | Purpose | Package | Commands |
-| --- | --- | --- | --- |
-| **Legacy UMML** | One-folder loader, preview, backup, restore, and direct editors | `umml-linux` | `umml`, `umml-doctor` |
-| **UMML Manager** | Mod library, profiles, GameBanana browser, local detection, conflicts, Studio and roster tools, and verified transactional deployment | `umml-manager` DEB or AppImage | `umml-manager`, `umml-manager-cli`, or AppImage flags |
+> Make installing mods safe and boring, and make creating mods easy enough that more people actually make them.
 
-They can coexist and do not own the same application files or backup state.
+The project serves two equally important groups:
 
-> Close the game before either application writes, restores, or edits game data. Downloading, scanning, importing, browsing, preparing, configuring profiles, creating package workspaces, editing manifests, conflict planning, and read-only veteran-roster analysis may happen while it runs.
+- **Players** get automatic installation detection, browsing, imports, profiles, conflicts, configuration, verified deployment, restoration, and diagnostics.
+- **Mod creators** get source-bundle inspection, character/dress/part targeting, compatibility editing, configurable variants, editable workspaces, package validation, and a growing set of extraction and analysis tools.
+
+No user should need to manually “prepare” or “re-prepare” a mod. That is internal plumbing and belongs inside the application, where plumbing has traditionally been kept for several excellent reasons.
+
+> **Current status:** `0.2.0~alpha18` preview. Windows portable, Debian package, and AppImage builds exist, but real-machine promotion gates still apply. Keep backups and close the game before applying, restoring, or editing live game data.
+
+## Quick links
+
+- [User guide](MANAGER_README.md)
+- [Mod creator guide](docs/MOD_CREATOR_GUIDE.md)
+- [Package manifest reference](docs/MANAGER_MOD_MANIFEST.md)
+- [Architecture and safety boundaries](docs/MANAGER_ARCHITECTURE.md)
+- [Feature roadmap](docs/MANAGER_FEATURE_ROADMAP.md)
+- [Documentation index](docs/README.md)
+- [Contributing](CONTRIBUTING.md)
+
+## What UMML-Manager does
+
+### For normal play
+
+- Detects supported Steam, Proton, Wine, DMM, and regional installations using one scored discovery engine.
+- Browses Global and Japan GameBanana catalogues with bounded previews and exact file selection.
+- Imports local archives and folders through path, link, type, count, and size validation.
+- Keeps imported mod versions immutable.
+- Automatically prepares and analyzes compatible mods in the background.
+- Supports named profiles, explicit load order, per-profile mod options, and target binding.
+- Explains exact file winners, conflicts, dependencies, incompatibilities, region mismatches, and blockers before deployment.
+- Applies and restores profiles transactionally with target-bound vanilla baselines, journals, rollback, integrity checks, and external-change protection.
+- Blocks game-file mutations while the game is running.
+- Provides Light, Dark, and System appearance modes, diagnostics, and persistent settings.
+
+### For mod development
+
+- Creates clean package workspaces instead of asking creators to assemble mystery folders by hand.
+- Inspects authored Unity source bundles and maps them to the final game targets they own.
+- Supports one source bundle expanding into multiple final targets.
+- Detects likely models, textures, audio, effects, UI, body, hair, face, costume, character IDs, and dress IDs when there is actual evidence.
+- Lets creators edit package identity, affected characters, dresses, parts, regions, dependencies, incompatibilities, relative load order, tags, and compatibility notes through normal controls.
+- Supports profile-scoped single-choice and multi-choice variants such as character, dress, colour, audio, quality, or optional components.
+- Imports edited workspaces as new immutable versions instead of rewriting the original package.
+- Preserves an advanced manifest editor for cases the guided UI cannot express yet.
+- Keeps the original UMML editing tools available through a guarded compatibility Studio while they are replaced by native workflows.
+
+### Read-only Uma data tools
+
+The Veteran Roster workspace imports validated JSON produced by community tools in the `umadump` / `UmaExtractor` family. It stores scrubbed immutable snapshots, searches and inspects records, and exports JSON or CSV.
+
+Supported provider families currently include:
+
+- `rockisch/umadump`, the original classic `data.json` lineage;
+- `NECOtype/UmaExtractor` and compatible updated classic-format forks;
+- `Werseter/umadump 2.0`, including `trained_chara_data.json`.
+
+UMML-Manager credits and launches user-supplied external tools, but does not bundle projects that lack a compatible declared license. Attribution is necessary; permission is still annoyingly a separate concept.
+
+## Core design rules
+
+1. Imported source versions are immutable.
+2. Preparation and analysis never write game files.
+3. Automatic maintenance stays automatic; the user chooses only profile configuration and Apply.
+4. Resolution finishes before deployment begins.
+5. Unknown package types, game builds, schemas, or state fail closed.
+6. Vanilla baselines are captured once from verified originals and never refreshed from modded state.
+7. Apply and restore are transactional and blocked while the game is running.
+8. Providers download and import but never deploy.
+9. Detection is evidence-based. The UI must distinguish known facts from guesses.
+10. External projects keep their names, authors, links, and licenses.
+11. Creator workflows should produce ordinary manageable packages, not one-off scripts or executable installers.
+12. Linux and Windows are first-class targets rather than one being an apologetic afterthought.
 
 ## Downloads
 
-### Legacy UMML
+### Windows portable
 
-Stable Linux release: **`1.5.0-linux.6`**.
+Download the latest `umml-manager-windows-portable` artifact from the [Windows Manager workflow](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-windows-checks.yml?query=branch%3Aagent%2Fumml-manager-foundation), extract the inner ZIP, and run:
 
-```bash
-sudo apt install ./umml-linux_1.5.0-linux.6_amd64.deb
-umml-doctor
-umml
+```text
+UMML Manager.cmd
 ```
 
-Download the DEB or AppImage from [GitHub Releases](https://github.com/EvelynLimaB/UMML-Linux/releases/latest).
+No Python installation is required for the portable build.
 
-### UMML Manager preview
-
-Current manager preview: **`0.2.0~alpha18`**, developed in [PR #2](https://github.com/EvelynLimaB/UMML-Linux/pull/2).
-
-Until it becomes a permanent Release asset, open the [manager branch workflow runs](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml?query=branch%3Aagent%2Fumml-manager-foundation) and download:
-
-- `umml-manager-deb`;
-- `umml-manager-appimage`;
-- `umml-manager-checksums`.
-
-#### Debian package
+### Debian package
 
 ```bash
 sudo apt install ./umml-manager_0.2.0~alpha18_amd64.deb
 /usr/bin/umml-manager
 ```
 
-The absolute command is useful when testing upgrades from early source previews. The desktop launcher also uses `/usr/bin/umml-manager` directly so `~/.local/bin` cannot silently start an older copy.
-
-#### AppImage
+### AppImage
 
 ```bash
 chmod +x ./umml-manager_0.2.0-alpha18_x86_64.AppImage
 ./umml-manager_0.2.0-alpha18_x86_64.AppImage
 ```
 
-CLI mode is available from the same file:
+Until alpha builds become permanent Release assets, download `umml-manager-deb`, `umml-manager-appimage`, and `umml-manager-checksums` from the [Linux Manager workflow](https://github.com/EvelynLimaB/UMML-Linux/actions/workflows/manager-checks.yml?query=branch%3Aagent%2Fumml-manager-foundation).
 
-```bash
-./umml-manager_0.2.0-alpha18_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha18_x86_64.AppImage --cli list
-```
-
-The DEB and AppImage are built from the same frozen runtime and use the same user data directory, `~/.local/share/umml-manager`. CI extracts both finished packages and compares their complete embedded runtime trees.
-
-The manager resolves HTTPS trust stores across Fedora/Bazzite and Debian-family systems, honors validated OpenSSL certificate environment variables, and bundles a portable `certifi` fallback. Certificate verification remains mandatory.
-
-Verify either download with the external `SHA256SUMS` artifact:
+Verify published artifacts with their external `SHA256SUMS` file:
 
 ```bash
 sha256sum -c SHA256SUMS
 ```
 
-## Manager highlights
+## Basic player workflow
 
-- guided Steam/Proton/DMM installation detection and prepared-metadata fingerprinting;
-- immutable installed source versions and editable workspace copies;
-- serialized immutable import identity allocation across threads and processes;
-- automatic preparation of compatible imports while profile application remains explicit;
-- safe normalization of provider-confirmed loose legacy UMML asset archives, including deeply nested layouts;
-- context-aware buttons that follow selection, paging, background-task, profile-blocker, metadata-verification, and live game-process state;
-- named profiles with explicit load order and preserved installation identity, plus an explicit verified-target rebinding action;
-- native profile-scoped single-choice and multi-choice mod options declared in `umml-mod.json`;
-- semantic character, dress, colour, audio, quality, feature, and custom option kinds;
-- source-to-target option mapping during preparation, so choices never rename or mutate immutable imported files;
-- authored package targets for characters, dresses/costumes, content types, and searchable tags;
-- a guided **New package** workspace builder with generic and character-selectable variant templates;
-- a focused **Inspect & edit** workflow covering detected source bundles, final game targets, identity, targets, dependencies, incompatibilities, relative load order, compatibility notes, and advanced option groups;
-- hard blockers for missing dependencies, declared incompatibilities, invalid profile options, wrong relative load order, wrong regions, wrong or unverified installations, unsupported backends, stale or unverified prepared caches, and invalid manifests;
-- fail-closed GUI and CLI deployment through one guarded public engine boundary;
-- path-contained, hash-verified deployment with target-scoped active state and vanilla baselines;
-- explicit first-run migration that copies legacy `dat.backup` originals into protected manager baselines before taking ownership;
-- durable transaction journals, recovery snapshots, baseline integrity records, rollback, and external-change protection;
-- corrupt critical state fails closed; corrupt preferences are quarantined and reset with their original bytes preserved;
-- bounded ZIP/TAR extraction and local-folder validation for traversal, symlinks, special files, duplicate paths, file counts, and expanded size;
-- automatic nested mod-folder discovery without treating every archive or settings file as a mod;
-- built-in Global/Japan GameBanana browsing, verified downloads, exact archive provenance, search, sorting, file selection, bounded preview images, and a detail-loading fallback when catalogue rows omit files;
-- a read-only Veteran Roster tool that imports externally produced UmaExtractor JSON, removes known account identifiers, preserves immutable local snapshots, provides search and inspection, and keeps all upstream code external;
-- complete legacy editing features through the built-in Studio compatibility host;
-- a lifetime game-process watcher around all legacy Studio entry points;
-- verified diagnostics for target paths, metadata integrity, HTTPS trust, registries, transactions, and process inspection;
-- explicit provider and deployment-backend contracts for future GameBanana alternatives, Hachimi support, staged updates, and native Studio pages;
-- a standard-library AST audit, visible-button callback audit, and adversarial regression/failure-injection tests;
-- manager tests run against the same pinned runtime dependencies bundled into one matching DEB/AppImage runtime.
-
-Read [MANAGER_README.md](MANAGER_README.md) for the user workflow, [docs/MANAGER_MOD_MANIFEST.md](docs/MANAGER_MOD_MANIFEST.md) for package configuration, [docs/MANAGER_BSTAR_REVIEW.md](docs/MANAGER_BSTAR_REVIEW.md) for the comparative design pass, [docs/UMAEXTRACTOR_INTEGRATION.md](docs/UMAEXTRACTOR_INTEGRATION.md) for roster-tool attribution and safety, [docs/MANAGER_AUDIT.md](docs/MANAGER_AUDIT.md) for the code audit, and [docs/MANAGER_FEATURE_ROADMAP.md](docs/MANAGER_FEATURE_ROADMAP.md) for planned work.
-
-## Basic manager workflow
-
-1. Open the manager and let **Settings** detect the installation and prepare metadata.
-2. Browse GameBanana or scan Downloads/custom folders in **Discover**.
-3. Import a compatible mod; the manager prepares it automatically when metadata is ready. Mod creators can start from **Library → New package**.
-4. Enable and order mods in a profile bound to the intended installation. Use **Configure profile** for package-declared choices, including authored character variants. Use **Inspect & edit** to create an editable copy and change targets or compatibility before importing a new version.
-5. Inspect **Conflicts** for file winners and every deployment blocker.
+1. Launch UMML-Manager and let Settings detect the game installation and metadata.
+2. Browse GameBanana or scan local folders in Discover.
+3. Import a mod. Compatible packages prepare and analyze themselves automatically.
+4. Enable mods in a profile, select any package-declared options, and set load order.
+5. Review Conflicts. The Manager explains every blocker and final file winner.
 6. Close the game and apply the profile.
-7. Use **Studio** for the original loader's editing tools or open **Veteran roster** to import and analyse an external UmaExtractor `data.json` snapshot.
+7. Switch profiles or restore vanilla through the same verified deployment engine.
 
-## Source installation
+## Basic creator workflow
 
-```bash
-# Legacy loader
-chmod +x install.sh
-./install.sh
+1. Select **Library → New package**, or select an imported mod and use **Inspect & edit**.
+2. Add or inspect source assets in the editable workspace.
+3. Review detected targets, characters, dresses, and parts.
+4. Correct or extend identity, compatibility, dependencies, tags, and profile options.
+5. Validate and import the workspace as a new immutable version.
+6. Test it in a dedicated profile, review conflicts, apply, and restore.
+7. Publish the resulting package with its manifest, credits, version, and compatibility notes.
 
-# Manager
-chmod +x install-manager.sh uninstall-manager.sh
-./install-manager.sh
-```
+The longer workflow is in [docs/MOD_CREATOR_GUIDE.md](docs/MOD_CREATOR_GUIDE.md).
 
-The source installer keeps the complete Manager and legacy Studio source runtime in `~/.local/share/umml-manager-app`, manager data in `~/.local/share/umml-manager`, and exposes explicit `umml-manager-source` commands. It requires Tk and Pillow; missing preparation/Studio dependencies are reported explicitly. Generic compatibility commands prefer the Debian package whenever it is installed.
+## Project layout
+
+| Area | Purpose |
+| --- | --- |
+| `umml_manager/` | Main application, library, providers, inspection, profiles, UI, resolver, and deployment |
+| `docs/` | User, creator, architecture, packaging, safety, and roadmap documentation |
+| `tests/` | Synthetic regression, failure-injection, GUI, package, and platform tests |
+| `scripts/`, `packaging/` | Native Windows, DEB, AppImage, source-install, metadata, and release tooling |
+| `UMML.py`, `UMML_core.py`, `umml_autodetect/` | Original UMML compatibility layer and reusable upstream-derived functionality |
+| `umml_runtime/`, `runtime_bridge/` | Optional experimental runtime protocol, kept outside ordinary mod deployment |
+
+Legacy UMML `1.5.0-linux.6` remains preserved for compatibility and historical comparison. UMML-Manager is now the primary product and the repository’s forward direction.
 
 ## Development
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt -r requirements-build.txt
 python -m pip check
 python scripts/audit_manager.py
 bash scripts/check_manager.sh
 ```
 
-Documentation starts at [docs/README.md](docs/README.md). Contribution rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Windows contributors can use the equivalent PowerShell virtual-environment activation and run the same Python checks. Native Windows packaging is exercised by its own workflow.
 
-## Runtime bridge
+## Contributing
 
-The experimental runtime bridge is separate from the desktop manager packages. It is not an injector yet and remains fail-closed for unknown game builds.
+Mod-manager improvements, creator tools, asset-analysis workflows, provider adapters, package manifests, UI/UX work, documentation, and synthetic tests are all welcome.
 
-## License
+Please read [CONTRIBUTING.md](CONTRIBUTING.md). Do not commit copyrighted game assets, decrypted metadata, personal roster data, downloaded mods without redistribution permission, access tokens, or generated packages.
 
-MIT. Third-party mods, external tools, and downloads retain their original licenses. UMML does not bundle external code without a compatible license or explicit permission.
+The most valuable contributions are often not glamorous:
+
+- document a real package layout;
+- provide a redistributable synthetic fixture reproducing a failure;
+- improve character/dress/part detection without inventing certainty;
+- make a creator task require fewer unexplained steps;
+- replace a legacy editor with a tested native workflow;
+- add compatibility metadata to a mod;
+- improve a provider adapter while preserving provenance and licensing.
+
+## Lineage, credits, and legal status
+
+UMML-Manager is forked from and preserves the work of the original **UMML** project and its contributors. Third-party mods, extractors, viewers, libraries, and community tools retain their original authorship and licenses.
+
+This project is not affiliated with Cygames. Do not distribute copyrighted game assets or decrypted game databases through this repository.
+
+UMML-Manager is released under the [MIT License](LICENSE). External projects are not relicensed merely because the Manager can launch or consume their output.
