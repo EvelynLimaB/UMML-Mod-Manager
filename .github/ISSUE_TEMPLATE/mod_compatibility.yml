@@ -1,0 +1,88 @@
+name: Mod compatibility report
+description: Report a package that imports, prepares, configures, conflicts, or deploys incorrectly
+title: "[Mod compatibility]: "
+labels:
+  - compatibility
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the package structure and provenance without uploading copyrighted game assets or someone else's mod archive.
+
+  - type: input
+    id: manager_version
+    attributes:
+      label: UMML-Manager version or commit
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Mod source
+      description: GameBanana submission/file ID, public project link, or “local package”.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Failure stage
+      options:
+        - Discovery
+        - Import
+        - Automatic preparation
+        - Source inspection
+        - Profile configuration
+        - Conflict planning
+        - Apply
+        - Profile switching
+        - Vanilla restoration
+        - Update or edited-version import
+    validations:
+      required: true
+
+  - type: textarea
+    id: layout
+    attributes:
+      label: Package layout
+      description: List relevant folders, filenames, manifest fields, and source-to-target behavior. Replace private paths with placeholders.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Characters, dresses, parts, variants, and dependencies
+      description: Include any selected profile choices, overlapping targets, dependencies, incompatibilities, or required load order.
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted diagnostics
+      render: text
+
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: Sharing confirmation
+      options:
+        - label: I have not attached copyrighted game files or a mod archive I cannot redistribute.
+          required: true
+        - label: I included enough structural information to reproduce this with a synthetic fixture.
+          required: true
