@@ -4,7 +4,7 @@ import threading
 import tkinter as tk
 from datetime import datetime
 from tkinter import ttk
-from typing import Callable
+from typing import Any, Callable
 
 from .providers.gamebanana import GameBananaPage
 from .providers.gamebanana_previews import PreviewGameBananaClient
@@ -25,6 +25,7 @@ class DiscoverExperienceActions:
         self._gb_loaded_at = ""
         self._gb_last_region_value = self.gb_region.get().strip().casefold()
 
+        self.progress.grid_remove()
         self.discover.browse_button.configure(text="Refresh")
         self.discover.gb_meta.configure(
             text=(
@@ -62,6 +63,61 @@ class DiscoverExperienceActions:
         ):
             self._add_tree_horizontal_scrollbar(tree)
         self._add_text_scrollbars(self.plan_text)
+
+    def _run_task(
+        self,
+        label: str,
+        operation: Callable[[], Any],
+        completed: Callable[[Any], None],
+        *,
+        failed: Callable[[Exception], None] | None = None,
+    ):
+        if not getattr(self, "_closing", False) and not getattr(self, "_busy", False):
+            self.progress.grid()
+        return super()._run_task(
+            label,
+            operation,
+            completed,
+            failed=failed,
+        )
+
+    def _task_completed(
+        self,
+        result: Any,
+        completed: Callable[[Any], None],
+        *,
+        task_id: int,
+    ):
+        value = super()._task_completed(
+            result,
+            completed,
+            task_id=task_id,
+        )
+        self._hide_primary_progress_if_idle()
+        return value
+
+    def _task_failed(
+        self,
+        exc: Exception,
+        *,
+        failed: Callable[[Exception], None] | None = None,
+        task_id: int | None = None,
+    ):
+        value = super()._task_failed(
+            exc,
+            failed=failed,
+            task_id=task_id,
+        )
+        self._hide_primary_progress_if_idle()
+        return value
+
+    def _hide_primary_progress_if_idle(self) -> None:
+        if getattr(self, "_closing", False) or getattr(self, "_busy", False):
+            return
+        try:
+            self.progress.grid_remove()
+        except tk.TclError:
+            return
 
     @staticmethod
     def _add_tree_horizontal_scrollbar(tree) -> None:
@@ -170,9 +226,9 @@ class DiscoverExperienceActions:
                 None,
             ):
                 return
-            # A programmatic region change can occur while startup discovery is
-            # running. Invalidate that response and immediately request the new
-            # catalogue rather than displaying data under the wrong filter.
+            # Startup installation detection can change region while discovery is
+            # running. Invalidate that response rather than displaying it below
+            # the new filter.
             self._gb_catalog_serial = getattr(self, "_gb_catalog_serial", 0) + 1
             self._gb_catalog_loading = False
 
