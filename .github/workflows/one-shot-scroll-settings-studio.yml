@@ -1,0 +1,99 @@
+name: One-shot responsive Settings and Studio
+
+on:
+  push:
+    branches:
+      - feature/managed-extractor-resilient-gamebanana
+    paths:
+      - .github/workflows/one-shot-scroll-settings-studio.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/managed-extractor-resilient-gamebanana
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Wire document-like pages through responsive scrolling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('umml_manager/gui.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = (
+              (
+                  'from .ui_settings import SettingsPage\n',
+                  'from .ui_scrolling import ScrollablePage\nfrom .ui_settings import SettingsPage\n',
+              ),
+              (
+                  '        self.studio = StudioPage(self.content, self)\n',
+                  '        self.studio = ScrollablePage(\n'
+                  '            self.content,\n'
+                  '            lambda parent: StudioPage(parent, self),\n'
+                  '        )\n',
+              ),
+              (
+                  '        self.settings = SettingsPage(self.content, self)\n',
+                  '        self.settings = ScrollablePage(\n'
+                  '            self.content,\n'
+                  '            lambda parent: SettingsPage(parent, self),\n'
+                  '        )\n',
+              ),
+          )
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'gui.py responsive-page anchor missing: {old!r}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          test = Path('tests/test_manager_responsive_pages.py')
+          test.write_text('''from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+
+class ResponsivePageContractTests(unittest.TestCase):
+    def test_settings_and_studio_use_scrollable_page_wrapper(self):
+        source = Path("umml_manager/gui.py").read_text(encoding="utf-8")
+        self.assertIn("from .ui_scrolling import ScrollablePage", source)
+        self.assertIn("lambda parent: StudioPage(parent, self)", source)
+        self.assertIn("lambda parent: SettingsPage(parent, self)", source)
+
+    def test_library_and_discover_keep_native_table_layouts(self):
+        source = Path("umml_manager/gui.py").read_text(encoding="utf-8")
+        self.assertIn("self.library = LibraryPage(self.content, self)", source)
+        self.assertIn("self.discover = DiscoverPage(self.content, self)", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
+''', encoding='utf-8')
+          PY
+      - name: Install and validate
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb python3-tk
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt -r requirements-build.txt
+          python -m compileall -q umml_manager tests scripts
+          python scripts/audit_manager.py
+          python scripts/audit_branding.py
+          python scripts/audit_release.py
+          python -m unittest discover -s tests -p 'test_manager*.py' -v
+          xvfb-run -a python -m umml_manager.gui --smoke-test
+      - name: Commit and remove the temporary workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/one-shot-scroll-settings-studio.yml
+          git add umml_manager/gui.py tests/test_manager_responsive_pages.py
+          git commit -m "Make Settings and Studio vertically responsive"
+          git push origin HEAD:feature/managed-extractor-resilient-gamebanana
