@@ -52,6 +52,7 @@ class ManagerGUI(
         self._gb_can_next = False
         self._saving_detected_installation = False
         self._auto_network_enabled = auto_network
+        self._current_page = "library"
         settings = self.store.load_settings()
         self.profile_name = tk.StringVar(
             value=str(settings.get("profile", "Default"))
@@ -441,16 +442,20 @@ class ManagerGUI(
         )
         self._configure_button(
             self.discover.install_gb_button,
-            enabled=selected_gb and self._gb_install_enabled and not busy,
+            enabled=(
+                selected_gb
+                and self._gb_install_enabled
+                and not discover_busy
+            ),
             text=self._gb_install_text,
         )
         self._configure_button(
             self.discover.prev_button,
-            enabled=self._gb_can_previous and not busy,
+            enabled=self._gb_can_previous and not discover_busy,
         )
         self._configure_button(
             self.discover.next_button,
-            enabled=self._gb_can_next and not busy,
+            enabled=self._gb_can_next and not discover_busy,
         )
         self.discover.scan_roots_entry.configure(state="disabled" if busy else "normal")
         self._configure_button(self.discover.add_folder_button, enabled=not busy)
@@ -506,6 +511,7 @@ class ManagerGUI(
         if page is None:
             self.status.set(f"Unknown page: {key}")
             return
+        self._current_page = key
         page.tkraise()
         self.page_title.set(key.title())
         for name, button in self._nav_buttons.items():

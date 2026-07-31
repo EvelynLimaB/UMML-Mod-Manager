@@ -109,19 +109,27 @@ class DiscoverExperienceActions:
 
     def discover_page_activated(self) -> None:
         if getattr(self, "_gb_catalog_loading", False):
-            self.status.set("Refreshing the GameBanana catalogue…")
+            self._set_discover_status("Refreshing the GameBanana catalogue…")
             return
         if self.gb_results:
             suffix = f" · updated {self._gb_loaded_at}" if self._gb_loaded_at else ""
-            self.status.set(f"{len(self.gb_results)} GameBanana mod(s) loaded{suffix}")
+            self._set_discover_status(
+                f"{len(self.gb_results)} GameBanana mod(s) loaded{suffix}"
+            )
             return
         if getattr(self, "_gb_initial_attempted", False):
-            self.status.set(
+            self._set_discover_status(
                 "GameBanana has not loaded yet. Refresh to retry; local imports still work."
             )
             return
-        self.status.set("Loading the latest GameBanana mods automatically…")
+        self._set_discover_status(
+            "Loading the latest GameBanana mods automatically…"
+        )
         self.ensure_gamebanana_catalog()
+
+    def _set_discover_status(self, message: str) -> None:
+        if getattr(self, "_current_page", "") == "discover":
+            self.status.set(message)
 
     def gamebanana_filter_changed(self) -> None:
         self.gb_page = 1
@@ -224,7 +232,7 @@ class DiscoverExperienceActions:
             self.discover.gb_tree.focus(selected)
             self.discover.gb_tree.see(selected)
             self.select_gamebanana_mod()
-            self.status.set(
+            self._set_discover_status(
                 f"Loaded {len(page.mods)} GameBanana mod(s) · updated {self._gb_loaded_at}"
             )
         else:
@@ -234,7 +242,7 @@ class DiscoverExperienceActions:
                 + (f"\n\nSearch: {query}" if query else "")
                 + "\n\nChange the filters or press Refresh."
             )
-            self.status.set("GameBanana returned no matching mods")
+            self._set_discover_status("GameBanana returned no matching mods")
         self.discover.browse_button.configure(text="Refresh")
         self.refresh_action_states()
 
@@ -255,7 +263,7 @@ class DiscoverExperienceActions:
         if len(message) > 180:
             message = message[:177] + "…"
         if self.gb_results:
-            self.status.set(
+            self._set_discover_status(
                 "Could not refresh GameBanana; keeping the current results. " + message
             )
         else:
@@ -265,7 +273,7 @@ class DiscoverExperienceActions:
                 + message
             )
             self.discover.page_label.configure(text="Catalogue unavailable")
-            self.status.set(
+            self._set_discover_status(
                 "GameBanana could not be reached; no local or game files changed"
             )
         self.discover.browse_button.configure(text="Retry")

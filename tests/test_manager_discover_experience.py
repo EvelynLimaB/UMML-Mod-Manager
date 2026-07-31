@@ -50,6 +50,16 @@ class DiscoverExperienceTests(unittest.TestCase):
         self.assertIn('text="Download file"', source)
         self.assertIn('selectmode="browse"', source)
 
+    def test_background_status_only_updates_inside_discover(self):
+        actions = DiscoverExperienceActions()
+        events = []
+        actions.status = type("Status", (), {"set": lambda _self, value: events.append(value)})()
+        actions._current_page = "library"
+        actions._set_discover_status("hidden")
+        actions._current_page = "discover"
+        actions._set_discover_status("visible")
+        self.assertEqual(events, ["visible"])
+
     def test_smoke_mode_disables_background_network(self):
         source = Path("umml_manager/gui.py").read_text(encoding="utf-8")
         self.assertIn("ManagerGUI(root, store, auto_network=False)", source)
