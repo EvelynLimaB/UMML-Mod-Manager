@@ -542,9 +542,24 @@ class LegacyAssetAdapter:
                     if path.is_file():
                         yield path.relative_to(root_path).as_posix()
 
+        decoder_host = getattr(core, "UMMLApp", None)
+        if decoder_host is None:
+            decoder_host = getattr(core, "ModLoaderGUI", None)
+        decoder_method = getattr(
+            decoder_host,
+            "decrypt_assets_internal",
+            None,
+        )
+        if decoder_method is None:
+            raise StoreError(
+                "UMML's asset adapter does not expose "
+                "decrypt_assets_internal through UMMLApp or ModLoaderGUI. "
+                "Install a compatible UMML backend or update the Manager."
+            )
+
         decoder = Decoder()
         decoder.decrypt_assets_internal = types.MethodType(
-            core.UMMLApp.decrypt_assets_internal,
+            decoder_method,
             decoder,
         )
         return decoder
