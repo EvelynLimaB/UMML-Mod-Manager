@@ -12,14 +12,19 @@ on:
       - 'requirements.txt'
       - 'requirements-build.txt'
       - 'MANAGER_VERSION'
+      - 'README.md'
       - 'MANAGER_README.md'
       - 'MANAGER_CHANGELOG.md'
       - 'NOTICE.md'
       - 'CITATION.cff'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
       - 'docs/**'
       - 'scripts/audit_manager.py'
+      - 'scripts/audit_branding.py'
       - 'scripts/test_manager_theme_runtime.py'
       - 'packaging/pyinstaller/umml-manager.spec'
+      - '.github/ISSUE_TEMPLATE/**'
       - '.github/workflows/manager-windows-checks.yml'
 
 permissions:
@@ -50,8 +55,9 @@ jobs:
       - name: Compile and audit Manager source
         shell: pwsh
         run: |
-          python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/test_manager_theme_runtime.py
+          python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/audit_branding.py scripts/test_manager_theme_runtime.py
           python scripts/audit_manager.py
+          python scripts/audit_branding.py
       - name: Run Manager regressions on Windows
         shell: pwsh
         run: |
