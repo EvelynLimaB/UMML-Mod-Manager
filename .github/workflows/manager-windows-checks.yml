@@ -94,10 +94,15 @@ jobs:
           & $exe --version
           & $exe cli self-test
           python scripts/test_manager_theme_runtime.py -- $exe gui
+          $raw = [System.IO.File]::ReadAllText((Join-Path $PWD 'MANAGER_VERSION')).Trim()
+          $display = $raw -replace '~alpha', '-alpha.'
           $requiredDocuments = @(
             'TESTING_AND_FEEDBACK.md',
             'RELEASE_PROCESS.md',
-            '0.2.0-alpha.19.md'
+            'GAMEBANANA_PROVIDER.md',
+            'UMAEXTRACTOR_INTEGRATION.md',
+            'DOWNLOADS.md',
+            "$display.md"
           )
           $allDocuments = Get-ChildItem -Path $bundleRoot -Recurse -File
           foreach ($document in $requiredDocuments) {
@@ -116,6 +121,10 @@ jobs:
             throw "MANAGER_VERSION was empty: $versionFile"
           }
           $version = $versionRaw -replace '~alpha', '-alpha.'
+          $releaseNotes = Join-Path 'docs/releases' "$version.md"
+          if (!(Test-Path $releaseNotes)) {
+            throw "Release notes were missing: $releaseNotes"
+          }
           $stageRoot = 'dist/windows'
           $stage = Join-Path $stageRoot "Uma-Mod-Manager-$version-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
@@ -129,7 +138,10 @@ jobs:
           Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
           Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
           Copy-Item 'docs/TESTING_AND_FEEDBACK.md' (Join-Path $stage 'TESTING_AND_FEEDBACK.md')
-          Copy-Item 'docs/releases/0.2.0-alpha.19.md' (Join-Path $stage 'RELEASE_NOTES.md')
+          Copy-Item 'docs/GAMEBANANA_PROVIDER.md' (Join-Path $stage 'GAMEBANANA_PROVIDER.md')
+          Copy-Item 'docs/UMAEXTRACTOR_INTEGRATION.md' (Join-Path $stage 'UMAEXTRACTOR_INTEGRATION.md')
+          Copy-Item 'docs/DOWNLOADS.md' (Join-Path $stage 'DOWNLOADS.md')
+          Copy-Item $releaseNotes (Join-Path $stage 'RELEASE_NOTES.md')
           Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
           Uma Mod Manager Windows portable Community Test
 
