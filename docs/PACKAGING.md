@@ -1,17 +1,19 @@
-# Packaging UMML and UMML Manager
+# Packaging original UMML compatibility and Uma Mod Manager
 
-This repository produces two Linux applications. They share source references and some build dependencies, but they are intentionally separate products.
+This repository currently produces two related applications. They share source lineage and some build dependencies, but their payloads, versions, launchers, and state boundaries remain intentionally separate.
 
 | Product | Distribution formats | Commands | Version file |
 | --- | --- | --- | --- |
-| Legacy loader | `umml-linux` DEB/AppImage | `umml`, `umml-doctor` | `VERSION` |
-| Full manager | `umml-manager` DEB/AppImage | `umml-manager`, `umml-manager-cli`, AppImage flags | `MANAGER_VERSION` |
+| Original UMML compatibility loader | `umml-linux` DEB/AppImage | `umml`, `umml-doctor` | `VERSION` |
+| Uma Mod Manager | `umml-manager` DEB/AppImage/Windows portable | `umml-manager`, `umml-manager-cli`, AppImage flags | `MANAGER_VERSION` |
 
-The manager DEB, manager AppImage, source installation, and legacy loader must not merge application payload directories, desktop IDs, state paths, or version numbers. All manager formats intentionally share only the user data root, `~/.local/share/umml-manager` by default.
+The technical package and command names remain `umml-manager` during the public rebrand so existing installations upgrade in place and continue using the same library, profiles, baselines, journals, and workspaces. See [BRANDING_AND_COMPATIBILITY.md](BRANDING_AND_COMPATIBILITY.md).
+
+The Manager DEB, AppImage, Windows portable, source installation, and original compatibility loader must not merge application payload directories, desktop IDs, state paths, or version numbers. All Manager formats intentionally share the same external user state for their platform.
 
 ## Build environment
 
-Frozen releases target x86_64 Linux and should be built on the oldest supported Ubuntu environment to preserve a reasonable glibc baseline. Current practice uses Ubuntu 22.04 / Linux Mint 21 compatibility.
+Frozen Linux releases target x86_64 and should be built on the oldest supported Ubuntu environment to preserve a reasonable glibc baseline. Current practice uses Ubuntu 22.04 / Linux Mint 21 compatibility.
 
 Install build tools:
 
@@ -31,19 +33,21 @@ sudo apt install \
 
 Tkinter and the shared X11/font libraries used by the PyInstaller runtime must be available in the build image.
 
-## Shared manager frozen runtime
+## Shared frozen runtime
 
-Both manager package formats begin with exactly one build:
+Both Linux package formats begin with exactly one build:
 
 ```bash
 scripts/build_manager_frozen.sh
 ```
 
-The dispatcher supports GUI, CLI, legacy Studio host, and version modes. The DEB and AppImage copy the same bundle unchanged. Package-specific logic belongs only in thin launchers and metadata.
+The dispatcher supports GUI, CLI, compatibility Studio host, and version modes. The DEB and AppImage copy the same bundle unchanged. Package-specific logic belongs only in thin launchers and metadata.
 
 The frozen runtime must include `certifi/cacert.pem`. Network code first resolves a valid target-system trust store and uses certifi only as a portable fallback. Do not set insecure SSL contexts or disable verification to make a package test pass.
 
-## Manager Debian package
+The runtime also includes the current player guide, project/compatibility documentation, license, notice, and citation metadata.
+
+## Debian package
 
 ```bash
 scripts/build_manager_deb.sh
@@ -55,9 +59,11 @@ Expected output:
 dist/umml-manager_<MANAGER_VERSION>_amd64.deb
 ```
 
-The manager payload lives under `/usr/lib/umml-manager`. Its desktop entry must use `/usr/bin/umml-manager` so a stale user PATH entry cannot shadow the package.
+The payload lives under `/usr/lib/umml-manager`. Its desktop entry uses `/usr/bin/umml-manager` so a stale user PATH entry cannot shadow the package.
 
-## Manager AppImage
+The package metadata displays **Uma Mod Manager** while retaining the technical package name `umml-manager`.
+
+## AppImage
 
 ```bash
 scripts/build_manager_appimage.sh
@@ -72,10 +78,10 @@ dist/umml-manager_<DISPLAY_VERSION>_x86_64.AppImage
 Debian versions use `~`, while the portable filename uses `-`:
 
 ```text
-0.2.0~alpha5  ->  umml-manager_0.2.0-alpha5_x86_64.AppImage
+0.2.0~alpha18  ->  umml-manager_0.2.0-alpha18_x86_64.AppImage
 ```
 
-The AppDir contains `AppRun`, desktop metadata, icon, AppStream metadata, thin GUI/CLI launchers, and the unchanged frozen runtime under `usr/lib/umml-manager`.
+The AppDir contains `AppRun`, Uma Mod Manager desktop metadata, icon, AppStream metadata, thin GUI/CLI launchers, documentation, and the unchanged frozen runtime under `usr/lib/umml-manager`.
 
 `AppRun` behavior:
 
@@ -84,14 +90,33 @@ no arguments      -> GUI
 --version         -> version output
 --cli ...         -> CLI
 cli ...           -> CLI compatibility
---legacy-host ... -> Studio compatibility host
+--legacy-host ... -> original UMML Studio compatibility host
 ```
 
 The build downloads the official `AppImage/appimagetool` asset over HTTPS and verifies it against the reviewed published SHA-256 digest. GitHub Actions uses `APPIMAGE_EXTRACT_AND_RUN=1`, avoiding a build-time FUSE dependency.
 
+## Windows portable
+
+The native Windows workflow packages the frozen runtime as:
+
+```text
+umml-manager_<DISPLAY_VERSION>_win64.zip
+```
+
+The extracted directory provides:
+
+```text
+Uma Mod Manager.cmd
+Uma Mod Manager CLI.cmd
+UMML Manager.cmd
+UMML Manager CLI.cmd
+```
+
+The first two are the public launchers. The old names are temporary compatibility aliases that invoke the same binary and state root.
+
 ## Source installation boundaries
 
-Source installation is distinguishable from both binary formats:
+Source installation is distinguishable from binary formats:
 
 ```text
 ~/.local/share/umml-manager-app/       source application code
@@ -100,24 +125,25 @@ Source installation is distinguishable from both binary formats:
 ~/.local/bin/umml-manager-source-cli   source CLI
 ```
 
-Source uninstallers preserve manager state, source archives, prepared files, baselines, transactions, downloads, and workspaces.
+Source uninstallers preserve Manager state, source archives, prepared files, baselines, transactions, downloads, and workspaces.
 
 ## Versioning
 
-`VERSION` tracks the Linux port of the upstream legacy loader. `MANAGER_VERSION` tracks the independently developed manager. Update together:
+`VERSION` tracks the preserved Linux port of the original compatibility loader. `MANAGER_VERSION` tracks Uma Mod Manager. Update together:
 
 - `MANAGER_VERSION`;
 - `MANAGER_CHANGELOG.md`;
 - `README.md` and `MANAGER_README.md` examples;
-- manager AppStream release metadata;
-- tests expecting the manager version;
+- Manager AppStream release metadata;
+- tests expecting the Manager version;
 - artifact names and release notes.
 
-Generate checksums outside the packages after both artifacts are final.
+Generate checksums outside the packages after artifacts are final.
 
 ## Validation
 
 ```bash
+python scripts/audit_branding.py
 bash scripts/check_manager.sh
 bash scripts/build_manager_frozen.sh
 bash scripts/build_manager_deb.sh
@@ -138,19 +164,22 @@ The gate identifies the package, runs its disposable deployment/recovery self-te
 Package validation must confirm:
 
 - exact expected filenames, package name, version, and architecture;
-- version and CLI startup in both formats;
+- version and CLI startup in every format;
+- public Uma Mod Manager names and stable technical identifiers;
 - desktop and AppStream metadata;
 - complete frozen-runtime tree parity among source bundle, DEB, and AppImage;
-- bundled `certifi/cacert.pem` in both package formats;
-- external `SHA256SUMS` generation and verification.
+- bundled `certifi/cacert.pem` in both Linux package formats;
+- notice and branding documents in finished packages;
+- external checksum generation and verification.
 
 Real-machine validation must additionally cover:
 
 - AppImage GUI startup on Bazzite/KDE and a second supported distribution;
+- Windows portable launch without a Python installation;
 - GameBanana browse and download with no certificate override;
 - diagnostics showing the selected system or bundled CA source;
-- DEB installation/removal and coexistence with legacy UMML;
-- shared XDG manager state across DEB and AppImage;
-- Steam/Proton detection, Studio tools, profile deployment, restoration, and game-running guards.
+- DEB installation/removal and coexistence with the original compatibility loader;
+- shared Manager state across package upgrades;
+- Steam/Proton/Windows detection, Studio tools, profile deployment, restoration, and game-running guards.
 
 Green packaging tools prove that files were assembled consistently. They do not prove that a live desktop, network, game update, or third-party API will cooperate.
