@@ -9,7 +9,7 @@ body:
       value: |
         Thanks for testing Uma Mod Manager. Successful passes are useful too.
 
-        Read the [Testing and feedback guide](../../blob/main/docs/TESTING_AND_FEEDBACK.md) first. Do not attach copyrighted game files, decrypted databases, private roster dumps, credentials, or third-party mods without redistribution permission.
+        Read the [Testing and feedback guide](https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/docs/TESTING_AND_FEEDBACK.md) first. Do not attach copyrighted game files, decrypted databases, private roster dumps, credentials, or third-party mods without redistribution permission.
 
   - type: checkboxes
     id: consent
@@ -50,7 +50,7 @@ body:
     id: artifact
     attributes:
       label: Artifact filename and SHA-256
-      placeholder: umml-manager_0.2.0-alpha19_win64.zip — abc123…
+      placeholder: umml-manager_0.2.0-alpha.19_win64.zip — abc123…
     validations:
       required: true
 
