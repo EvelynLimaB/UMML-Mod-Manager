@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from .ui_support_bundle import create_support_bundle_from_ui
 from .ui_theme import (
     THEME_SYSTEM,
     apply_widget_theme,
@@ -61,8 +62,9 @@ class SettingsPage(ttk.Frame):
         ttk.Label(
             start,
             text=(
-                "UMML normally finds Steam/Proton and prepares the metadata database "
-                "for you. Manual paths are only needed for unusual installations."
+                "Uma Mod Manager normally finds Steam/Proton and prepares the "
+                "metadata database for you. Manual paths are only needed for "
+                "unusual installations."
             ),
             style="SurfaceMuted.TLabel",
             wraplength=880,
@@ -148,6 +150,12 @@ class SettingsPage(ttk.Frame):
             command=app.run_diagnostics,
         )
         self.diagnostics_button.pack(side="left", padx=8)
+        self.support_bundle_button = ttk.Button(
+            actions,
+            text="Create support bundle",
+            command=lambda: create_support_bundle_from_ui(app),
+        )
+        self.support_bundle_button.pack(side="left", padx=(0, 8))
         self.open_data_button = ttk.Button(
             actions,
             text="Open manager data",
