@@ -1,4 +1,4 @@
-"""UMML Manager: deterministic profiles and transactional asset deployment."""
+"""UMML-Manager: safe mod profiles, creator tooling, and transactional deployment."""
 
 from .deployment import (
     ApplyEngine,
