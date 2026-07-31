@@ -213,11 +213,32 @@ def main() -> int:
         manager_version = ""
 
     readme = _read("README.md")
-    for version in (manager_version, "1.5.0-linux.6"):
-        if version and version not in readme:
-            errors.append(
-                f"README.md: expected active/compatibility version {version!r}"
-            )
+    if "1.5.0-linux.6" not in readme:
+        errors.append(
+            "README.md: expected preserved compatibility version "
+            "'1.5.0-linux.6'"
+        )
+
+    if manager_version:
+        display = manager_version.replace("~alpha", "-alpha.")
+        candidate_surfaces = {
+            "MANAGER_VERSION": manager_version,
+            "packaging/linux/io.github.evelynlimab.ummlmanager.metainfo.xml": (
+                f'version="{display}"'
+            ),
+            f"docs/releases/{display}.md": display,
+        }
+        for relative, marker in candidate_surfaces.items():
+            try:
+                text = _read(relative)
+            except AssertionError as exc:
+                errors.append(str(exc))
+                continue
+            if marker not in text:
+                errors.append(
+                    f"{relative}: current candidate marker disappeared: "
+                    f"{marker!r}"
+                )
 
     _assert_no_stale_repository_urls(errors)
 
@@ -229,7 +250,7 @@ def main() -> int:
 
     print(
         "Branding audit passed: public identity, upstream lineage, current "
-        "version, and stable compatibility names agree."
+        "candidate metadata, and stable compatibility names agree."
     )
     return 0
 
