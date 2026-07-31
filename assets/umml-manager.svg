@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
-  <title id="title">UMML Manager icon</title>
-  <desc id="desc">A rounded manager window containing three ordered mod blocks.</desc>
+  <title id="title">UMML-Manager icon</title>
+  <desc id="desc">A rounded mod-manager window containing three ordered package blocks.</desc>
   <rect x="8" y="10" width="112" height="108" rx="22" fill="#7651a8"/>
   <rect x="20" y="25" width="88" height="78" rx="12" fill="#ffffff"/>
   <circle cx="31" cy="36" r="4" fill="#7651a8"/>
