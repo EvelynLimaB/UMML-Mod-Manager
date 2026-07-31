@@ -123,6 +123,8 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         "workflow_dispatch",
         "scripts/audit_release.py",
         "gh release create",
+        f"default: {tag}",
+        release_notes,
     )
     require_contains(
         "umml_manager/support_bundle.py",
@@ -133,17 +135,23 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         "tests/test_manager_support_bundle.py",
         "test_bundle_is_small_inspectable_and_redacts_private_data",
     )
+
     for builder in (
         "scripts/build_manager_deb.sh",
         "scripts/build_manager_appimage.sh",
-        "packaging/pyinstaller/umml-manager.spec",
     ):
         require_contains(
             builder,
             "TESTING_AND_FEEDBACK.md",
             "RELEASE_PROCESS.md",
-            f"{display}.md",
+            "docs/releases/$DISPLAY_VERSION.md",
         )
+    require_contains(
+        "packaging/pyinstaller/umml-manager.spec",
+        "TESTING_AND_FEEDBACK.md",
+        "RELEASE_PROCESS.md",
+        f"{display}.md",
+    )
 
     return {
         "manager_version": version,
