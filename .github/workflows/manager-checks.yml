@@ -23,6 +23,7 @@ on:
       - 'install-manager.sh'
       - 'uninstall-manager.sh'
       - 'scripts/audit_manager.py'
+      - 'scripts/audit_branding.py'
       - 'scripts/check_manager.sh'
       - 'scripts/build_manager_*.sh'
       - 'scripts/manager_main_gate.sh'
@@ -33,6 +34,7 @@ on:
       - 'packaging/linux/io.github.evelynlimab.ummlmanager.*'
       - 'packaging/appimage/io.github.evelynlimab.ummlmanager.desktop'
       - 'assets/umml-manager.svg'
+      - '.github/ISSUE_TEMPLATE/**'
       - '.github/pull_request_template.md'
       - '.github/workflows/manager-checks.yml'
 
@@ -76,9 +78,12 @@ jobs:
             umml_manager_packaged.py \
             tests \
             scripts/audit_manager.py \
+            scripts/audit_branding.py \
             scripts/test_manager_theme_runtime.py
-      - name: Audit source structure and dangerous calls
-        run: python scripts/audit_manager.py
+      - name: Audit source structure, safety, and public identity
+        run: |
+          python scripts/audit_manager.py
+          python scripts/audit_branding.py
       - name: Run manager regression tests
         run: |
           set +e
