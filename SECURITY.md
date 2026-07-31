@@ -1,16 +1,18 @@
 # Security policy
 
-UMML-Manager imports untrusted mod packages, reads game metadata, launches optional external tools, and can modify local game asset files. Security reports should be handled with more care than an ordinary UI bug whose greatest victim is a misaligned button.
+Uma Mod Manager imports untrusted mod packages, reads game metadata, launches optional external tools, and can modify local game asset files. Security reports deserve more care than an ordinary UI bug whose greatest victim is a misaligned button.
 
 ## Supported versions
 
-Security fixes currently target the active UMML-Manager preview branch and the newest published Manager build. The preserved legacy UMML compatibility release is maintained only for severe issues affecting shared discovery, packaging, or destructive file behavior.
+Security fixes currently target the active Uma Mod Manager preview and the newest published build. The preserved original UMML compatibility release is maintained only for severe issues affecting shared discovery, packaging, or destructive file behavior.
 
 | Product | Version | Security support |
 | --- | --- | --- |
-| UMML-Manager | Current alpha preview | Yes |
-| UMML-Manager | Older preview artifacts | Upgrade first; fixes are not backported routinely |
-| Legacy UMML compatibility layer | `1.5.0-linux.6` | Severe shared/destructive issues only |
+| Uma Mod Manager | Current alpha preview | Yes |
+| Uma Mod Manager | Older preview artifacts | Upgrade first; fixes are not routinely backported |
+| Original UMML compatibility layer | `1.5.0-linux.6` | Severe shared/destructive issues only |
+
+Technical package, command, module, desktop-ID, and data-root names may still contain `umml-manager` during the compatibility window. This is deliberate and documented in [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).
 
 ## Reporting a vulnerability
 
@@ -82,11 +84,11 @@ Unknown or corrupt critical state must fail closed. Preference corruption may be
 
 ## External tools and process-memory utilities
 
-UMML-Manager may launch user-selected external tools in separate processes and import their output. It does not grant those tools access to Manager deployment, baselines, profiles, or recovery state.
+Uma Mod Manager may launch user-selected external tools in separate processes and import their output. It does not grant those tools access to deployment, baselines, profiles, or recovery state.
 
 The Manager must not run as administrator or root merely because an external memory reader requests elevated access. Run such tools separately and import their bounded output.
 
-External code or binaries are not bundled without a compatible license or explicit permission. Credits do not substitute for permission.
+External code or binaries are not bundled without a compatible license or explicit permission. Credits do not substitute for permission. Project lineage and current integration boundaries are recorded in [NOTICE.md](NOTICE.md).
 
 ## Personal and roster data
 
@@ -98,14 +100,7 @@ Never publish a real roster dump in an issue.
 
 ## Safe testing
 
-Security and recovery tests should use:
-
-- temporary Manager roots;
-- synthetic game trees;
-- generated archives;
-- disposable package fixtures;
-- copied metadata or target structures only when redistribution is legal;
-- no automatic discovery of a real installation.
+Security and recovery tests should use temporary Manager roots, synthetic game trees, generated archives, disposable package fixtures, and no automatic discovery of a real installation.
 
 Do not test destructive behavior against a live personal game installation merely because the code includes rollback. That is evidence of courage, not methodology.
 
