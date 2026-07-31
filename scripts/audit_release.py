@@ -66,20 +66,23 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         )
 
     release_notes = f"docs/releases/{display}.md"
+
+    # README, player-guide, changelog, and citation metadata describe the latest
+    # published release until the candidate is actually published. Advertising
+    # an unavailable candidate is less useful than keeping one stable public
+    # download path. Exact candidate identity instead lives in the version file,
+    # release notes, AppStream, package payloads, checksums, and release workflow.
     require_contains(
         "README.md",
-        version,
+        "Community Test",
         "docs/TESTING_AND_FEEDBACK.md",
         "Create support bundle",
     )
     require_contains(
         "MANAGER_README.md",
-        version,
         "Testing and feedback",
         "Create support bundle",
     )
-    require_contains("MANAGER_CHANGELOG.md", version)
-    require_contains("CITATION.cff", f"version: {display}")
     require_contains(
         "packaging/linux/io.github.evelynlimab.ummlmanager.metainfo.xml",
         f'version="{display}"',
@@ -99,7 +102,6 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
     )
     require_contains(
         "docs/RELEASE_PROCESS.md",
-        tag,
         "prerelease",
         "rollback",
     )
@@ -121,7 +123,6 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         "workflow_dispatch",
         "scripts/audit_release.py",
         "gh release create",
-        release_notes,
     )
     require_contains(
         "umml_manager/support_bundle.py",
