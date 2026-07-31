@@ -21,6 +21,8 @@ from .ui_studio import StudioPage
 from .ui_system_actions import SystemActions
 from .ui_theme import BACKGROUND, SURFACE, TEXT, configure_theme
 
+PRODUCT_NAME = "Uma Mod Manager"
+
 
 class ManagerGUI(
     AutoPrepareActions,
@@ -88,7 +90,7 @@ class ManagerGUI(
         )
         self.local_candidates = {}
 
-        root.title("UMML Manager")
+        root.title(PRODUCT_NAME)
         root.geometry("1220x780")
         root.minsize(980, 650)
         root.configure(background=BACKGROUND)
@@ -145,7 +147,7 @@ class ManagerGUI(
         header = ttk.Frame(self.root, padding=(22, 15, 22, 12))
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(1, weight=1)
-        ttk.Label(header, text="UMML", style="Title.TLabel").grid(
+        ttk.Label(header, text="UMA MOD", style="Title.TLabel").grid(
             row=0,
             column=0,
             sticky="w",
