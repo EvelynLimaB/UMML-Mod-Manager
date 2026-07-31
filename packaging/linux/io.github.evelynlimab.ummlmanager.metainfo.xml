@@ -13,9 +13,9 @@
     <p>The guarded compatibility Studio preserves original UMML editing tools while native Manager workflows replace them. Read-only veteran-data tools can import credited external umadump and UmaExtractor output without bundling unlicensed scanners.</p>
   </description>
   <launchable type="desktop-id">io.github.evelynlimab.ummlmanager.desktop</launchable>
-  <url type="homepage">https://github.com/EvelynLimaB/UMML-Manager</url>
-  <url type="bugtracker">https://github.com/EvelynLimaB/UMML-Manager/issues</url>
-  <url type="help">https://github.com/EvelynLimaB/UMML-Manager/blob/main/MANAGER_README.md</url>
+  <url type="homepage">https://github.com/EvelynLimaB/UMML-Linux</url>
+  <url type="bugtracker">https://github.com/EvelynLimaB/UMML-Linux/issues</url>
+  <url type="help">https://github.com/EvelynLimaB/UMML-Linux/blob/main/MANAGER_README.md</url>
   <provides>
     <binary>umml-manager</binary>
     <binary>umml-manager-cli</binary>
