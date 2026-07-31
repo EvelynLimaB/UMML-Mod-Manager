@@ -20,6 +20,8 @@ datas = [
     (str(ROOT / "docs" / "MANAGER_DEVELOPMENT.md"), "docs"),
     (str(ROOT / "docs" / "MANAGER_AUDIT.md"), "docs"),
     (str(ROOT / "docs" / "MANAGER_FEATURE_ROADMAP.md"), "docs"),
+    (str(ROOT / "docs" / "DOWNLOADS.md"), "docs"),
+    (str(ROOT / "docs" / "GAMEBANANA_PROVIDER.md"), "docs"),
     (str(ROOT / "docs" / "UMAEXTRACTOR_INTEGRATION.md"), "docs"),
     (str(ROOT / "docs" / "PACKAGING.md"), "docs"),
     (str(ROOT / "docs" / "TESTING_AND_FEEDBACK.md"), "docs"),
