@@ -10,6 +10,7 @@
     <p>Players can browse and import mods, use named profiles, configure package variants, inspect conflicts, and apply or restore verified transactional deployments.</p>
     <p>Creators can inspect source bundles and final targets, describe affected characters, dresses, parts, and content types, edit compatibility policy, build configurable packages, and test new immutable versions.</p>
     <p>Compatible imports prepare and analyze automatically. Manual Prepare or Re-prepare maintenance is not part of the user workflow.</p>
+    <p>Settings can generate a privacy-scrubbed support bundle for structured testing and bug reports without including game assets, mod payloads, baselines, roster snapshots, or raw settings.</p>
     <p>The guarded compatibility Studio preserves original UMML editing tools while native Manager workflows replace them. Read-only veteran-data tools can import credited external umadump and UmaExtractor output without bundling unlicensed scanners.</p>
   </description>
   <launchable type="desktop-id">io.github.evelynlimab.ummlmanager.desktop</launchable>
@@ -36,6 +37,11 @@
     <keyword>Unity</keyword>
   </keywords>
   <releases>
+    <release version="0.2.0-alpha.19" date="2026-07-31">
+      <description>
+        <p>Adds the Community Test release track, exact release metadata auditing, structured tester guidance and feedback forms, privacy-scrubbed support bundles, repeatable prerelease packaging, and stronger documentation and package-content checks.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.18" date="2026-07-30">
       <description>
         <p>Establishes the Uma Mod Manager identity, removes manual preparation controls, supports multi-target source bundles, adds visual Inspect and edit workflows, improves focused windows and Library actions, and expands credited veteran-data provider compatibility.</p>
