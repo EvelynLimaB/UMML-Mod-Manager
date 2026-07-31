@@ -9,9 +9,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Build the obsolete slug from pieces so the audit does not discover its own
+# needle and report itself as the final surviving offender. Computers remain
+# very literal colleagues.
+_OLD_REPOSITORY = "EvelynLimaB/" + "UMML-Linux"
 STALE_REPOSITORY_TOKENS = (
-    "EvelynLimaB/UMML-Linux",
-    "github.com/EvelynLimaB/UMML-Linux",
+    _OLD_REPOSITORY,
+    "github.com/" + _OLD_REPOSITORY,
 )
 
 PUBLIC_NAME_FILES = {
