@@ -1,13 +1,15 @@
 name: Bug report
-description: Report a reproducible UMML-Manager failure or regression
-title: "[Bug]: "
+description: Report a reproducible Uma Mod Manager failure or regression
+title: "[Bug] "
 labels:
   - bug
 body:
   - type: markdown
     attributes:
       value: |
-        Do not attach game assets, decrypted databases, real roster dumps, credentials, private logs, or mod archives you cannot redistribute.
+        Read the [Testing and feedback guide](../../blob/main/docs/TESTING_AND_FEEDBACK.md) for exact-build and privacy guidance.
+
+        Do not attach game assets, decrypted databases, real roster dumps, credentials, private logs, or mod archives you cannot redistribute. Create a support bundle through Settings, inspect its JSON, and attach it when useful.
 
   - type: dropdown
     id: area
@@ -23,8 +25,9 @@ body:
         - Apply, restore, or recovery
         - Veteran data tools
         - Compatibility Studio
-        - Settings and autodetection
-        - Packaging or installer
+        - Settings, diagnostics, or support bundle
+        - Autodetection or game-running status
+        - Packaging, install, upgrade, or rollback
         - Other
     validations:
       required: true
@@ -32,7 +35,7 @@ body:
   - type: dropdown
     id: platform
     attributes:
-      label: Platform
+      label: Platform and package
       options:
         - Windows portable
         - Debian or Ubuntu package
@@ -46,8 +49,25 @@ body:
   - type: input
     id: version
     attributes:
-      label: Version or commit
-      placeholder: 0.2.0~alpha18 or commit SHA
+      label: Exact MANAGER_VERSION or commit
+      placeholder: 0.2.0~alpha19 or full commit SHA
+    validations:
+      required: true
+
+  - type: input
+    id: artifact
+    attributes:
+      label: Artifact filename and SHA-256
+      description: Required for packaged-build reports. Use “source” and the commit SHA for source runs.
+      placeholder: umml-manager_0.2.0-alpha.19_win64.zip — abc123…
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and starting state
+      description: OS, desktop, native/Proton/Wine/DMM layout, region, clean install or upgrade, previous version, game open/closed, and relevant profile state.
     validations:
       required: true
 
@@ -55,7 +75,7 @@ body:
     id: problem
     attributes:
       label: What happened?
-      description: Describe the visible failure and the result you expected.
+      description: Describe the visible failure, the result you expected, and whether any game or Manager data changed.
     validations:
       required: true
 
@@ -66,8 +86,21 @@ body:
       placeholder: |
         1. Open ...
         2. Import ...
-        3. Select ...
-        4. Observe ...
+        3. Wait for ...
+        4. Select ...
+        5. Observe ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: repeatability
+    attributes:
+      label: Repeatability
+      options:
+        - Every time
+        - More than once, but not every time
+        - Once
+        - Could not retry safely
     validations:
       required: true
 
@@ -75,23 +108,37 @@ body:
     id: package
     attributes:
       label: Package or mod structure
-      description: Describe filenames, folders, package type, provider ID, and relevant metadata. Use synthetic examples and redact personal paths.
+      description: Link the original submission/file ID and describe relevant folders, package type, targets, or metadata. Do not upload someone else's mod.
 
   - type: textarea
-    id: diagnostics
+    id: evidence
     attributes:
-      label: Diagnostics and logs
-      description: Paste the smallest redacted excerpt that shows the failure. Do not paste complete private logs.
-      render: text
+      label: Support bundle and minimal evidence
+      description: Attach a privacy-reviewed support bundle. Add only the smallest redacted log excerpt or screenshot needed to show the failure.
+      placeholder: Drag the reviewed support ZIP here, then add any minimal context.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suggested severity
+      options:
+        - Critical — possible trusted-data loss, wrong-target write, or destroyed recovery evidence
+        - High — Apply/restore/safety/upgrade failure
+        - Medium — important workflow broken with data preserved
+        - Low — visual, focus, wording, or minor compatibility problem
+    validations:
+      required: true
 
   - type: checkboxes
     id: checks
     attributes:
       label: Safety confirmation
       options:
-        - label: I removed game assets, decrypted databases, account data, credentials, and private paths.
+        - label: I inspected the support bundle and removed game assets, decrypted databases, account data, credentials, and private paths from all attachments.
           required: true
         - label: I stated whether the game was running when the failure occurred.
+          required: true
+        - label: I stated whether game or Manager data changed unexpectedly.
           required: true
         - label: I am not attaching an archive or external tool without redistribution permission.
           required: true
