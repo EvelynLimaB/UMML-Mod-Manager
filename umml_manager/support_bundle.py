@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import re
+import stat
 import sys
 import tempfile
 import zipfile
@@ -17,6 +18,9 @@ from .version import manager_version
 
 SUPPORT_BUNDLE_SCHEMA_VERSION = 1
 SUPPORT_BUNDLE_PREFIX = "uma-mod-manager-support"
+MAX_MOD_SUMMARIES = 2_000
+MAX_PROFILE_SUMMARIES = 500
+MAX_TEXT_VALUE = 32_768
 _PRIVATE_KEY_PARTS = (
     "password",
     "passwd",
@@ -56,28 +60,39 @@ def create_support_bundle(
     The bundle intentionally excludes mod payloads, game assets, baselines,
     roster snapshots, raw settings, provider downloads, and transaction data.
     It contains only build/platform information, redacted diagnostics, and
-    high-level library/profile summaries useful for reproducing a report.
+    bounded high-level library/profile summaries useful for reproducing a report.
     """
 
-    target = Path(destination).expanduser()
-    if target.suffix.casefold() != ".zip":
-        target = target.with_suffix(".zip")
-    target = target.resolve()
+    selected = Path(destination).expanduser()
+    if selected.suffix.casefold() != ".zip":
+        selected = selected.with_suffix(".zip")
+    _validate_destination(selected)
+    parent = selected.parent.resolve()
+    parent.mkdir(parents=True, exist_ok=True)
+    target = parent / selected.name
     _validate_destination(target)
-    target.parent.mkdir(parents=True, exist_ok=True)
 
     moment = now or datetime.now(timezone.utc)
     settings, settings_error = _safe_settings(store)
     redactions = _redaction_map(store, settings)
     diagnostics = _safe_diagnostics(store, diagnostics_collector)
-    mods, mods_error = _safe_mod_summary(store)
-    profiles, profiles_error = _safe_profile_summary(store)
+    mods, mod_total, mods_error = _safe_mod_summary(store)
+    profiles, profile_total, profiles_error = _safe_profile_summary(store)
 
     warnings = [
         value
         for value in (settings_error, mods_error, profiles_error)
         if value
     ]
+    if mod_total > len(mods):
+        warnings.append(
+            f"Included {len(mods)} of {mod_total} mod summaries; the report is bounded."
+        )
+    if profile_total > len(profiles):
+        warnings.append(
+            f"Included {len(profiles)} of {profile_total} profile summaries; the report is bounded."
+        )
+
     report: dict[str, Any] = {
         "schema_version": SUPPORT_BUNDLE_SCHEMA_VERSION,
         "created_at": moment.isoformat(),
@@ -112,11 +127,13 @@ def create_support_bundle(
             ),
         },
         "library": {
-            "count": len(mods),
+            "count": mod_total,
+            "included_summaries": len(mods),
             "mods": mods,
         },
         "profiles": {
-            "count": len(profiles),
+            "count": profile_total,
+            "included_summaries": len(profiles),
             "items": profiles,
         },
         "diagnostics": diagnostics,
@@ -129,9 +146,10 @@ def create_support_bundle(
             "roster_data_included": False,
             "provider_downloads_included": False,
             "known_paths_and_private_keys_redacted": True,
+            "text_values_bounded": True,
         },
     }
-    report = _redact(report, redactions)
+    report = _bound_and_redact(report, redactions)
 
     readme = _bundle_readme(target.name)
     temporary_path: Path | None = None
@@ -166,16 +184,18 @@ def create_support_bundle(
 
 
 def _validate_destination(path: Path) -> None:
-    if path.exists():
-        try:
-            if path.is_symlink() or not path.is_file():
-                raise SupportBundleError(
-                    f"Support bundle destination must be a regular file: {path}"
-                )
-        except OSError as exc:
-            raise SupportBundleError(
-                f"Could not inspect support bundle destination: {path}: {exc}"
-            ) from exc
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise SupportBundleError(
+            f"Could not inspect support bundle destination: {path}: {exc}"
+        ) from exc
+    if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+        raise SupportBundleError(
+            f"Support bundle destination must be a regular file: {path}"
+        )
 
 
 def _safe_settings(store: ManagerStore) -> tuple[dict[str, Any], str]:
@@ -202,14 +222,14 @@ def _safe_diagnostics(
 
 def _safe_mod_summary(
     store: ManagerStore,
-) -> tuple[list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], int, str]:
     try:
         records = store.list_mods()
     except Exception as exc:
-        return [], f"Mod registry could not be summarized: {exc}"
+        return [], 0, f"Mod registry could not be summarized: {exc}"
 
     result: list[dict[str, Any]] = []
-    for record in records:
+    for record in records[:MAX_MOD_SUMMARIES]:
         source = getattr(record, "source", None)
         result.append(
             {
@@ -244,36 +264,30 @@ def _safe_mod_summary(
                 ),
             }
         )
-    return result, ""
+    return result, len(records), ""
 
 
 def _safe_profile_summary(
     store: ManagerStore,
-) -> tuple[list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], int, str]:
     try:
         profiles = store.list_profiles()
     except Exception as exc:
-        return [], f"Profile registry could not be summarized: {exc}"
+        return [], 0, f"Profile registry could not be summarized: {exc}"
 
-    return (
-        [
-            {
-                "name": str(getattr(profile, "name", "")),
-                "enabled_mod_count": len(
-                    getattr(profile, "enabled", ()) or ()
-                ),
-                "configured_mod_count": len(
-                    getattr(profile, "options", {}) or {}
-                ),
-                "region": str(getattr(profile, "region", "")),
-                "bound_to_verified_installation": bool(
-                    str(getattr(profile, "installation_key", "") or "").strip()
-                ),
-            }
-            for profile in profiles
-        ],
-        "",
-    )
+    result = [
+        {
+            "name": str(getattr(profile, "name", "")),
+            "enabled_mod_count": len(getattr(profile, "enabled", ()) or ()),
+            "configured_mod_count": len(getattr(profile, "options", {}) or {}),
+            "region": str(getattr(profile, "region", "")),
+            "bound_to_verified_installation": bool(
+                str(getattr(profile, "installation_key", "") or "").strip()
+            ),
+        }
+        for profile in profiles[:MAX_PROFILE_SUMMARIES]
+    ]
+    return result, len(profiles), ""
 
 
 def _redaction_map(
@@ -296,7 +310,7 @@ def _redaction_map(
     return sorted(unique.items(), key=lambda item: len(item[0]), reverse=True)
 
 
-def _redact(value: Any, replacements: list[tuple[str, str]]) -> Any:
+def _bound_and_redact(value: Any, replacements: list[tuple[str, str]]) -> Any:
     if isinstance(value, dict):
         cleaned: dict[str, Any] = {}
         for key, item in value.items():
@@ -304,21 +318,20 @@ def _redact(value: Any, replacements: list[tuple[str, str]]) -> Any:
             if any(part in normalized for part in _PRIVATE_KEY_PARTS):
                 cleaned[str(key)] = "<redacted>"
             else:
-                cleaned[str(key)] = _redact(item, replacements)
+                cleaned[str(key)] = _bound_and_redact(item, replacements)
         return cleaned
     if isinstance(value, list):
-        return [_redact(item, replacements) for item in value]
+        return [_bound_and_redact(item, replacements) for item in value]
     if isinstance(value, tuple):
-        return [_redact(item, replacements) for item in value]
+        return [_bound_and_redact(item, replacements) for item in value]
     if isinstance(value, str):
-        result = value
-        normalized = result.replace("\\", "/")
+        normalized = value.replace("\\", "/")
         for raw, replacement in replacements:
-            result = result.replace(raw, replacement)
             normalized = normalized.replace(raw.replace("\\", "/"), replacement)
-        if normalized != value.replace("\\", "/"):
-            result = normalized
-        return result
+        if len(normalized) > MAX_TEXT_VALUE:
+            omitted = len(normalized) - MAX_TEXT_VALUE
+            normalized = normalized[:MAX_TEXT_VALUE] + f"\n<truncated {omitted} characters>"
+        return normalized
     return value
 
 
