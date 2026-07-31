@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -5,6 +6,10 @@ __pycache__/
 venv/
 env/
 .build-venv/
+__pypackages__/
+.python-version
+.tox/
+.nox/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
@@ -12,12 +17,24 @@ env/
 coverage.xml
 htmlcov/
 
+# Logs, local databases, diagnostics, and memory dumps
 *.log
 *.db
 *.db-*
+*.dmp
+*.mdmp
 meta_decrypted_*.db
+support_card_data.json
+trained_chara_data.json
+card_data.json
+friend_data.json
+trophy_data.json
+data.json
+data.msgpack
+race_replays/
+idle_single_mode/
 
-# Game data and local mod-manager state
+# Game data and local UMML-Manager state
 dat/
 dat.backup/
 master/
@@ -25,19 +42,34 @@ Persistent/
 manager-state/
 manager-library/
 manager-cache/
+umml-manager-data/
+umml-manager-workspaces/
+veterans/
 
-# OS/editor clutter
+# OS and editor clutter
 .DS_Store
+Thumbs.db
+Desktop.ini
 .idea/
 .vscode/
 *.swp
+*.swo
 *~
 
 # Generated packages and build output
 build/
 dist/
+AppDir/
+squashfs-root/
 *.zip
 *.tar.gz
 *.deb
 *.AppImage
 SHA256SUMS
+
+# Local tool downloads and temporary extraction roots
+tools/
+downloads/
+extractor-inbox/
+*.part
+*.tmp
