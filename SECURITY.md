@@ -1,16 +1,18 @@
 # Security policy
 
-UMML-Manager imports untrusted mod packages, reads game metadata, launches optional external tools, and can modify local game asset files. Security reports should be handled with more care than an ordinary UI bug whose greatest victim is a misaligned button.
+Uma Mod Manager imports untrusted mod packages, reads game metadata, launches optional external tools, creates diagnostic support reports, and can modify local game asset files. Security reports deserve more care than an ordinary UI bug whose greatest victim is a misaligned button.
 
 ## Supported versions
 
-Security fixes currently target the active UMML-Manager preview branch and the newest published Manager build. The preserved legacy UMML compatibility release is maintained only for severe issues affecting shared discovery, packaging, or destructive file behavior.
+Security fixes currently target the active Uma Mod Manager Community Test and newest published build. The preserved original UMML compatibility release is maintained only for severe issues affecting shared discovery, packaging, or destructive file behavior.
 
 | Product | Version | Security support |
 | --- | --- | --- |
-| UMML-Manager | Current alpha preview | Yes |
-| UMML-Manager | Older preview artifacts | Upgrade first; fixes are not backported routinely |
-| Legacy UMML compatibility layer | `1.5.0-linux.6` | Severe shared/destructive issues only |
+| Uma Mod Manager | Current Community Test / alpha preview | Yes |
+| Uma Mod Manager | Older preview artifacts | Upgrade first; fixes are not routinely backported |
+| Original UMML compatibility layer | `1.5.0-linux.6` | Severe shared/destructive issues only |
+
+Technical package, command, module, desktop-ID, and data-root names may still contain `umml-manager` during the compatibility window. This is deliberate and documented in [Branding and compatibility](docs/BRANDING_AND_COMPATIBILITY.md).
 
 ## Reporting a vulnerability
 
@@ -18,21 +20,21 @@ Prefer GitHub private vulnerability reporting when it is enabled for the reposit
 
 Include only the minimum necessary information:
 
-- affected version or commit;
+- affected `MANAGER_VERSION`, commit, artifact filename, and SHA-256;
 - operating system and package format;
-- affected provider, archive, external tool, or state format;
+- affected provider, archive, external tool, support report, or state format;
 - reproducible steps using synthetic data where possible;
 - expected and actual behavior;
 - impact;
-- whether game files, Manager state, or personal data were exposed or modified.
+- whether game files, Manager state, recovery evidence, or personal data were exposed or modified.
 
-Do not attach copyrighted game assets, decrypted databases, real mod archives without permission, personal roster data, access tokens, cookies, Steam credentials, Wine prefixes, recovery snapshots, or full logs containing private paths.
+Do not attach copyrighted game assets, decrypted databases, real mod archives without permission, personal roster data, access tokens, cookies, Steam credentials, Wine prefixes, recovery snapshots, raw Manager state, or full logs containing private paths.
 
 ## High-priority report categories
 
 Please report privately before disclosure when an issue can:
 
-- escape archive or workspace path containment;
+- escape archive, workspace, package, or support-bundle path containment;
 - write outside the selected game target;
 - replace verified vanilla baselines with modded data;
 - bypass closed-game mutation checks;
@@ -41,11 +43,14 @@ Please report privately before disclosure when an issue can:
 - load arbitrary native code through an ordinary mod package;
 - corrupt or discard recovery journals, baselines, or active state silently;
 - overwrite externally changed files without warning;
-- expose account identifiers or personal roster data;
+- expose credentials, account identifiers, personal roster data, or private paths;
+- include excluded game/mod/state payloads in a generated support bundle;
+- follow a symlink or special-file destination while exporting diagnostics;
 - let an external tool inherit deployment privileges unexpectedly;
 - bypass provider certificate verification;
 - confuse one installation's active state or baselines with another target;
-- allow a malformed package to mutate immutable imported source.
+- allow a malformed package to mutate immutable imported source;
+- replace an already published release artifact without changing its identity.
 
 ## Archive and provider threat model
 
@@ -80,13 +85,39 @@ Apply and restore require:
 
 Unknown or corrupt critical state must fail closed. Preference corruption may be quarantined and reset with the original bytes preserved; deployment evidence may not be silently discarded.
 
+## Tester support bundles
+
+**Settings → Create support bundle** creates an inspectable ZIP for issue reports.
+
+The report is designed to include only:
+
+- Manager and runtime version information;
+- operating-system information;
+- configuration-presence flags instead of raw settings;
+- bounded high-level library and profile summaries;
+- read-only diagnostics;
+- collection warnings.
+
+It is designed to exclude:
+
+- game files, metadata databases, and asset trees;
+- imported or downloaded mod payloads;
+- vanilla baselines and transaction contents;
+- Veteran roster snapshots;
+- raw settings;
+- credentials, tokens, cookies, authorization values, and known viewer/account fields.
+
+The exporter rejects directory and symlink destinations, writes through a temporary regular file, redacts known paths and sensitive keys, and bounds free-form text. Tests cover representative privacy and destination cases.
+
+This is defence in depth, not permission to upload blindly. Custom package names, provider metadata, and free-form error messages may contain text a user considers private. Inspect `support-report.json` before attachment. Report any missed field privately using a synthetic example or field shape rather than real personal data.
+
 ## External tools and process-memory utilities
 
-UMML-Manager may launch user-selected external tools in separate processes and import their output. It does not grant those tools access to Manager deployment, baselines, profiles, or recovery state.
+Uma Mod Manager may launch user-selected external tools in separate processes and import their output. It does not grant those tools access to deployment, baselines, profiles, or recovery state.
 
 The Manager must not run as administrator or root merely because an external memory reader requests elevated access. Run such tools separately and import their bounded output.
 
-External code or binaries are not bundled without a compatible license or explicit permission. Credits do not substitute for permission.
+External code or binaries are not bundled without a compatible license or explicit permission. Credits do not substitute for permission. Project lineage and current integration boundaries are recorded in [NOTICE.md](NOTICE.md).
 
 ## Personal and roster data
 
@@ -94,20 +125,21 @@ Veteran-roster imports are treated as untrusted personal data.
 
 The Manager removes known viewer/account identifiers and account-name fields before storing immutable snapshots. Reports involving missed identifiers should provide a redacted synthetic example or only the affected field names and structure.
 
-Never publish a real roster dump in an issue.
+Never publish a real roster dump in an issue or support archive.
+
+## Release and update safety
+
+Community Test artifacts are identified by tag, commit, filename, and SHA-256. Publication tooling must refuse replacing an existing release tag. Automatic updates must not be introduced without authenticated metadata, an explicit rollback path, and preserved external Manager state.
+
+Keep previous application packages for rollback. Application rollback does not authorize overwriting unknown game state; game restoration remains governed by verified Manager baselines and journals.
 
 ## Safe testing
 
-Security and recovery tests should use:
-
-- temporary Manager roots;
-- synthetic game trees;
-- generated archives;
-- disposable package fixtures;
-- copied metadata or target structures only when redistribution is legal;
-- no automatic discovery of a real installation.
+Security and recovery tests should use temporary Manager roots, synthetic game trees, generated archives, disposable package fixtures, and no automatic discovery of a real installation.
 
 Do not test destructive behavior against a live personal game installation merely because the code includes rollback. That is evidence of courage, not methodology.
+
+Follow [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) for report privacy and exact-build evidence.
 
 ## Disclosure
 

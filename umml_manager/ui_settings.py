@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
+import webbrowser
+from tkinter import messagebox, ttk
 
+from .ui_support_bundle import create_support_bundle_from_ui
 from .ui_theme import (
     THEME_SYSTEM,
     apply_widget_theme,
     configure_theme,
     normalize_theme_mode,
     resolve_theme_mode,
+)
+
+TESTING_GUIDE_URL = (
+    "https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/"
+    "docs/TESTING_AND_FEEDBACK.md"
+)
+TESTING_FEEDBACK_URL = (
+    "https://github.com/EvelynLimaB/Uma-Mod-Manager/issues/new?"
+    "template=testing_feedback.yml"
 )
 
 
@@ -61,8 +72,9 @@ class SettingsPage(ttk.Frame):
         ttk.Label(
             start,
             text=(
-                "UMML normally finds Steam/Proton and prepares the metadata database "
-                "for you. Manual paths are only needed for unusual installations."
+                "Uma Mod Manager normally finds Steam/Proton and prepares the "
+                "metadata database for you. Manual paths are only needed for "
+                "unusual installations."
             ),
             style="SurfaceMuted.TLabel",
             wraplength=880,
@@ -127,8 +139,52 @@ class SettingsPage(ttk.Frame):
             justify="left",
         ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
+        testing = ttk.LabelFrame(self, text="Community Test feedback", padding=14)
+        testing.grid(row=3, column=0, sticky="ew", pady=(12, 0))
+        testing.columnconfigure(0, weight=1)
+        ttk.Label(
+            testing,
+            text=(
+                "Create a privacy-scrubbed report, inspect its JSON, then use the "
+                "structured form for pass, partial, or failure results. Successful "
+                "tests are evidence too."
+            ),
+            style="SurfaceMuted.TLabel",
+            wraplength=670,
+            justify="left",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 18))
+        testing_controls = ttk.Frame(testing, style="Surface.TFrame")
+        testing_controls.grid(row=0, column=1, sticky="e")
+        testing_controls.columnconfigure(0, weight=1)
+        testing_controls.columnconfigure(1, weight=1)
+        self.support_bundle_button = ttk.Button(
+            testing_controls,
+            text="Create support bundle",
+            style="Accent.TButton",
+            command=self._create_support_bundle,
+        )
+        self.support_bundle_button.grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(0, 6),
+        )
+        self.testing_guide_button = ttk.Button(
+            testing_controls,
+            text="Testing guide",
+            command=self._open_testing_guide,
+        )
+        self.testing_guide_button.grid(row=1, column=0, sticky="ew", padx=(0, 3))
+        self.testing_feedback_button = ttk.Button(
+            testing_controls,
+            text="Report feedback",
+            command=self._open_testing_feedback,
+        )
+        self.testing_feedback_button.grid(row=1, column=1, sticky="ew", padx=(3, 0))
+
         actions = ttk.Frame(self, padding=(0, 12, 0, 0))
-        actions.grid(row=3, column=0, sticky="ew")
+        actions.grid(row=4, column=0, sticky="ew")
         self.save_button = ttk.Button(
             actions,
             text="Save settings",
@@ -164,6 +220,37 @@ class SettingsPage(ttk.Frame):
         self._apply_theme(persist=False)
         app.root.bind_all("<Map>", self._theme_mapped_widget, add="+")
         self._schedule_system_refresh()
+
+    def _create_support_bundle(self) -> None:
+        create_support_bundle_from_ui(self.app)
+
+    def _open_testing_guide(self) -> None:
+        self._open_web(TESTING_GUIDE_URL, "testing guide")
+
+    def _open_testing_feedback(self) -> None:
+        self._open_web(TESTING_FEEDBACK_URL, "testing feedback form")
+
+    def _open_web(self, url: str, label: str) -> None:
+        try:
+            opened = webbrowser.open(url, new=2)
+        except Exception as exc:
+            messagebox.showerror(
+                f"Could not open {label}",
+                str(exc),
+                parent=self.app.root,
+            )
+            return
+        if not opened:
+            messagebox.showerror(
+                f"Could not open {label}",
+                (
+                    "No web browser accepted the link. Open it from the repository "
+                    "documentation instead."
+                ),
+                parent=self.app.root,
+            )
+            return
+        self.app.status.set(f"Opened {label}")
 
     def _theme_selected(self, _event=None) -> None:
         self._apply_theme(persist=True)

@@ -1,25 +1,30 @@
-name: UMML Manager checks
+name: Uma Mod Manager Linux checks
 
 on:
   push:
     branches:
       - main
-      - agent/umml-manager-foundation
-      - agent/umml-runtime-bridge
   pull_request:
     paths:
       - 'umml_manager/**'
       - 'umml_manager_packaged.py'
       - 'tests/test_manager*.py'
       - 'requirements.txt'
+      - 'requirements-build.txt'
       - 'MANAGER_VERSION'
+      - 'README.md'
       - 'MANAGER_README.md'
       - 'MANAGER_CHANGELOG.md'
+      - 'NOTICE.md'
+      - 'CITATION.cff'
       - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
       - 'docs/**'
       - 'install-manager.sh'
       - 'uninstall-manager.sh'
       - 'scripts/audit_manager.py'
+      - 'scripts/audit_branding.py'
+      - 'scripts/audit_release.py'
       - 'scripts/check_manager.sh'
       - 'scripts/build_manager_*.sh'
       - 'scripts/manager_main_gate.sh'
@@ -30,7 +35,9 @@ on:
       - 'packaging/linux/io.github.evelynlimab.ummlmanager.*'
       - 'packaging/appimage/io.github.evelynlimab.ummlmanager.desktop'
       - 'assets/umml-manager.svg'
+      - '.github/ISSUE_TEMPLATE/**'
       - '.github/pull_request_template.md'
+      - '.github/workflows/manager-testing-release.yml'
       - '.github/workflows/manager-checks.yml'
 
 permissions:
@@ -73,9 +80,14 @@ jobs:
             umml_manager_packaged.py \
             tests \
             scripts/audit_manager.py \
+            scripts/audit_branding.py \
+            scripts/audit_release.py \
             scripts/test_manager_theme_runtime.py
-      - name: Audit source structure and dangerous calls
-        run: python scripts/audit_manager.py
+      - name: Audit source structure, safety, public identity, and release contract
+        run: |
+          python scripts/audit_manager.py
+          python scripts/audit_branding.py
+          python scripts/audit_release.py
       - name: Run manager regression tests
         run: |
           set +e
@@ -158,6 +170,8 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install -r requirements.txt -r requirements-build.txt
           python -m pip check
+      - name: Verify release metadata before packaging
+        run: python scripts/audit_release.py
       - name: Build frozen manager
         run: bash scripts/build_manager_frozen.sh
       - name: Build Debian package
@@ -168,7 +182,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
-          DISPLAY_VERSION="$(printf '%s' "$VERSION" | tr '~' '-')"
+          DISPLAY_VERSION="${VERSION/~alpha/-alpha.}"
           EXPECTED_DEB="dist/umml-manager_${VERSION}_amd64.deb"
           EXPECTED_APPIMAGE="dist/umml-manager_${DISPLAY_VERSION}_x86_64.AppImage"
           DEB="$(find dist -maxdepth 1 -name 'umml-manager_*_amd64.deb' -print -quit)"
@@ -228,6 +242,22 @@ jobs:
             -type f -path '*/PIL/_imaging*.so' -print -quit | grep -q .
           find "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager" \
             -type f -path '*/PIL/_imaging*.so' -print -quit | grep -q .
+          for root in \
+            "$VERIFY_ROOT/deb/usr/share/doc/umml-manager" \
+            "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager"; do
+            test -f "$root/NOTICE.md"
+            test -f "$root/BRANDING_AND_COMPATIBILITY.md"
+            test -f "$root/TESTING_AND_FEEDBACK.md"
+            test -f "$root/RELEASE_PROCESS.md"
+            test -f "$root/RELEASE_NOTES.md"
+          done
+          for document in \
+            TESTING_AND_FEEDBACK.md \
+            RELEASE_PROCESS.md \
+            0.2.0-alpha.19.md; do
+            find build/manager-frozen/umml-manager \
+              -type f -name "$document" -print -quit | grep -q .
+          done
           rm -rf "$VERIFY_ROOT"
           trap - EXIT
 

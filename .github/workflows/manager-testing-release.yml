@@ -1,0 +1,295 @@
+name: Uma Mod Manager testing release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Exact prerelease tag derived from MANAGER_VERSION
+        required: true
+        default: v0.2.0-alpha.19
+        type: string
+      publish_release:
+        description: Publish a GitHub prerelease after every build and test passes
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uma-mod-manager-testing-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_NOTES: docs/releases/0.2.0-alpha.19.md
+
+jobs:
+  validate:
+    name: Validate release contract
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Audit exact version and tester contract
+        run: |
+          set -Eeuo pipefail
+          python scripts/audit_manager.py
+          python scripts/audit_branding.py
+          python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
+          test -f "$RELEASE_NOTES"
+          test -f docs/TESTING_AND_FEEDBACK.md
+          test -f docs/RELEASE_PROCESS.md
+
+  windows:
+    name: Build Windows Community Test
+    needs: validate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt -r requirements-build.txt
+          python -m pip check
+      - name: Audit and test source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/audit_branding.py scripts/audit_release.py scripts/test_manager_theme_runtime.py
+          python scripts/audit_manager.py
+          python scripts/audit_branding.py
+          python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
+          python -m unittest discover -s tests -p 'test_manager*.py' -v
+      - name: Build and exercise native portable runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          pyinstaller --noconfirm --clean `
+            --distpath build/windows-dist `
+            --workpath build/windows-work `
+            packaging/pyinstaller/umml-manager.spec
+          $bundleRoot = 'build/windows-dist/umml-manager'
+          $exe = Join-Path $bundleRoot 'umml-manager-bin.exe'
+          if (!(Test-Path $exe)) {
+            throw "Windows Manager executable was not built: $exe"
+          }
+          & $exe --version
+          & $exe cli self-test
+          python scripts/test_manager_theme_runtime.py -- $exe gui
+          $requiredDocuments = @(
+            'TESTING_AND_FEEDBACK.md',
+            'RELEASE_PROCESS.md',
+            '0.2.0-alpha.19.md'
+          )
+          $allDocuments = Get-ChildItem -Path $bundleRoot -Recurse -File
+          foreach ($document in $requiredDocuments) {
+            if (!($allDocuments | Where-Object Name -EQ $document | Select-Object -First 1)) {
+              throw "Required documentation missing from frozen runtime: $document"
+            }
+          }
+      - name: Assemble Windows Community Test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $raw = [System.IO.File]::ReadAllText((Join-Path $PWD 'MANAGER_VERSION')).Trim()
+          if ([string]::IsNullOrWhiteSpace($raw)) {
+            throw 'MANAGER_VERSION is empty'
+          }
+          $display = $raw -replace '~alpha', '-alpha.'
+          $expectedTag = "v$display"
+          if ($expectedTag -ne '${{ inputs.release_tag }}') {
+            throw "Release tag mismatch: expected $expectedTag"
+          }
+          $stage = Join-Path 'dist/windows' "Uma-Mod-Manager-$display-win64"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item -Recurse -Force 'build/windows-dist/umml-manager/*' $stage
+          $guiLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" gui %*"
+          $cliLauncher = "@echo off`r`n`"%~dp0umml-manager-bin.exe`" cli %*"
+          Set-Content -Path (Join-Path $stage 'Uma Mod Manager.cmd') -Encoding ascii -Value $guiLauncher
+          Set-Content -Path (Join-Path $stage 'Uma Mod Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
+          Set-Content -Path (Join-Path $stage 'UMML Manager.cmd') -Encoding ascii -Value $guiLauncher
+          Set-Content -Path (Join-Path $stage 'UMML Manager CLI.cmd') -Encoding ascii -Value $cliLauncher
+          Copy-Item 'docs/TESTING_AND_FEEDBACK.md' (Join-Path $stage 'TESTING_AND_FEEDBACK.md')
+          Copy-Item 'docs/releases/0.2.0-alpha.19.md' (Join-Path $stage 'RELEASE_NOTES.md')
+          Set-Content -Path (Join-Path $stage 'README-WINDOWS.txt') -Encoding utf8 -Value @'
+          Uma Mod Manager Windows portable Community Test
+
+          Start the GUI with "Uma Mod Manager.cmd".
+          Create a privacy-scrubbed tester report through Settings → Create support bundle.
+          Read RELEASE_NOTES.md and TESTING_AND_FEEDBACK.md before reporting results.
+
+          Keep the previous portable folder for rollback. Application files and Manager
+          data are separate. Close Umamusume before Apply, restore, recovery, baseline,
+          or write-capable Studio operations.
+          '@
+          $zip = "dist/umml-manager_${display}_win64.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $zip -CompressionLevel Optimal
+          if (!(Test-Path $zip)) {
+            throw "Portable ZIP was not created: $zip"
+          }
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content -Encoding ascii 'dist/SHA256SUMS-WINDOWS'
+          Get-Content 'dist/SHA256SUMS-WINDOWS'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uma-mod-manager-testing-windows
+          path: |
+            dist/umml-manager_*_win64.zip
+            dist/SHA256SUMS-WINDOWS
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    name: Build Linux Community Test
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+      - name: Install build and validation dependencies
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            appstream-util \
+            curl \
+            desktop-file-utils \
+            dpkg-dev \
+            file \
+            python3-tk \
+            xauth \
+            xvfb
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt -r requirements-build.txt
+          python -m pip check
+      - name: Audit and test source
+        run: |
+          set -Eeuo pipefail
+          python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
+          bash scripts/check_manager.sh
+      - name: Build Debian package and AppImage
+        run: |
+          set -Eeuo pipefail
+          bash scripts/build_manager_frozen.sh
+          bash scripts/build_manager_deb.sh
+          bash scripts/build_manager_appimage.sh
+      - name: Exercise finished Linux packages
+        run: |
+          set -Eeuo pipefail
+          VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
+          DISPLAY="${VERSION/~alpha/-alpha.}"
+          test "v$DISPLAY" = "${{ inputs.release_tag }}"
+          DEB="dist/umml-manager_${VERSION}_amd64.deb"
+          APPIMAGE="dist/umml-manager_${DISPLAY}_x86_64.AppImage"
+          test -f "$DEB"
+          test -x "$APPIMAGE"
+          test "$(dpkg-deb --field "$DEB" Version)" = "$VERSION"
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli self-test
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a \
+            python scripts/test_manager_theme_runtime.py -- "$APPIMAGE"
+          VERIFY_ROOT="$(mktemp -d)"
+          trap 'rm -rf "$VERIFY_ROOT"' EXIT
+          dpkg-deb -x "$DEB" "$VERIFY_ROOT/deb"
+          test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md"
+          test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/RELEASE_PROCESS.md"
+          test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/RELEASE_NOTES.md"
+          "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli self-test
+          xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
+            "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" gui
+          rm -rf "$VERIFY_ROOT"
+          trap - EXIT
+          cp docs/TESTING_AND_FEEDBACK.md dist/TESTING_AND_FEEDBACK.md
+          cp docs/releases/0.2.0-alpha.19.md dist/RELEASE_NOTES.md
+          (
+            cd dist
+            sha256sum \
+              "$(basename "$DEB")" \
+              "$(basename "$APPIMAGE")" \
+              > SHA256SUMS-LINUX
+            sha256sum -c SHA256SUMS-LINUX
+          )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uma-mod-manager-testing-linux
+          path: |
+            dist/umml-manager_*_amd64.deb
+            dist/umml-manager_*_x86_64.AppImage
+            dist/SHA256SUMS-LINUX
+            dist/TESTING_AND_FEEDBACK.md
+            dist/RELEASE_NOTES.md
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish GitHub prerelease
+    if: ${{ inputs.publish_release }}
+    needs:
+      - validate
+      - windows
+      - linux
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: uma-mod-manager-testing-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify and publish immutable prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          TAG="${{ inputs.release_tag }}"
+          python scripts/audit_release.py --tag "$TAG"
+          VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
+          DISPLAY="${VERSION/~alpha/-alpha.}"
+          test "$TAG" = "v$DISPLAY"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to replace published artifacts: $TAG" >&2
+            exit 1
+          fi
+          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
+          (
+            cd release-assets
+            sha256sum \
+              umml-manager_*_win64.zip \
+              umml-manager_*_amd64.deb \
+              umml-manager_*_x86_64.AppImage \
+              > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+          gh release create "$TAG" \
+            release-assets/umml-manager_*_win64.zip \
+            release-assets/umml-manager_*_amd64.deb \
+            release-assets/umml-manager_*_x86_64.AppImage \
+            release-assets/SHA256SUMS \
+            --target "$GITHUB_SHA" \
+            --title "Uma Mod Manager $DISPLAY Community Test" \
+            --notes-file "docs/releases/0.2.0-alpha.19.md" \
+            --prerelease

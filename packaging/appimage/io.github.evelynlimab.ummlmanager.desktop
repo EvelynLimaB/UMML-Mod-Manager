@@ -1,11 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=UMML-Manager
+Name=Uma Mod Manager
 GenericName=Umamusume Mod Manager and Creator Toolkit
 Comment=Install, configure, inspect, create, and safely deploy Umamusume mods
 Exec=umml-manager
 Icon=io.github.evelynlimab.ummlmanager
 Terminal=false
-Categories=Game;Utility;Development;
-Keywords=UMML;Umamusume;Mod;Manager;Creator;Profiles;GameBanana;Steam;Proton;Unity;
+Categories=Game;
+Keywords=Uma;UMML;Umamusume;Mod;Manager;Creator;Profiles;GameBanana;Steam;Proton;Unity;
 StartupNotify=true
+StartupWMClass=Uma Mod Manager

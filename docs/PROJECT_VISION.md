@@ -1,8 +1,8 @@
-# UMML-Manager project vision
+# Uma Mod Manager project vision
 
 ## Mission
 
-UMML-Manager exists to make **using mods safer** and **making mods easier** for Umamusume Pretty Derby.
+Uma Mod Manager exists to make **using mods safer** and **making mods easier** for Umamusume Pretty Derby.
 
 The project succeeds when:
 
@@ -14,9 +14,11 @@ The project succeeds when:
 
 ## Product identity
 
-UMML-Manager is a fork and continuation of UMML. The original project proved that Umamusume asset replacement and editing workflows could be made practical. This repository takes the next step: one cross-platform application centered on a real mod library, profiles, package metadata, creator workspaces, and safe deployment.
+Uma Mod Manager is a fork and continuation of [UMML / UmaMusume Mod Loader](https://github.com/tumugu/UmaMusume_Mod_Loader). The original project proved that Umamusume asset replacement and editing workflows could be made practical. This repository takes the next step: one cross-platform application centered on a real mod library, profiles, package metadata, creator workspaces, and safe deployment.
 
-The original UMML code remains a compatibility layer and source of proven domain behavior. It is not discarded merely to make the tree look fashionable. New work, however, should move toward tested headless services and native Manager pages rather than adding more tightly coupled popup logic.
+The original UMML code remains a compatibility layer and source of proven domain behavior. It is not discarded merely to make the tree look fashionable. New work should move toward tested headless services and native Manager pages rather than adding more tightly coupled popup logic.
+
+The public product name is **Uma Mod Manager**. Technical `umml-manager` identifiers remain stable until an explicit state and package migration is tested. See [`BRANDING_AND_COMPATIBILITY.md`](BRANDING_AND_COMPATIBILITY.md).
 
 ## Primary audiences
 
@@ -110,13 +112,7 @@ Unknown state fails closed. User preferences may be quarantined and reset; criti
 
 Imported versions remain immutable. Editing, updating, and conversion create new versions or generated workspaces.
 
-This makes:
-
-- rollback possible;
-- profile behavior reproducible;
-- update comparison meaningful;
-- provenance inspectable;
-- creator experimentation less destructive.
+This makes rollback possible, profile behavior reproducible, update comparison meaningful, provenance inspectable, and creator experimentation less destructive.
 
 ### 4. Creator-first metadata
 
@@ -141,16 +137,9 @@ Platform-specific behavior belongs behind platform services and packaging adapte
 
 ### 6. Community interoperability
 
-UMML-Manager should consume and produce understandable formats instead of trapping users in private state.
+Uma Mod Manager should consume and produce understandable formats instead of trapping users in private state.
 
-Examples include:
-
-- portable package manifests;
-- external-tool JSON imports;
-- profile export/import;
-- filtered CSV and diagnostic reports;
-- generated creator workspaces;
-- documented provider and backend contracts.
+Examples include portable package manifests, external-tool JSON imports, profile export/import, CSV and diagnostic reports, generated creator workspaces, and documented provider/backend contracts.
 
 ## Near-term priorities
 
@@ -165,7 +154,7 @@ Examples include:
 
 ## Explicit non-goals
 
-UMML-Manager is not intended to:
+Uma Mod Manager is not intended to:
 
 - bundle copyrighted game assets;
 - distribute decrypted game databases;

@@ -61,7 +61,7 @@ class GameBananaPage:
 
 
 class GameBananaClient:
-    USER_AGENT = "UMML-Manager/0.2 (+https://github.com/EvelynLimaB/UMML-Linux)"
+    USER_AGENT = "Uma-Mod-Manager/0.2 (+https://github.com/EvelynLimaB/Uma-Mod-Manager)"
     DETAIL_PROPERTIES = (
         "_idRow,_sName,_aSubmitter,_aFiles,_sProfileUrl,_sVersion,_sText,"
         "_tsDateAdded,_tsDateModified,_nViewCount,_nLikeCount,_nDownloadCount,"

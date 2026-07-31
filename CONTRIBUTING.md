@@ -1,8 +1,8 @@
-# Contributing to UMML-Manager
+# Contributing to Uma Mod Manager
 
-UMML-Manager is a cross-platform mod manager and mod-development workspace for **Umamusume Pretty Derby**, forked from the original UMML project.
+Uma Mod Manager is a cross-platform mod manager and mod-development workspace for **Umamusume Pretty Derby**, forked from [UMML / UmaMusume Mod Loader](https://github.com/tumugu/UmaMusume_Mod_Loader).
 
-The repository's forward direction is the Manager. Original UMML code remains as a compatibility layer until native replacements reach feature parity and pass safety, deployment, and restoration tests.
+The Manager is the repository's forward direction. Original UMML code remains as a compatibility layer until native replacements reach feature parity and pass safety, deployment, and restoration tests.
 
 Contributions are especially welcome when they make one of these tasks easier:
 
@@ -24,20 +24,21 @@ Contributions are especially welcome when they make one of these tasks easier:
 | Compatibility Studio | Original UMML loader and editor behavior preserved behind Manager guards | `UMML.py`, `UMML_core.py`, `umml_platform.py`, `umml_autodetect/` |
 | Runtime experiment | Optional fail-closed protocol for future in-game adapters | `umml_runtime/`, `runtime_bridge/` |
 | Packaging | Windows portable, frozen runtime, Debian package, AppImage, desktop metadata, checksums | `scripts/`, `packaging/`, `assets/` |
-| Documentation | User, creator, architecture, development, release, safety, and attribution guidance | `README.md`, `MANAGER_README.md`, `docs/` |
+| Documentation | Player, creator, architecture, development, release, safety, and attribution guidance | `README.md`, `MANAGER_README.md`, `NOTICE.md`, `docs/` |
 
-State which area your change affects. Large architecture, provider, deployment, or runtime work should normally begin as a draft pull request.
+State which area a change affects. Large architecture, provider, deployment, packaging, or runtime work should normally begin as a draft pull request.
 
 ## Before contributing
 
 1. Read [docs/PROJECT_VISION.md](docs/PROJECT_VISION.md).
-2. Check open pull requests for overlapping work.
-3. Reproduce the problem with exact steps and private information removed.
-4. Identify affected platforms, package formats, installations, providers, and stored-state versions.
-5. Use synthetic or redistributable fixtures.
-6. Keep unrelated formatting or cleanup out of functional patches.
-7. Run every check for the layers you changed.
-8. State real-game, real-machine, network, or destructive-recovery testing that remains undone.
+2. Read [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md) before renaming packages, commands, modules, desktop IDs, or data roots.
+3. Check open issues and pull requests for overlapping work.
+4. Reproduce the problem with exact steps and private information removed.
+5. Identify affected platforms, package formats, installations, providers, and stored-state versions.
+6. Use synthetic or redistributable fixtures.
+7. Keep unrelated formatting or cleanup out of functional patches.
+8. Run every check for the layers changed.
+9. State real-game, real-machine, network, or destructive-recovery testing that remains undone.
 
 ## Never commit
 
@@ -53,7 +54,7 @@ Do not commit:
 - access tokens, cookies, account identifiers, private crash reports, or personal paths;
 - virtual environments, Micromamba roots, PyInstaller work directories, AppDirs, downloaded packaging tools, DEBs, AppImages, portable ZIPs, or other generated outputs.
 
-Tests should generate tiny fixtures that reproduce path, hash, archive, option, conflict, state, transaction, provider, platform, or package behavior without game content.
+Tests should generate small fixtures that reproduce path, hash, archive, option, conflict, state, transaction, provider, platform, or package behavior without game content.
 
 ## Development setup
 
@@ -121,6 +122,7 @@ These are review requirements:
 14. Windows, Debian, and AppImage builds use the same state and safety model.
 15. Manager-owned windows are parented, focused, and usable at supported sizes.
 16. Editing an imported package creates a new workspace and version rather than mutating the source record.
+17. Public naming changes must preserve or explicitly migrate technical identifiers and user state.
 
 Stored-state changes require backward-compatible defaults or an explicit migration. Never silently reinterpret an existing field.
 
@@ -166,7 +168,8 @@ Depending on the change, test:
 - corrupt registries, profiles, active state, baselines, and journals;
 - interrupted staging, commit failure, rollback, and recovery;
 - Windows and Linux process parsing;
-- dialog focus, resizing, themes, and button states.
+- dialog focus, resizing, themes, and button states;
+- upgrade compatibility for launchers, package IDs, and data roots.
 
 Automated tests must never discover and modify a real game installation.
 
@@ -222,7 +225,7 @@ Adapters must record and display:
 - license status;
 - whether code or binaries are bundled.
 
-Do not copy, modify, bundle, or redistribute an external project without a compatible license or explicit permission. Attribution is mandatory but does not create permission.
+Do not copy, modify, bundle, or redistribute an external project without a compatible license or explicit permission. Attribution is mandatory but does not create permission. Record project lineage and notices in [NOTICE.md](NOTICE.md).
 
 Launch external tools without `shell=True`, use isolated workspaces where possible, bound imported outputs, and keep process-memory tools outside deployment privileges.
 
@@ -289,15 +292,19 @@ cargo test --manifest-path runtime_bridge/Cargo.toml
 
 ## Packaging contributions
 
-Product paths remain stable:
+Public branding is **Uma Mod Manager**, while these compatibility identifiers remain stable:
 
 ```text
-package          /usr/lib/umml-manager
+package          umml-manager
+payload          /usr/lib/umml-manager
 commands         umml-manager, umml-manager-cli
 source app       ~/.local/share/umml-manager-app
 Linux state      ~/.local/share/umml-manager
 Windows state    %LOCALAPPDATA%\UMML Manager
+desktop ID       io.github.evelynlimab.ummlmanager
 ```
+
+Do not rename them without the migration evidence required by [docs/BRANDING_AND_COMPATIBILITY.md](docs/BRANDING_AND_COMPATIBILITY.md).
 
 Build the frozen Linux runtime once:
 
@@ -371,11 +378,12 @@ Keep architecture, provider, packaging, runtime, and destructive-recovery change
 - [ ] Relevant synthetic regressions were added or updated.
 - [ ] Changed-layer checks pass.
 - [ ] Failure and recovery behavior are documented.
-- [ ] User and creator docs match the implementation.
+- [ ] Player and creator docs match the implementation.
 - [ ] Automatic preparation remains automatic.
 - [ ] Imported source remains immutable.
 - [ ] Windows and Linux behavior are considered.
 - [ ] Third-party licensing and attribution are explicit.
+- [ ] Naming changes preserve or migrate user state.
 - [ ] Untested platforms, services, and game builds are named honestly.
 
 ## Security reports

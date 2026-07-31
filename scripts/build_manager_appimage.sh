@@ -5,11 +5,11 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE="${1:-$ROOT/build/manager-frozen/umml-manager}"
 OUT_DIR="${2:-$ROOT/dist}"
 VERSION="$(tr -d '[:space:]' < "$ROOT/MANAGER_VERSION")"
-DISPLAY_VERSION="${VERSION//\~/-}"
+DISPLAY_VERSION="${VERSION/~alpha/-alpha.}"
 ARCH="x86_64"
 DESKTOP_ID="io.github.evelynlimab.ummlmanager"
 BUILD_ROOT="$ROOT/build/appimage"
-APPDIR="$BUILD_ROOT/UMML_Manager.AppDir"
+APPDIR="$BUILD_ROOT/Uma_Mod_Manager.AppDir"
 TOOL_DIR="$ROOT/build/tools"
 APPIMAGETOOL="${APPIMAGETOOL:-$TOOL_DIR/appimagetool-$ARCH.AppImage}"
 APPIMAGETOOL_URL="${APPIMAGETOOL_URL:-https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$ARCH.AppImage}"
@@ -17,6 +17,8 @@ APPIMAGETOOL_URL="${APPIMAGETOOL_URL:-https://github.com/AppImage/appimagetool/r
 # replaces it, fail deliberately until the new release asset is reviewed and
 # this hash is updated from GitHub's published release digest.
 APPIMAGETOOL_SHA256="${APPIMAGETOOL_SHA256:-a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0}"
+# Keep the artifact stem stable during the rebrand so existing automation and
+# upgrade instructions do not split into two incompatible package families.
 OUTPUT="$OUT_DIR/umml-manager_${DISPLAY_VERSION}_${ARCH}.AppImage"
 
 [[ -n "$VERSION" ]] || { echo "MANAGER_VERSION is empty" >&2; exit 1; }
@@ -64,8 +66,13 @@ install -m 0644 \
   "$ROOT/packaging/linux/$DESKTOP_ID.metainfo.xml" \
   "$APPDIR/usr/share/metainfo/$DESKTOP_ID.metainfo.xml"
 install -m 0644 "$ROOT/LICENSE" "$APPDIR/usr/share/doc/umml-manager/copyright"
+install -m 0644 "$ROOT/NOTICE.md" "$APPDIR/usr/share/doc/umml-manager/NOTICE.md"
 install -m 0644 "$ROOT/README.md" "$APPDIR/usr/share/doc/umml-manager/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$APPDIR/usr/share/doc/umml-manager/MANAGER_README.md"
+install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$APPDIR/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md"
+install -m 0644 "$ROOT/docs/TESTING_AND_FEEDBACK.md" "$APPDIR/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md"
+install -m 0644 "$ROOT/docs/RELEASE_PROCESS.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_PROCESS.md"
+install -m 0644 "$ROOT/docs/releases/0.2.0-alpha.19.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_NOTES.md"
 install -m 0644 "$ROOT/MANAGER_CHANGELOG.md" "$APPDIR/usr/share/doc/umml-manager/changelog"
 
 cat > "$APPDIR/AppRun" <<'EOF_APPRUN'
@@ -145,8 +152,13 @@ diff -qr \
   "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager"
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/metainfo/$DESKTOP_ID.metainfo.xml" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/applications/$DESKTOP_ID.desktop" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/NOTICE.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_PROCESS.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_NOTES.md" ]]
 rm -rf "$VERIFY_ROOT"
 trap - EXIT
 
 sha256sum "$OUTPUT"
-printf 'Built UMML Manager AppImage: %s\n' "$OUTPUT"
+printf 'Built Uma Mod Manager AppImage: %s\n' "$OUTPUT"

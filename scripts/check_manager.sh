@@ -8,9 +8,13 @@ python3 -m compileall -q \
   umml_manager \
   umml_manager_packaged.py \
   tests \
-  scripts/audit_manager.py
+  scripts/audit_manager.py \
+  scripts/audit_branding.py \
+  scripts/audit_release.py
 
 python3 scripts/audit_manager.py
+python3 scripts/audit_branding.py
+python3 scripts/audit_release.py
 python3 -m unittest discover -s tests -p 'test_manager*.py' -v
 python3 scripts/test_manager_autodetect_runtime.py -- \
   python3 -m umml_manager

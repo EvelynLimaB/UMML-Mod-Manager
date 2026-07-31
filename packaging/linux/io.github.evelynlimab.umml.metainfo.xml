@@ -2,16 +2,16 @@
 <component type="desktop-application">
   <id>io.github.evelynlimab.umml</id>
   <name>UMML</name>
-  <summary>Umamusume mod loader with Linux and Steam Proton support</summary>
+  <summary>Original Umamusume mod-loader compatibility tools</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <description>
     <p>UMML loads, previews, backs up, and restores Umamusume Pretty Derby mods.</p>
-    <p>This build includes native Linux and robust Steam Proton autodetection.</p>
+    <p>This preserved compatibility build includes native Linux and Steam Proton autodetection. New development is focused on Uma Mod Manager in the same repository.</p>
   </description>
   <launchable type="desktop-id">io.github.evelynlimab.umml.desktop</launchable>
-  <url type="homepage">https://github.com/EvelynLimaB/UMML-Linux</url>
-  <url type="bugtracker">https://github.com/EvelynLimaB/UMML-Linux/issues</url>
+  <url type="homepage">https://github.com/EvelynLimaB/Uma-Mod-Manager</url>
+  <url type="bugtracker">https://github.com/EvelynLimaB/Uma-Mod-Manager/issues</url>
   <provides><binary>umml</binary></provides>
   <categories><category>Game</category><category>Utility</category></categories>
   <releases>

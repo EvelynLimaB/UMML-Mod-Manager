@@ -1,11 +1,17 @@
 blank_issues_enabled: true
 contact_links:
-  - name: User guide
-    url: https://github.com/EvelynLimaB/UMML-Linux/blob/main/MANAGER_README.md
+  - name: Testing and feedback guide
+    url: https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/docs/TESTING_AND_FEEDBACK.md
+    about: Exact builds, test matrix, support bundles, severity, privacy, and useful feedback
+  - name: Player guide
+    url: https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/MANAGER_README.md
     about: Installation, profiles, automatic preparation, deployment, recovery, and CLI guidance
   - name: Mod creator guide
-    url: https://github.com/EvelynLimaB/UMML-Linux/blob/main/docs/MOD_CREATOR_GUIDE.md
+    url: https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/docs/MOD_CREATOR_GUIDE.md
     about: Package workspaces, targeting, options, compatibility, testing, and publishing
+  - name: Project lineage and licenses
+    url: https://github.com/EvelynLimaB/Uma-Mod-Manager/blob/main/NOTICE.md
+    about: Original UMML attribution, external-tool credits, and bundling boundaries
   - name: Security report
-    url: https://github.com/EvelynLimaB/UMML-Linux/security
+    url: https://github.com/EvelynLimaB/Uma-Mod-Manager/security
     about: Use private vulnerability reporting when available; do not post sensitive details publicly

@@ -10,7 +10,10 @@ datas = [
     (str(ROOT / "MANAGER_VERSION"), "."),
     (str(ROOT / "MANAGER_README.md"), "."),
     (str(ROOT / "LICENSE"), "."),
+    (str(ROOT / "NOTICE.md"), "."),
+    (str(ROOT / "CITATION.cff"), "."),
     (str(ROOT / "docs" / "PROJECT_VISION.md"), "docs"),
+    (str(ROOT / "docs" / "BRANDING_AND_COMPATIBILITY.md"), "docs"),
     (str(ROOT / "docs" / "MOD_CREATOR_GUIDE.md"), "docs"),
     (str(ROOT / "docs" / "MANAGER_MOD_MANIFEST.md"), "docs"),
     (str(ROOT / "docs" / "MANAGER_ARCHITECTURE.md"), "docs"),
@@ -19,6 +22,12 @@ datas = [
     (str(ROOT / "docs" / "MANAGER_FEATURE_ROADMAP.md"), "docs"),
     (str(ROOT / "docs" / "UMAEXTRACTOR_INTEGRATION.md"), "docs"),
     (str(ROOT / "docs" / "PACKAGING.md"), "docs"),
+    (str(ROOT / "docs" / "TESTING_AND_FEEDBACK.md"), "docs"),
+    (str(ROOT / "docs" / "RELEASE_PROCESS.md"), "docs"),
+    (
+        str(ROOT / "docs" / "releases" / "0.2.0-alpha.19.md"),
+        "docs/releases",
+    ),
 ]
 binaries = []
 hiddenimports = [
@@ -35,12 +44,14 @@ hiddenimports = [
     "umml_manager.providers.base",
     "umml_manager.providers.gamebanana_previews",
     "umml_manager.safety",
+    "umml_manager.support_bundle",
     "umml_manager.ui_discover",
     "umml_manager.ui_discover_actions",
     "umml_manager.ui_library",
     "umml_manager.ui_library_actions",
     "umml_manager.ui_settings",
     "umml_manager.ui_studio",
+    "umml_manager.ui_support_bundle",
     "umml_manager.ui_system_actions",
     "umml_manager.ui_theme",
     "umml_manager.ui_veterans",

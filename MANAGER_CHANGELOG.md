@@ -1,13 +1,40 @@
-# UMML-Manager changelog
+# Uma Mod Manager changelog
+
+## 0.2.0~alpha19 - 2026-07-31
+
+### Community Test release track
+
+- Added a repeatable Community Test release process for exact Windows portable, Debian, and AppImage packages built from the same source revision.
+- Added a manual prerelease workflow that audits version metadata, runs Linux and Windows regressions, exercises finished packages, publishes external SHA-256 checksums, and refuses to replace an existing published tag.
+- Added an exact release audit tying `MANAGER_VERSION`, README status, player guide, changelog, AppStream metadata, release notes, tester documentation, package contents, issue forms, and workflows together.
+- Added alpha19 Community Test notes with a prioritized player/creator matrix, known limitations, rollback guidance, privacy rules, and reporting instructions.
+- Added a structured Testing feedback issue form which accepts successful, partial, and failed passes instead of treating silence as evidence.
+
+### Tester diagnostics and privacy
+
+- Added **Settings → Create support bundle**.
+- Support bundles contain version/platform information, configuration-presence flags, high-level library/profile summaries, and read-only diagnostics.
+- Support bundles exclude game assets, mod payloads, downloaded archives, trusted baselines, transaction contents, Veteran snapshots, raw settings, credentials, and known account identifiers.
+- Added path and sensitive-key redaction plus tests proving representative paths, trainer/account names, viewer IDs, tokens, and authorization values do not enter the generated report.
+- Added an inspect-before-upload warning because custom mod names and free-form errors remain capable of containing personal text, software's traditional little loophole in every privacy promise.
+
+### Documentation and packaging reinforcement
+
+- Added `docs/TESTING_AND_FEEDBACK.md`, `docs/RELEASE_PROCESS.md`, and versioned release notes under `docs/releases/`.
+- Updated the repository landing page and player guide around alpha19 Community Test installation, rollback, exact-build reporting, and support bundles.
+- Added tester documentation to Windows, Debian, AppImage, and frozen-runtime payloads.
+- Extended package and CI checks to verify tester documents and release metadata inside finished artifacts.
+- Preserved all technical package, command, desktop-ID, artifact, and data-root identifiers so alpha19 upgrades existing Manager installations in place.
 
 ## 0.2.0~alpha18 - 2026-07-30
 
 ### Project identity and repository cleanup
 
-- Repositioned the repository as **UMML-Manager**, a full cross-platform mod manager and mod-development workspace forked from UMML.
+- Repositioned the repository as **Uma Mod Manager**, a full cross-platform mod manager and mod-development workspace forked from UMML / UmaMusume Mod Loader.
 - Made the Manager the primary product and documented the original UMML code as a guarded compatibility layer.
 - Rewrote the repository landing page, user guide, documentation index, contribution guide, security policy, roadmap, desktop metadata, and AppStream description around player and creator workflows.
-- Added a project vision, a practical mod-creator guide, creator-focused issue forms, and clearer third-party attribution and licensing rules.
+- Added a project vision, a practical mod-creator guide, creator-focused issue forms, clearer third-party attribution and licensing rules, citation metadata, and an explicit branding/compatibility policy.
+- Updated the application and packaged launchers to use the Uma Mod Manager public name while preserving `umml-manager` package, command, module, desktop-ID, artifact, and data-root identifiers for upgrade compatibility.
 - Expanded ignore rules for local game data, Manager state, extractor output, minidumps, build trees, and generated packages.
 
 ### Automatic preparation and source inspection
@@ -15,13 +42,13 @@
 - Removed the visible Prepare/Re-prepare maintenance action from Library; imports, stale metadata, and older prepared records are queued and refreshed automatically.
 - Added isolated source-bundle indexing during preparation so one authored Unity bundle may safely own several final game targets.
 - Added multi-target configurable payloads while preserving the older one-source/one-target registry fields for migration compatibility.
-- Preparation failures remain non-destructive, do not stop the remaining queue, and are shown in the selected mod details instead of demanding a manual retry ritual.
+- Preparation failures remain non-destructive, do not stop the remaining queue, and are shown in selected-mod details instead of demanding a manual retry ritual.
 
 ### Visual mod editing
 
 - Replaced the ambiguous edit-copy flow with a focused **Inspect & edit** window.
 - Added detected source bundles, game targets, likely content types, parts, character IDs, and dress IDs.
-- Added simple package, compatibility, dependency, incompatibility, and load-order fields without requiring JSON editing.
+- Added package, compatibility, dependency, incompatibility, and load-order fields without requiring JSON editing.
 - Added optional per-profile component controls at the source-bundle boundary. Non-overlapping bundles become checkboxes; overlapping targets become mutually exclusive variants.
 - Detection remains evidence-based: names and metadata may suggest a target, but the Manager does not claim to retarget arbitrary Unity bundles automatically.
 
@@ -30,7 +57,7 @@
 - Added a read-only Veteran Roster workspace with immutable scrubbed snapshots, search, inspection, JSON export, and filtered CSV export.
 - Added compatibility with classic `data.json` from the rockisch/umadump lineage and related UmaExtractor forks.
 - Added compatibility with Werseter/umadump 2.0 `trained_chara_data.json`, including snake_case/camelCase fields and multi-output selection guards.
-- Added a credited provider browser and shell-free external extractor launching while keeping unlicensed scanner code and binaries outside UMML-Manager packages.
+- Added a credited provider browser and shell-free external extractor launching while keeping unlicensed scanner code and binaries outside Uma Mod Manager packages.
 
 ### Window and Library UX
 

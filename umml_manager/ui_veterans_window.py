@@ -20,7 +20,7 @@ def launch_veterans_window(app) -> None:
 
     window = tk.Toplevel(app.root)
     app._veterans_window = window
-    window.title("UMML Veteran Roster")
+    window.title("Uma Mod Manager · Veteran Roster")
     window.geometry("1240x780")
     window.minsize(980, 640)
     window.transient(app.root)
@@ -40,9 +40,9 @@ def launch_veterans_window(app) -> None:
         command=lambda: launch_provider_window(app),
     )
     page.notice_value.set(
-        "Import classic data.json or Werseter trained_chara_data.json. UMML "
-        "validates and stores scrubbed snapshots, but does not bundle any "
-        "external memory scanner because those projects do not declare a "
+        "Import classic data.json or Werseter trained_chara_data.json. Uma Mod "
+        "Manager validates and stores scrubbed snapshots, but does not bundle "
+        "external memory scanners when those projects do not declare a "
         "project-wide license."
     )
 
