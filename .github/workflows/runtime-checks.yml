@@ -1,0 +1,28 @@
+name: UMML Runtime checks
+
+on:
+  push:
+    branches:
+      - agent/umml-runtime-bridge
+  pull_request:
+    paths:
+      - 'umml_runtime/**'
+      - 'runtime_bridge/**'
+      - 'tests/test_runtime.py'
+      - '.github/workflows/runtime-checks.yml'
+
+jobs:
+  runtime-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Compile Python runtime bridge
+        run: python -m py_compile umml_runtime/*.py tests/test_runtime.py
+      - name: Run Python runtime tests
+        run: python -m unittest discover -s tests -p 'test_runtime.py' -v
+      - name: Test memory-safe Rust client core
+        run: cargo test --manifest-path runtime_bridge/Cargo.toml
