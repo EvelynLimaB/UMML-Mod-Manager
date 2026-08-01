@@ -10,6 +10,7 @@ from umml_manager.extractor_host import (
     packaged_host_command,
     run_extractor,
     runtime_probe,
+    verified_runtime_probe,
 )
 
 
@@ -44,6 +45,13 @@ class PackagedExtractorHostTests(unittest.TestCase):
         self.assertTrue(probe["python_314_or_newer"], probe)
         self.assertEqual(probe["minidump"], "0.0.24")
         self.assertTrue(probe["ready"], probe)
+
+    def test_verified_probe_executes_the_host_fixture(self):
+        probe = verified_runtime_probe()
+
+        self.assertTrue(probe["ready"], probe)
+        self.assertTrue(probe["host_self_test"], probe)
+        self.assertNotIn("host_error", probe)
 
     def test_runs_recognized_source_in_isolated_inbox(self):
         with tempfile.TemporaryDirectory() as temporary:
