@@ -48,7 +48,7 @@ def runtime_probe() -> dict[str, object]:
 
 
 def verified_runtime_probe() -> dict[str, object]:
-    """Probe the runtime and execute a real isolated source fixture."""
+    """Probe the runtime and execute a representative isolated source fixture."""
 
     probe = runtime_probe()
     probe["host_self_test"] = False
@@ -63,13 +63,34 @@ def verified_runtime_probe() -> dict[str, object]:
             script = project / "main.py"
             script.write_text(
                 "import json,os,sys\n"
+                "import game_structs,json_encoders,memory\n"
                 "from pathlib import Path\n"
                 "Path('probe-result.json').write_text(json.dumps({"
-                "'argv':sys.argv[1:],'cwd':os.getcwd()}),encoding='utf-8')\n",
+                "'argv':sys.argv[1:],'cwd':os.getcwd(),"
+                "'dynamic_imports':memory.DYNAMIC_IMPORTS_OK}),encoding='utf-8')\n",
                 encoding="utf-8",
             )
-            for name in ("memory.py", "game_structs.py", "json_encoders.py"):
-                (project / name).write_text("", encoding="utf-8")
+            (project / "memory.py").write_text(
+                "import argparse,bisect,contextlib,ctypes,ctypes.wintypes\n"
+                "import dataclasses,datetime,enum,gc,itertools,json,logging,os\n"
+                "import pathlib,re,struct,sys,time,typing,urllib.error,urllib.request\n"
+                "import minidump\n"
+                "DYNAMIC_IMPORTS_OK=True\n",
+                encoding="utf-8",
+            )
+            (project / "game_structs.py").write_text(
+                "from dataclasses import dataclass\n"
+                "@dataclass\n"
+                "class ProbeRecord:\n"
+                "    value: int = 1\n",
+                encoding="utf-8",
+            )
+            (project / "json_encoders.py").write_text(
+                "import json\n"
+                "class ProbeEncoder(json.JSONEncoder):\n"
+                "    pass\n",
+                encoding="utf-8",
+            )
             (project / "requirements.txt").write_text(
                 "minidump~=0.0.24\n",
                 encoding="utf-8",
@@ -88,6 +109,10 @@ def verified_runtime_probe() -> dict[str, object]:
             if Path(str(value.get("cwd"))).resolve() != inbox.resolve():
                 raise ExtractorHostError(
                     f"Packaged host probe used an unexpected cwd: {value!r}"
+                )
+            if value.get("dynamic_imports") is not True:
+                raise ExtractorHostError(
+                    f"Packaged host probe missed dynamic imports: {value!r}"
                 )
     except Exception as exc:
         probe["host_error"] = str(exc)
