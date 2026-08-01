@@ -19,7 +19,20 @@ Uma Mod Manager can import output from, or launch user-supplied copies of, proje
 - `xancia/UmaExtractor`: https://github.com/xancia/UmaExtractor
 - `Werseter/umadump`: https://github.com/Werseter/umadump
 
-These projects retain their original authorship. Uma Mod Manager does not copy, build, bundle, modify, or redistribute extractor source or binaries unless a compatible project-wide license or explicit permission permits it. Importing an output format or launching a separately supplied executable does not relicense that project.
+These projects retain their original authorship. Uma Mod Manager does not copy, build, bundle, modify, or redistribute extractor source or binaries unless a compatible project-wide license or explicit permission permits it. Importing an output format, installing a user-selected source archive locally, or launching a separately supplied tool does not relicense that project.
+
+Standalone Manager packages include a narrow Python 3.14 host capable of running supported user-supplied Werseter source in a separate process. The host is Uma Mod Manager code; the Werseter source remains outside this repository and release payload.
+
+## Minidump
+
+- Project: `skelsec/minidump`
+- Source: https://github.com/skelsec/minidump
+- Packaged version: `0.0.24`
+- License: MIT
+- Relationship: bundled Python dependency used by the private Werseter source host
+- Modifications: none
+
+The dependency is bundled so supported source-ZIP workflows do not require a separate Python installation or a first-run `pip` operation. Its original license and authorship remain in force.
 
 ## Blue Star Manager research
 
@@ -29,7 +42,7 @@ See [`docs/MANAGER_BSTAR_REVIEW.md`](docs/MANAGER_BSTAR_REVIEW.md).
 
 ## Runtime dependencies
 
-Packaged builds include or depend on open-source libraries such as UnityPy, Pillow, PyYAML, vdf, certifi, APSW builds, PyInstaller, and their transitive dependencies. Their notices and licenses remain those of the respective upstream projects and packaged distributions.
+Packaged builds include or depend on open-source libraries such as UnityPy, Pillow, PyYAML, vdf, certifi, APSW builds, minidump, PyInstaller, and their transitive dependencies. Their notices and licenses remain those of the respective upstream projects and packaged distributions.
 
 Before adding a bundled dependency or external tool, contributors must record:
 
