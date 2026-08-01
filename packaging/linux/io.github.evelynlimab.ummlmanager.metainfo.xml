@@ -11,7 +11,7 @@
     <p>Creators can inspect source bundles and final targets, describe affected characters, dresses, parts, and content types, edit compatibility policy, build configurable packages, and test new immutable versions.</p>
     <p>Compatible imports prepare and analyze automatically. Manual Prepare or Re-prepare maintenance is not part of the user workflow.</p>
     <p>Settings can generate a privacy-scrubbed support bundle for structured testing and bug reports without including game assets, mod payloads, baselines, roster snapshots, or raw settings.</p>
-    <p>The guarded compatibility Studio preserves original UMML editing tools while native Manager workflows replace them. Read-only veteran-data tools can install user-supplied extractor source packages into isolated environments and import scrubbed output without bundling unlicensed scanners.</p>
+    <p>The guarded compatibility Studio preserves original UMML editing tools while native Manager workflows replace them. Read-only veteran-data tools can install user-supplied extractor source packages and run supported Werseter source through the bundled Python 3.14 host without redistributing unlicensed scanner code.</p>
   </description>
   <launchable type="desktop-id">io.github.evelynlimab.ummlmanager.desktop</launchable>
   <url type="homepage">https://github.com/EvelynLimaB/Uma-Mod-Manager</url>
@@ -37,9 +37,14 @@
     <keyword>Unity</keyword>
   </keywords>
   <releases>
+    <release version="0.2.0-alpha.21" date="2026-08-01">
+      <description>
+        <p>Adds a standalone packaged Python 3.14 host for supported user-supplied Werseter source ZIPs, bundles minidump 0.0.24, verifies the host with an executable fixture, improves interpreter fallback detection, and upgrades older managed source installations automatically.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.20" date="2026-07-31">
       <description>
-        <p>Adds managed installation of recognized Werseter source ZIPs, private extractor runtimes, automatic roster import, resilient GameBanana retries and Core API fallback, bounded provider caches, safer failed downloads, and visible release-asset counters.</p>
+        <p>Adds managed installation of recognized Werseter source ZIPs, automatic Discover loading, resilient GameBanana retries and Core API fallback, bounded provider caches, safer failed downloads, preparation recovery, and clearer UI state.</p>
       </description>
     </release>
     <release version="0.2.0-alpha.19" date="2026-07-31">
