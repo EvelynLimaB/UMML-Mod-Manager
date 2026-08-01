@@ -48,10 +48,11 @@ def launch_veterans_window(app) -> None:
     )
     page.notice_value.set(
         "Choose a downloaded source ZIP, standalone executable, or script. "
-        "Recognized Werseter source ZIPs are validated, installed into an "
-        "isolated Manager-owned directory, and given a private Python 3.14 "
-        "environment when a compatible interpreter is available. The Manager "
-        "imports scrubbed output but does not bundle upstream scanner code."
+        "Recognized Werseter source ZIPs are validated and installed into an "
+        "isolated Manager-owned directory. Standalone packages run supported "
+        "source through the bundled Python 3.14 host, so no system Python is "
+        "required. The Manager imports scrubbed output but does not bundle "
+        "upstream scanner code."
     )
 
     def close() -> None:
