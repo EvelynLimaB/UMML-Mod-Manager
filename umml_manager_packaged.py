@@ -26,9 +26,9 @@ def main(argv: list[str] | None = None) -> int:
         print(manager_version())
         return 0
     if args and args[0] == "--extractor-host-probe":
-        from umml_manager.extractor_host import runtime_probe
+        from umml_manager.extractor_host import verified_runtime_probe
 
-        print(json.dumps(runtime_probe(), sort_keys=True))
+        print(json.dumps(verified_runtime_probe(), sort_keys=True))
         return 0
     if args and args[0] == "--extractor-host":
         args.pop(0)
