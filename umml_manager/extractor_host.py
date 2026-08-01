@@ -8,6 +8,7 @@ import runpy
 import stat
 import sys
 import tempfile
+import traceback
 from pathlib import Path
 
 MINIMUM_PYTHON = (3, 14)
@@ -188,7 +189,7 @@ def run_extractor(
 
     for name in WERSETER_REQUIRED:
         _regular_file(project_path / name, f"required extractor file {name}")
-    _validate_requirements(project_path / "requirements.txt")
+    validate_supported_requirements(project_path / "requirements.txt")
 
     inbox_path = _prepare_inbox(inbox)
     original_cwd = Path.cwd()
@@ -211,12 +212,15 @@ def run_extractor(
     return 0
 
 
-def _validate_requirements(path: Path) -> None:
+def validate_supported_requirements(path: str | Path) -> tuple[str, ...]:
+    """Validate the exact dependency contract supported by the packaged host."""
+
+    requirements_path = _regular_file(path, "extractor requirements")
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = requirements_path.read_text(encoding="utf-8").splitlines()
     except OSError as exc:
         raise ExtractorHostError(
-            f"Could not read extractor requirements: {path}: {exc}"
+            f"Could not read extractor requirements: {requirements_path}: {exc}"
         ) from exc
     requirements = {
         "".join(line.split()).casefold()
@@ -229,12 +233,13 @@ def _validate_requirements(path: Path) -> None:
             "This extractor declares dependencies not bundled by Uma Mod "
             "Manager: " + ", ".join(unsupported)
         )
-    if not requirements:
-        return
-    if not any(item.startswith("minidump") for item in requirements):
+    if requirements and not any(
+        item.startswith("minidump") for item in requirements
+    ):
         raise ExtractorHostError(
             "The recognized extractor requirements no longer declare minidump"
         )
+    return tuple(sorted(requirements))
 
 
 def _regular_file(value: str | Path, label: str) -> Path:
@@ -289,6 +294,10 @@ def main(argv: list[str] | None = None) -> int:
     except ExtractorHostError as exc:
         print(f"Extractor host error: {exc}", file=sys.stderr)
         return 2
+    except Exception:
+        print("External extractor execution failed:", file=sys.stderr)
+        traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
