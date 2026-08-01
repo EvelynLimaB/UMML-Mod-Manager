@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.14'
           cache: pip
           cache-dependency-path: requirements.txt
       - name: Install manager runtime dependencies and metadata validators
@@ -71,7 +71,12 @@ jobs:
           python -m pip check
           python - <<'PY'
           from PIL import Image
+          from umml_manager.extractor_host import runtime_probe
           print('Pillow', Image.__version__)
+          probe = runtime_probe()
+          print('Extractor host', probe)
+          assert probe['ready'], probe
+          assert probe['minidump'] == '0.0.24', probe
           PY
       - name: Compile every manager Python file
         run: |
@@ -150,7 +155,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.14'
           cache: pip
           cache-dependency-path: |
             requirements.txt
@@ -196,6 +201,8 @@ jobs:
           dpkg-deb --contents "$DEB"
           file "$APPIMAGE" | grep -q 'ELF 64-bit'
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --extractor-host-probe \
+            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli --help >/dev/null
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli self-test
           APPIMAGE_EXTRACT_AND_RUN=1 \
@@ -205,6 +212,8 @@ jobs:
             python scripts/test_manager_theme_runtime.py -- \
             "$APPIMAGE"
 
+          build/manager-frozen/umml-manager/umml-manager-bin --extractor-host-probe \
+            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           build/manager-frozen/umml-manager/umml-manager-bin cli self-test
           python scripts/test_manager_autodetect_runtime.py -- \
             build/manager-frozen/umml-manager/umml-manager-bin cli
@@ -229,6 +238,9 @@ jobs:
             "$VERIFY_ROOT/deb/usr/lib/umml-manager" \
             "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager"
           "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
+            --extractor-host-probe \
+            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
+          "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" \
             cli self-test
           python scripts/test_manager_autodetect_runtime.py -- \
             "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli
@@ -242,6 +254,10 @@ jobs:
             -type f -path '*/PIL/_imaging*.so' -print -quit | grep -q .
           find "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager" \
             -type f -path '*/PIL/_imaging*.so' -print -quit | grep -q .
+          find "$VERIFY_ROOT/deb/usr/lib/umml-manager" \
+            -type f -path '*/minidump/*' -print -quit | grep -q .
+          find "$VERIFY_ROOT/squashfs-root/usr/lib/umml-manager" \
+            -type f -path '*/minidump/*' -print -quit | grep -q .
           for root in \
             "$VERIFY_ROOT/deb/usr/share/doc/umml-manager" \
             "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager"; do
@@ -254,7 +270,7 @@ jobs:
           for document in \
             TESTING_AND_FEEDBACK.md \
             RELEASE_PROCESS.md \
-            0.2.0-alpha.19.md; do
+            "$DISPLAY_VERSION.md"; do
             find build/manager-frozen/umml-manager \
               -type f -name "$document" -print -quit | grep -q .
           done
@@ -268,6 +284,8 @@ jobs:
             > "$PACKAGE_HOME/data/umml-manager/baseline/package-sentinel"
           sudo apt-get install -y "./$DEB"
           test "$(umml-manager-cli --version)" = "$VERSION"
+          /usr/lib/umml-manager/umml-manager-bin --extractor-host-probe \
+            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           HOME="$PACKAGE_HOME/home" \
             XDG_DATA_HOME="$PACKAGE_HOME/data" \
             umml-manager-cli self-test
