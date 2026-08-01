@@ -95,7 +95,7 @@ case "${1-}" in
     shift
     exec "$BINARY" cli "$@"
     ;;
-  cli|--legacy-host|--version|-V)
+  cli|--legacy-host|--extractor-host|--extractor-host-probe|--version|-V)
     exec "$BINARY" "$@"
     ;;
   *)
@@ -146,6 +146,8 @@ ACTUAL_VERSION="$(APPIMAGE_EXTRACT_AND_RUN=1 "$OUTPUT" --version)"
   echo "AppImage version mismatch: expected $VERSION, got $ACTUAL_VERSION" >&2
   exit 1
 }
+APPIMAGE_EXTRACT_AND_RUN=1 "$OUTPUT" --extractor-host-probe \
+  | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
 APPIMAGE_EXTRACT_AND_RUN=1 "$OUTPUT" --cli --help >/dev/null
 
 VERIFY_ROOT="$(mktemp -d)"
