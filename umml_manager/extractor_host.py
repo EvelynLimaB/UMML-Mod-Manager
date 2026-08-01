@@ -7,6 +7,7 @@ import os
 import runpy
 import stat
 import sys
+import tempfile
 from pathlib import Path
 
 MINIMUM_PYTHON = (3, 14)
@@ -44,6 +45,56 @@ def runtime_probe() -> dict[str, object]:
             and minidump_version == "0.0.24"
         ),
     }
+
+
+def verified_runtime_probe() -> dict[str, object]:
+    """Probe the runtime and execute a real isolated source fixture."""
+
+    probe = runtime_probe()
+    probe["host_self_test"] = False
+    if not probe["ready"]:
+        return probe
+    try:
+        with tempfile.TemporaryDirectory(prefix="umm-host-probe-") as temporary:
+            root = Path(temporary)
+            project = root / "umadump-fixture"
+            inbox = root / "inbox"
+            project.mkdir()
+            script = project / "main.py"
+            script.write_text(
+                "import json,os,sys\n"
+                "from pathlib import Path\n"
+                "Path('probe-result.json').write_text(json.dumps({"
+                "'argv':sys.argv[1:],'cwd':os.getcwd()}),encoding='utf-8')\n",
+                encoding="utf-8",
+            )
+            for name in ("memory.py", "game_structs.py", "json_encoders.py"):
+                (project / name).write_text("", encoding="utf-8")
+            (project / "requirements.txt").write_text(
+                "minidump~=0.0.24\n",
+                encoding="utf-8",
+            )
+            run_extractor(project, script, inbox)
+            output = inbox / "probe-result.json"
+            value = json.loads(output.read_text(encoding="utf-8"))
+            if value.get("argv") != [
+                "--rerun-mode",
+                "once",
+                "--no-update-check",
+            ]:
+                raise ExtractorHostError(
+                    f"Packaged host probe received unexpected argv: {value!r}"
+                )
+            if Path(str(value.get("cwd"))).resolve() != inbox.resolve():
+                raise ExtractorHostError(
+                    f"Packaged host probe used an unexpected cwd: {value!r}"
+                )
+    except Exception as exc:
+        probe["host_error"] = str(exc)
+        probe["ready"] = False
+        return probe
+    probe["host_self_test"] = True
+    return probe
 
 
 def packaged_host_available() -> bool:
