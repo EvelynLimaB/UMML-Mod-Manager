@@ -42,6 +42,7 @@ hiddenimports = [
     "umml_platform",
     "umml_autodetect",
     "umml_manager.backends",
+    "umml_manager.extractor_host",
     "umml_manager.extractor_packages",
     "umml_manager.legacy_host",
     "umml_manager.locking",
@@ -66,7 +67,15 @@ hiddenimports = [
     "umml_manager.ui_veterans_window",
     "umml_manager.veterans",
 ]
-for package in ("UnityPy", "apsw", "yaml", "vdf", "certifi", "PIL"):
+for package in (
+    "UnityPy",
+    "apsw",
+    "yaml",
+    "vdf",
+    "certifi",
+    "PIL",
+    "minidump",
+):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
     binaries += package_binaries
