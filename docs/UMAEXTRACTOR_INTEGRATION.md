@@ -34,33 +34,56 @@ Manager then:
 4. calculates the archive SHA-256 and detects the upstream version;
 5. extracts the source into a hash-addressed Manager-owned tools directory;
 6. preserves that installed source as an immutable provider version;
-7. locates Python 3.14 or newer when available;
-8. creates a private virtual environment for that extractor version;
-9. installs only the dependencies declared by the upstream
-   `requirements.txt`;
-10. launches the extractor as a separate process with update checks disabled;
-11. directs output to the isolated Veteran inbox;
-12. imports the latest valid roster automatically after a successful run.
+7. validates that the source declares only dependencies supported by the bundled
+   host;
+8. launches a separate private Manager process using the Python 3.14 runtime and
+   `minidump 0.0.24` shipped inside the application;
+9. disables the upstream update check and limits output to the isolated Veteran
+   inbox;
+10. imports the latest valid roster automatically after a successful run.
 
-If Python 3.14 is unavailable, the safe source installation still completes and
-the UI explains that the user must install a compatible interpreter or select an
-upstream standalone executable. The Manager never substitutes its frozen Python
-runtime, because that executable is the Manager itself rather than a general
-Python interpreter.
+The standalone Windows portable, Debian package, and AppImage do not require a
+system Python installation for this supported Werseter workflow. The application
+binary re-enters through the private `--extractor-host` mode; it does not pretend
+to be a general-purpose Python command.
 
-The installed source and runtime live below the private Veteran data root:
+Source/development installations retain an external Python fallback. They probe
+`python3.14`, `python3`, and `python` by actual interpreter version instead of
+assuming the executable name proves compatibility. A user-selected standalone
+upstream executable remains supported on every build.
+
+The installed source lives below the private Veteran data root:
 
 ```text
 tools/
 └── werseter-umadump/
     └── <version>-<archive-sha-prefix>/
         ├── managed-extractor.json
-        ├── source/
-        └── runtime/        # only when Python 3.14+ was available
+        └── source/
 ```
 
 Selecting the same source ZIP again is idempotent. A different archive hash is a
-new managed provider version instead of an in-place rewrite.
+new managed provider version instead of an in-place rewrite. Installations made
+by an older alpha are upgraded automatically to the bundled host when launched
+from a compatible package; the user does not need to select the ZIP again.
+
+## Packaged extractor host
+
+The private host is deliberately narrow:
+
+- it requires Python 3.14 or newer;
+- it verifies that `minidump` is exactly the supported bundled version;
+- it accepts only a project-root `main.py` with the expected Werseter sibling
+  files;
+- it rejects symlinked or non-regular project, entry-point, and inbox paths;
+- it rejects dependencies outside the explicit supported allowlist;
+- it runs in a separate process from the GUI;
+- it restores its working directory, arguments, and import path before exiting;
+- it exposes a machine-readable runtime probe used by CI and package audits.
+
+Finished Windows, Debian, and AppImage artifacts must pass both the runtime probe
+and a packaged end-to-end fixture before they can be treated as standalone
+extractor builds.
 
 ## What the provider families do
 
@@ -102,13 +125,15 @@ Managed ZIP installation does not change that boundary:
 - the Manager installs the user's selected bytes locally;
 - the archive SHA-256, provider, version, paths, and runtime status are recorded;
 - the tool remains a separate process;
-- no upstream source enters the Manager process or repository;
+- no upstream source enters the Manager repository or release archive;
 - no upstream binary or source archive is republished by Uma Mod Manager;
 - UI and documentation retain the original project links and credits.
 
-Bundling or adapting implementation code requires an explicit license or written
-permission from the relevant copyright holders. Attribution is required, but it
-is not permission wearing a polite hat.
+The Manager bundles Python and the MIT-licensed `minidump` dependency, not the
+unlicensed extractor source. Bundling or adapting upstream implementation code
+still requires an explicit license or written permission from the relevant
+copyright holders. Attribution is required, but it is not permission wearing a
+polite hat.
 
 ## Privacy and provenance
 
@@ -136,8 +161,8 @@ Unknown fields are preserved rather than silently discarded.
 The Studio page exposes **Veteran roster**, which provides:
 
 - managed installation of recognized Werseter source ZIPs;
+- a standalone packaged Python 3.14 host for supported Werseter source;
 - optional selection of an external executable or Python script;
-- private per-version Python environments when Python 3.14+ is available;
 - shell-free external process launching;
 - automatic import after successful extraction;
 - manual import of classic `data.json`, Werseter `trained_chara_data.json`, and
@@ -172,10 +197,12 @@ with different host permission requirements. The user runs any elevated
 provider separately and imports the resulting JSON; the Manager GUI must not be
 elevated.
 
-Installing dependencies from a user-selected source package can execute ordinary
-Python packaging hooks. It therefore runs only inside the extractor's private
-environment, never as root, and only after explicit confirmation. The archive is
-validated before extraction, but the upstream source remains third-party code.
+The packaged host does not run `pip`, create a virtual environment, or execute
+Python packaging hooks. If a future source ZIP declares unsupported dependencies,
+the host fails closed and asks for an upstream standalone executable or an
+explicit external Python environment instead of silently modifying the system.
+The selected upstream source is still third-party code and executes only after
+explicit installation and launch actions.
 
 ## Deliberately deferred
 
@@ -186,12 +213,13 @@ The current stage does not claim to:
 - calculate inheritance probabilities or compatibility scores;
 - browse Werseter's support-card, card, friend, trophy, replay, or training-state
   outputs in dedicated pages;
-- bundle any extractor;
+- bundle or redistribute any extractor source or executable;
 - download upstream source automatically without a declared redistribution
   boundary;
-- install Python 3.14 system-wide;
 - automate Linux privilege escalation;
-- hook IL2CPP or scan game memory from the Manager itself.
+- hook IL2CPP or scan game memory from the Manager process itself;
+- guarantee future Werseter versions whose required files or dependencies differ
+  from the supported contract.
 
 Those features require versioned schemas, real output samples, master-database
 resolution, explicit upstream licensing, and a separate safety review. A polished
