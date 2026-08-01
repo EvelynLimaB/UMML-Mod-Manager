@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Exact prerelease tag derived from MANAGER_VERSION
         required: true
-        default: v0.2.0-alpha.20
+        default: v0.2.0-alpha.21
         type: string
       publish_release:
         description: Publish a GitHub prerelease after every build and test passes
@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_NOTES: docs/releases/0.2.0-alpha.20.md
+  RELEASE_NOTES: docs/releases/0.2.0-alpha.21.md
 
 jobs:
   validate:
@@ -94,7 +94,7 @@ jobs:
           & $exe --version
           & $exe cli self-test
           $probe = (& $exe --extractor-host-probe | ConvertFrom-Json)
-          if (!$probe.ready -or !$probe.python_314_or_newer -or $probe.minidump -ne '0.0.24') {
+          if (!$probe.ready -or !$probe.host_self_test -or !$probe.python_314_or_newer -or $probe.minidump -ne '0.0.24') {
             throw "Packaged extractor host is not ready: $($probe | ConvertTo-Json -Compress)"
           }
           python scripts/test_manager_theme_runtime.py -- $exe gui
@@ -231,7 +231,7 @@ jobs:
           test "$(dpkg-deb --field "$DEB" Version)" = "$VERSION"
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --extractor-host-probe \
-            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
+            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli self-test
           APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a \
             python scripts/test_manager_theme_runtime.py -- "$APPIMAGE"
@@ -249,7 +249,7 @@ jobs:
             test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/$document"
           done
           "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" --extractor-host-probe \
-            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
+            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli self-test
           xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
             "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" gui
