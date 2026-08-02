@@ -23,6 +23,19 @@ These projects retain their original authorship. Uma Mod Manager does not copy, 
 
 Standalone Manager packages include a narrow Python 3.14 host capable of running supported user-supplied Werseter source in a separate process. The host is Uma Mod Manager code; the Werseter source remains outside this repository and release payload.
 
+A separate process is a fault and permission boundary, not a security sandbox. User-selected Python source still runs with the permissions of the current operating-system account and can access resources available to that account. Use only a trusted upstream archive and verify its provenance. The Manager validates the known package layout, dependency contract, archive structure, and execution arguments, but it cannot make arbitrary third-party Python harmless through administrative optimism.
+
+## Python runtime
+
+- Project: CPython
+- Source: https://github.com/python/cpython
+- Packaged version: `3.14.6`
+- License: Python Software Foundation License Version 2 and associated historical notices
+- Relationship: interpreter runtime embedded by PyInstaller for the application and private extractor host
+- Modifications: none to CPython source
+
+The full runtime license is shipped as `third_party/licenses/Python-3.14.6.txt` in source and inside finished packages.
+
 ## Minidump
 
 - Project: `skelsec/minidump`
@@ -32,7 +45,7 @@ Standalone Manager packages include a narrow Python 3.14 host capable of running
 - Relationship: bundled Python dependency used by the private Werseter source host
 - Modifications: none
 
-The dependency is bundled so supported source-ZIP workflows do not require a separate Python installation or a first-run `pip` operation. Its original license and authorship remain in force.
+The dependency is bundled so supported source-ZIP workflows do not require a separate Python installation or a first-run `pip` operation. Its original license and authorship remain in force. The full license is shipped as `third_party/licenses/minidump-0.0.24.txt` in source and inside finished packages.
 
 ## Blue Star Manager research
 
@@ -42,7 +55,7 @@ See [`docs/MANAGER_BSTAR_REVIEW.md`](docs/MANAGER_BSTAR_REVIEW.md).
 
 ## Runtime dependencies
 
-Packaged builds include or depend on open-source libraries such as UnityPy, Pillow, PyYAML, vdf, certifi, APSW builds, minidump, PyInstaller, and their transitive dependencies. Their notices and licenses remain those of the respective upstream projects and packaged distributions.
+Packaged builds include or depend on open-source libraries such as UnityPy, Pillow, PyYAML, vdf, certifi, APSW builds, minidump, PyInstaller, CPython, and their transitive dependencies. Their notices and licenses remain those of the respective upstream projects and packaged distributions.
 
 Before adding a bundled dependency or external tool, contributors must record:
 
