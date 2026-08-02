@@ -45,7 +45,13 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
             subtitle.grid_configure(row=1, column=1, sticky="ew", padx=(12, 0))
             subtitle.configure(wraplength=650)
         action_bar.grid_configure(row=2, column=1, sticky="ew", padx=(12, 0))
-        self.detail_notebook.grid_configure(row=3, column=0, columnspan=2, sticky="nsew")
+        self.detail_notebook.grid_configure(
+            row=3,
+            column=1,
+            columnspan=1,
+            sticky="nsew",
+            padx=(12, 0),
+        )
 
         self.primary_portrait_host = tk.Frame(
             right,
@@ -58,8 +64,8 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
         self.primary_portrait_host.grid(
             row=0,
             column=0,
-            rowspan=3,
-            sticky="nw",
+            rowspan=4,
+            sticky="n",
             pady=(0, 10),
         )
         self.primary_portrait_host.grid_propagate(False)
@@ -86,7 +92,7 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
 
         # Treeview supports an image in its first column. Rows receive a small
         # cached thumbnail as they are visited, while the selected record gets a
-        # large readable portrait in the detail header.
+        # large readable portrait beside the complete detail notebook.
         ttk.Style(self).configure("Roster.Treeview", rowheight=42)
         self._apply_primary_portrait_layout()
 
