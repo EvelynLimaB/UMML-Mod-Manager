@@ -122,6 +122,15 @@ class LocalPortraitCache:
             return LocalPortraitResult(resolved, None, warning=str(exc))
 
         target = self.root / f"local-portrait-{resolved}.png"
+        try:
+            _prepare_cache_target(target)
+        except OSError as exc:
+            return LocalPortraitResult(
+                resolved,
+                None,
+                warning=f"Portrait cache destination is unsafe: {exc}",
+            )
+
         warnings: list[str] = []
         for logical_name, content_hash in candidates:
             bundle = self._bundle_path(content_hash)
@@ -350,6 +359,18 @@ def _escape_like(value: str) -> str:
 
 def _safe_asset_hash(value: str) -> bool:
     return bool(_SAFE_ASSET_HASH.fullmatch(value))
+
+
+def _prepare_cache_target(path: Path) -> None:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(mode):
+        path.unlink()
+        return
+    if not stat.S_ISREG(mode):
+        raise OSError("cache destination is not a regular file")
 
 
 def _regular_file(path: Path) -> bool:
