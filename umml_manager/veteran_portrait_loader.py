@@ -22,9 +22,9 @@ class PortraitLoadResult:
 class VeteranPortraitResolver:
     """Resolve roster artwork without exposing provider details to the Tk layer.
 
-    The installed game is authoritative and attempted first. The remote cache is
-    only a cosmetic fallback. Both providers write exclusively to the Manager's
-    own cache directory.
+    Cached artwork and the installed game are always safe to inspect locally.
+    A new HTTPS request is made only when the caller explicitly sets
+    ``allow_remote=True`` in response to a user action.
     """
 
     def __init__(
@@ -41,7 +41,12 @@ class VeteranPortraitResolver:
             return local
         return self.remote_cache.cached_selection(card_id, ()).portrait
 
-    def resolve(self, card_id: object) -> PortraitLoadResult:
+    def resolve(
+        self,
+        card_id: object,
+        *,
+        allow_remote: bool = False,
+    ) -> PortraitLoadResult:
         text_id = str(card_id).strip()
         cached = self.cached(text_id)
         if cached is not None:
@@ -59,6 +64,14 @@ class VeteranPortraitResolver:
                 portrait=local.portrait,
                 source="local",
                 cache_hit=local.cache_hit,
+                warning=local.warning,
+            )
+
+        if not allow_remote:
+            return PortraitLoadResult(
+                card_id=text_id,
+                portrait=None,
+                source="local-unavailable",
                 warning=local.warning,
             )
 
@@ -81,6 +94,6 @@ class VeteranPortraitResolver:
         )
 
     def resolve_skill_icons(self, skill_ids: Iterable[object]) -> VeteranMediaResult:
-        """Resolve only skill icons, avoiding a redundant remote portrait request."""
+        """Resolve skill icons after the user explicitly requests online media."""
 
         return self.remote_cache.fetch_selection(0, skill_ids)
