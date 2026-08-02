@@ -83,10 +83,20 @@ def main() -> int:
                 raise RuntimeError("main roster workspace does not own row 4")
             if page._credits_footer is None:
                 raise RuntimeError("credit footer was not identified")
-            if int(page._credits_footer.grid_info()["row"]) != 5:
-                raise RuntimeError("credit footer still overlaps the main workspace")
             if page._credits_footer.winfo_ismapped():
                 raise RuntimeError("credit footer should be hidden with setup collapsed")
+
+            # Tk on Windows returns an empty grid_info mapping for a widget
+            # hidden with grid_remove. Briefly remap it to inspect the retained
+            # row, then restore the intended collapsed state.
+            page._credits_footer.grid()
+            root.update_idletasks()
+            footer_row = int(page._credits_footer.grid_info()["row"])
+            page._credits_footer.grid_remove()
+            root.update_idletasks()
+            if footer_row != 5:
+                raise RuntimeError("credit footer still overlaps the main workspace")
+
             if int(page.grid_rowconfigure(3)["weight"]) != 0:
                 raise RuntimeError("collapsed summary row still consumes flexible space")
             if int(page.grid_rowconfigure(4)["weight"]) != 1:
