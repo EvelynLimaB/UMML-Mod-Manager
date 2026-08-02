@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import sys
@@ -11,13 +12,16 @@ import tkinter as tk
 from pathlib import Path
 from types import SimpleNamespace
 
+from PIL import Image
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from umml_manager.store import ManagerStore
 from umml_manager.ui_theme import configure_theme
-from umml_manager.ui_veteran_workspace import VeteranRosterPage
+from umml_manager.ui_veteran_presenter import VeteranRosterPage
+from umml_manager.veteran_media import character_image_url
 from umml_manager.veterans import VeteranStore, row_from_record
 
 
@@ -74,6 +78,18 @@ def _create_master(path: Path) -> None:
         connection.close()
 
 
+def _seed_cached_portrait(veteran_store: VeteranStore, card_id: int) -> Path:
+    url = character_image_url(card_id)
+    if not url:
+        raise RuntimeError("fixture card did not produce a portrait URL")
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
+    cache_dir = veteran_store.root / "media-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    destination = cache_dir / f"portrait-{digest}.png"
+    Image.new("RGBA", (180, 220), (60, 170, 100, 255)).save(destination, format="PNG")
+    return destination
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="umm-veteran-master-runtime-") as temp:
         base = Path(temp)
@@ -104,10 +120,12 @@ def main() -> int:
             ),
             encoding="utf-8",
         )
-        VeteranStore(manager_store.paths.root / "veterans").import_json(source)
+        veteran_store = VeteranStore(manager_store.paths.root / "veterans")
+        veteran_store.import_json(source)
+        cached_portrait = _seed_cached_portrait(veteran_store, 100101)
 
         root = tk.Tk()
-        root.geometry("1100x720+0+0")
+        root.geometry("1320x820+0+0")
         configure_theme(root)
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
@@ -121,7 +139,7 @@ def main() -> int:
         )
 
         def _unexpected_task(*_args, **_kwargs):
-            raise RuntimeError("optional media download started without user action")
+            raise RuntimeError("cached portrait unexpectedly started a network task")
 
         app._run_task = _unexpected_task
         page = VeteranRosterPage(root, app)
@@ -145,16 +163,22 @@ def main() -> int:
                 raise RuntimeError(f"optional Media tab is missing: {tabs}")
             page.detail_notebook.select(page.media_tab)
             root.update_idletasks()
-            root.update()
             if not page.load_media_button.winfo_ismapped():
-                raise RuntimeError("explicit artwork action is not visible inside Media")
-            if list((page.store.root / "media-cache").glob("*.png")):
-                raise RuntimeError("artwork was downloaded before explicit user action")
+                raise RuntimeError("explicit artwork action is not visible")
+            if not page.primary_portrait_label.winfo_ismapped():
+                raise RuntimeError("primary selected-veteran portrait is not visible")
+            if not str(page.primary_portrait_label.cget("image")):
+                raise RuntimeError("cached costume artwork was not rendered in the main detail header")
+            selected_item = page.tree.selection()
+            if not selected_item or not str(page.tree.item(selected_item[0], "image")):
+                raise RuntimeError("selected roster row did not receive its cached portrait thumbnail")
+            if list((page.store.root / "media-cache").glob("*.png")) != [cached_portrait]:
+                raise RuntimeError("the cached-only render unexpectedly changed portrait storage")
             if "resolved read-only" not in page.tool_hint_value.get():
                 raise RuntimeError("read-only master-data provenance is not visible")
         finally:
             root.destroy()
-    print("Master-resolved veteran workspace runtime passed")
+    print("Master-resolved veteran workspace and primary portrait runtime passed")
     return 0
 
 
