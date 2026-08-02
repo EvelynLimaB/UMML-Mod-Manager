@@ -1,27 +1,84 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from .ui_veteran_lab import RosterLabPage
+from .veteran_master_data import (
+    VeteranMasterDataError,
+    discover_master_mdb,
+    resolve_veteran_records,
+)
+from .veterans import row_from_record
 
 
 class VeteranRosterPage(RosterLabPage):
     """Final responsive roster workspace used by the standalone window.
 
-    The underlying lab owns the data tools. This thin presentation layer keeps
-    the action area and metric cards usable at the roster window's minimum size.
+    The workspace resolves game IDs against the user's current local
+    ``master.mdb`` in read-only mode. Extracted snapshots and game files are
+    never modified; unresolved or incompatible installations keep the raw
+    extractor fields visible instead of receiving guessed labels.
     """
 
     def __init__(self, parent, app):
         self._workspace_after: str | None = None
         self._workspace_compact: bool | None = None
+        self._master_data_note = ""
         super().__init__(parent, app)
         self._summary_panel = self.metrics.master
         self._compact_selected_actions()
         self.bind("<Configure>", self._queue_workspace_layout, add="+")
         self.bind("<Destroy>", self._cancel_pending_callbacks, add="+")
         self.after_idle(self._apply_workspace_layout)
+
+    def load_snapshot(self, snapshot_id: str) -> None:
+        snapshot = self.snapshots.get(snapshot_id)
+        if snapshot is None:
+            return
+        try:
+            raw_records = self.store.load_records(snapshot)
+        except Exception as exc:
+            messagebox.showerror(
+                "Could not load veteran snapshot",
+                str(exc),
+                parent=self.app.root,
+            )
+            return
+
+        master_path = discover_master_mdb(self.app)
+        try:
+            resolution = resolve_veteran_records(raw_records, master_path)
+            self.records = resolution.records
+            self._master_data_note = resolution.summary
+        except VeteranMasterDataError as exc:
+            # A stale, encrypted, or region-specific schema must not make the
+            # roster unusable. Keep the validated scrubbed snapshot and explain
+            # exactly why IDs could not be enriched.
+            self.records = raw_records
+            self._master_data_note = "Master-data resolution was skipped: " + str(exc)
+
+        self.rows = [
+            row_from_record(index, record)
+            for index, record in enumerate(self.records)
+        ]
+        warning = " ".join(snapshot.warnings)
+        self.notice_value.set(
+            warning
+            or (
+                f"Imported from {snapshot.source_name}. Known account identifiers were removed "
+                "before the immutable local snapshot was stored."
+            )
+        )
+        self.apply_filter()
+
+    def apply_filter(self) -> None:
+        super().apply_filter()
+        note = getattr(self, "_master_data_note", "").strip()
+        if not note:
+            return
+        current = self.tool_hint_value.get().strip()
+        self.tool_hint_value.set(f"{note}  {current}" if current else note)
 
     def _compact_selected_actions(self) -> None:
         bar = self.copy_ids_button.master
