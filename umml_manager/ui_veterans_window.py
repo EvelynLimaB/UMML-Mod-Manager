@@ -6,8 +6,8 @@ from .ui_veteran_external import (
     configure_external_extractor,
     launch_configured_extractor,
 )
+from .ui_veteran_lab import RosterLabPage
 from .ui_veteran_providers import launch_provider_window
-from .ui_veterans import VeteransPage
 from .ui_windows import present_toplevel
 
 
@@ -24,16 +24,20 @@ def launch_veterans_window(app) -> None:
     window = tk.Toplevel(app.root)
     app._veterans_window = window
     window.title("Uma Mod Manager · Veteran Roster")
-    window.geometry("1240x780")
-    window.minsize(980, 640)
+    screen_width = max(1020, window.winfo_screenwidth() - 80)
+    screen_height = max(680, window.winfo_screenheight() - 80)
+    width = min(1380, screen_width)
+    height = min(840, screen_height)
+    window.geometry(f"{width}x{height}")
+    window.minsize(1020, 680)
     window.transient(app.root)
     window.columnconfigure(0, weight=1)
     window.rowconfigure(0, weight=1)
 
-    page = VeteransPage(window, app)
+    page = RosterLabPage(window, app)
     page.rowconfigure(2, weight=0)
     page.rowconfigure(3, weight=1)
-    page.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
+    page.grid(row=0, column=0, sticky="nsew", padx=16, pady=14)
     page.import_button.configure(text="Import roster JSON")
     page.choose_extractor_button.configure(
         text="Install or choose extractor",
