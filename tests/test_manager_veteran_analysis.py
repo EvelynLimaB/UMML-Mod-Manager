@@ -40,6 +40,32 @@ class VeteranAnalysisTests(unittest.TestCase):
         self.assertIn(("Distance Mile", "7"), aptitude_entries(record))
         self.assertIn(("Running Style Nige", "8"), aptitude_entries(record))
 
+    def test_zero_placeholder_uses_resolved_master_rarity(self):
+        record = {
+            "factor_info_array": [
+                {
+                    "factor_id": 501,
+                    "factor_name": "Speed Spark",
+                    "level": 0,
+                    "rarity": 3,
+                },
+                {"factor_id": 502, "level": 0},
+            ]
+        }
+
+        factors = factor_entries(record)
+        quality = factor_quality(record)
+
+        self.assertEqual(factors[0].level, 3)
+        self.assertTrue(factors[0].level_known)
+        self.assertEqual(factors[0].level_label, "3★")
+        self.assertEqual(factors[1].level, 0)
+        self.assertFalse(factors[1].level_known)
+        self.assertEqual(factors[1].level_label, "—")
+        self.assertEqual(quality.known_levels, 1)
+        self.assertEqual(quality.total_stars, 3)
+        self.assertEqual(quality.three_star_count, 1)
+
     def test_classic_factor_ids_do_not_invent_star_levels(self):
         record = {"factor_id_array": [10, 11, 12], "skill_id_array": [3]}
         quality = factor_quality(record)
