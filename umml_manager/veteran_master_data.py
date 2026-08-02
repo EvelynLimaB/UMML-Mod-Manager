@@ -141,9 +141,10 @@ def resolve_veteran_records(
 ) -> VeteranMasterResolution:
     """Enrich scrubbed roster records from the user's own current master.mdb.
 
-    The database is opened with SQLite's read-only and immutable flags. The
-    returned records are deep copies; snapshots on disk and the game database
-    are never modified.
+    The database is opened with SQLite read-only/query-only flags. The returned
+    records are deep copies; snapshots on disk and the game database are never
+    modified. The live database is not falsely declared immutable, so SQLite
+    may safely account for current journal or WAL state.
     """
 
     source_records = [copy.deepcopy(record) for record in records]
@@ -214,7 +215,9 @@ def resolve_veteran_records(
             ("skill_data", "skill metadata"),
         ):
             if table not in tables:
-                warnings.append(f"The installed database has no {table} table; {label} are partial.")
+                warnings.append(
+                    f"The installed database has no {table} table; {label} are partial."
+                )
 
         return VeteranMasterResolution(
             records=enriched,
@@ -237,7 +240,7 @@ def _open_read_only(path: Path) -> sqlite3.Connection:
     uri_path = quote(resolved.as_posix(), safe="/:")
     try:
         connection = sqlite3.connect(
-            f"file:{uri_path}?mode=ro&immutable=1",
+            f"file:{uri_path}?mode=ro",
             uri=True,
             timeout=5,
         )
@@ -388,7 +391,13 @@ def _load_skills(
     skills: dict[int, dict[str, Any]] = {}
     if "skill_data" in tables:
         columns = _table_columns(connection, "skill_data")
-        id_column = "id" if "id" in columns else "skill_id" if "skill_id" in columns else ""
+        id_column = (
+            "id"
+            if "id" in columns
+            else "skill_id"
+            if "skill_id" in columns
+            else ""
+        )
         if id_column:
             optional = [
                 name
