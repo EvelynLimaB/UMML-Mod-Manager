@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from umml_manager.veteran_analysis import factor_entries, skill_entries
 from umml_manager.veteran_master_data import (
     VeteranMasterDataError,
+    _open_read_only,
     discover_master_mdb,
     resolve_veteran_records,
 )
@@ -129,6 +130,29 @@ class VeteranMasterDataTests(unittest.TestCase):
             )
 
             self.assertEqual(discover_master_mdb(app), master.resolve())
+
+    def test_read_only_connection_observes_committed_live_wal_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            database = Path(temp) / "live.mdb"
+            writer = sqlite3.connect(database)
+            try:
+                writer.execute("PRAGMA journal_mode=WAL")
+                writer.execute("PRAGMA wal_autocheckpoint=0")
+                writer.execute("CREATE TABLE values_now(value TEXT)")
+                writer.commit()
+                writer.execute("INSERT INTO values_now(value) VALUES ('current')")
+                writer.commit()
+
+                reader = _open_read_only(database)
+                try:
+                    row = reader.execute("SELECT value FROM values_now").fetchone()
+                    self.assertEqual(row[0], "current")
+                    with self.assertRaises(sqlite3.OperationalError):
+                        reader.execute("INSERT INTO values_now(value) VALUES ('nope')")
+                finally:
+                    reader.close()
+            finally:
+                writer.close()
 
     def test_resolves_card_factor_and_skill_without_mutating_source(self):
         with tempfile.TemporaryDirectory() as temp:
