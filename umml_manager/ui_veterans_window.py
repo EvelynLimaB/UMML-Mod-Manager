@@ -1,14 +1,57 @@
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import filedialog, messagebox
+from typing import Any
 
 from .ui_veteran_external import (
     configure_external_extractor,
     launch_configured_extractor,
 )
-from .ui_veteran_presenter_v2 import VeteranRosterPage
+from .ui_veteran_presenter_v2 import VeteranRosterPage as _VeteranRosterPage
 from .ui_veteran_providers import launch_provider_window
 from .ui_windows import present_toplevel
+from .veteran_export import atomic_export_json
+from .veterans import VeteranDataError, row_from_record
+
+
+class VeteranRosterPage(_VeteranRosterPage):
+    """Final window-facing roster page with hardened user-selected exports."""
+
+    def export_selected(self) -> None:
+        if self._selected_index is None:
+            return
+        row = row_from_record(
+            self._selected_index,
+            self.records[self._selected_index],
+        )
+        path = filedialog.asksaveasfilename(
+            parent=self.winfo_toplevel(),
+            title="Export selected veteran",
+            initialfile=(
+                f"veteran-{row.trained_chara_id or self._selected_index + 1}.json"
+            ),
+            defaultextension=".json",
+            filetypes=(("JSON", "*.json"), ("All files", "*")),
+        )
+        if not path:
+            return
+        snapshot = self._selected_snapshot()
+        payload: dict[str, Any] = {
+            "snapshot_id": snapshot.id if snapshot is not None else "",
+            "source_name": snapshot.source_name if snapshot is not None else "",
+            "record": self.records[self._selected_index],
+        }
+        try:
+            target = atomic_export_json(path, payload)
+        except (OSError, VeteranDataError) as exc:
+            messagebox.showerror(
+                "Could not export veteran",
+                str(exc),
+                parent=self.winfo_toplevel(),
+            )
+            return
+        self.app.status.set(f"Exported selected veteran to {target}")
 
 
 def veteran_window_geometry(window: tk.Toplevel) -> str:
