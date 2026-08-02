@@ -34,11 +34,42 @@ class VeteranAnalysisTests(unittest.TestCase):
         self.assertEqual(factors[0].level_label, "3★")
         self.assertEqual(factors[1].name, "Factor 202")
         self.assertEqual(skills[0].name, "Corner Adept")
+        self.assertEqual(skills[0].level_label, "Lv 1")
         self.assertEqual(quality.count, 2)
         self.assertEqual(quality.total_stars, 5)
         self.assertEqual(quality.three_star_count, 1)
         self.assertIn(("Distance Mile", "7"), aptitude_entries(record))
         self.assertIn(("Running Style Nige", "8"), aptitude_entries(record))
+
+    def test_skill_rarity_is_not_misrepresented_as_acquired_level(self):
+        skills = skill_entries(
+            {
+                "skill_array": [
+                    {
+                        "skill_id": 44,
+                        "skill_name": "Corner Adept",
+                        "rarity": 3,
+                    }
+                ]
+            }
+        )
+
+        self.assertEqual(len(skills), 1)
+        self.assertFalse(skills[0].level_known)
+        self.assertEqual(skills[0].level_label, "—")
+
+    def test_extractor_skill_levels_use_level_not_star_notation(self):
+        skills = skill_entries(
+            {
+                "skill_array": [
+                    {"skill_id": 1, "level": 1},
+                    {"skill_id": 2, "level": 5},
+                    {"skill_id": 3, "level": 0},
+                ]
+            }
+        )
+
+        self.assertEqual([entry.level_label for entry in skills], ["Lv 1", "Lv 5", "—"])
 
     def test_zero_placeholder_uses_resolved_master_rarity(self):
         record = {
