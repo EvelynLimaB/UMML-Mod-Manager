@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Single frozen entry point for the UMML-Manager GUI, CLI, and compatibility host."""
+"""Single frozen entry point for the Manager GUI, CLI, and private hosts."""
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -24,6 +25,16 @@ def main(argv: list[str] | None = None) -> int:
     if args and args[0] in {"--version", "-V"}:
         print(manager_version())
         return 0
+    if args and args[0] == "--extractor-host-probe":
+        from umml_manager.extractor_host import verified_runtime_probe
+
+        print(json.dumps(verified_runtime_probe(), sort_keys=True))
+        return 0
+    if args and args[0] == "--extractor-host":
+        args.pop(0)
+        from umml_manager.extractor_host import main as extractor_host_main
+
+        return extractor_host_main(args)
     if args and args[0] == "--legacy-host":
         args.pop(0)
         from umml_manager.legacy_host import main as legacy_main

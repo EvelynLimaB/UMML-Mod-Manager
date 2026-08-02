@@ -1,6 +1,6 @@
 # Umadump and UmaExtractor veteran-roster integration
 
-UMML Manager can import and analyse compatible veteran-roster JSON produced by
+Uma Mod Manager can import and analyse compatible veteran-roster JSON produced by
 several related community tools:
 
 - [rockisch/umadump](https://github.com/rockisch/umadump), the original public
@@ -10,9 +10,80 @@ several related community tools:
 - [Werseter/umadump](https://github.com/Werseter/umadump), the newer 2.0 runtime
   reader whose veteran output is `trained_chara_data.json`.
 
-The tools are not interchangeable internally. UMML integrates their output at a
-validated JSON boundary rather than treating one scanner implementation as the
-Manager's own code.
+The tools are not interchangeable internally. The Manager integrates their
+output at a validated JSON boundary rather than treating one scanner
+implementation as its own code.
+
+## Normal player workflow
+
+The Veteran Roster window accepts three kinds of external-tool input through
+**Install or choose extractor**:
+
+1. an upstream standalone executable;
+2. an individual Python entry-point script;
+3. a downloaded source ZIP from a recognized provider.
+
+For a recognized Werseter source ZIP, the user selects the ZIP itself. The
+Manager then:
+
+1. verifies that the input is a regular ZIP file;
+2. rejects traversal paths, absolute paths, links, special files, encrypted
+   members, duplicate case-insensitive paths, excessive entry counts, and
+   excessive compressed or expanded sizes;
+3. requires exactly one project root containing the expected Werseter files;
+4. calculates the archive SHA-256 and detects the upstream version;
+5. extracts the source into a hash-addressed Manager-owned tools directory;
+6. preserves that installed source as an immutable provider version;
+7. validates that the source declares only dependencies supported by the bundled
+   host;
+8. launches a separate private Manager process using the Python 3.14 runtime and
+   `minidump 0.0.24` shipped inside the application;
+9. disables the upstream update check and limits output to the isolated Veteran
+   inbox;
+10. imports the latest valid roster automatically after a successful run.
+
+The standalone Windows portable, Debian package, and AppImage do not require a
+system Python installation for this supported Werseter workflow. The application
+binary re-enters through the private `--extractor-host` mode; it does not pretend
+to be a general-purpose Python command.
+
+Source/development installations retain an external Python fallback. They probe
+`python3.14`, `python3`, and `python` by actual interpreter version instead of
+assuming the executable name proves compatibility. A user-selected standalone
+upstream executable remains supported on every build.
+
+The installed source lives below the private Veteran data root:
+
+```text
+tools/
+└── werseter-umadump/
+    └── <version>-<archive-sha-prefix>/
+        ├── managed-extractor.json
+        └── source/
+```
+
+Selecting the same source ZIP again is idempotent. A different archive hash is a
+new managed provider version instead of an in-place rewrite. Installations made
+by an older alpha are upgraded automatically to the bundled host when launched
+from a compatible package; the user does not need to select the ZIP again.
+
+## Packaged extractor host
+
+The private host is deliberately narrow:
+
+- it requires Python 3.14 or newer;
+- it verifies that `minidump` is exactly the supported bundled version;
+- it accepts only a project-root `main.py` with the expected Werseter sibling
+  files;
+- it rejects symlinked or non-regular project, entry-point, and inbox paths;
+- it rejects dependencies outside the explicit supported allowlist;
+- it runs in a separate process from the GUI;
+- it restores its working directory, arguments, and import path before exiting;
+- it exposes a machine-readable runtime probe used by CI and package audits.
+
+Finished Windows, Debian, and AppImage artifacts must pass both the runtime probe
+and a packaged end-to-end fixture before they can be treated as standalone
+extractor builds.
 
 ## What the provider families do
 
@@ -24,8 +95,9 @@ UmaExtractor forks use more resilient scans while preserving a compatible
 roster-oriented result.
 
 A classic `data.json` does not identify which compatible implementation created
-it. UMML therefore records the provider as **umadump-compatible extractor** and
-adds a provenance warning rather than inventing certainty from a filename.
+it. The Manager therefore records the provider as **umadump-compatible
+extractor** and adds a provenance warning rather than inventing certainty from a
+filename.
 
 ### Werseter umadump 2.0
 
@@ -35,38 +107,38 @@ outputs. The veteran roster is `trained_chara_data.json`; other files include
 support cards, owned cards, friends, trophies, race replays, and idle single-mode
 state.
 
-UMML accepts `trained_chara_data.json` as a veteran snapshot. It rejects those
-other output classes as rosters. When the historical **Import latest output**
-action selects another Werseter JSON from the same folder, the importer may use
-the validated sibling `trained_chara_data.json` and records a warning explaining
-the substitution.
+The Manager accepts `trained_chara_data.json` as a veteran snapshot. It rejects
+those other output classes as rosters. When **Import latest output** selects
+another Werseter JSON from the same folder, the importer may use the validated
+sibling `trained_chara_data.json` and records a warning explaining the
+substitution.
 
 ## Attribution and licensing boundary
 
 None of the referenced repository roots currently declares a project-wide
-software license. UMML therefore does **not** copy, modify, vendor, build, or
-redistribute their source or binaries.
+software license. Uma Mod Manager therefore does **not** copy, modify, vendor,
+build, or redistribute their source or binaries in its own release packages.
 
-The Manager integration is an external-tool adapter only:
+Managed ZIP installation does not change that boundary:
 
-- the user selects their own upstream executable or script;
-- UMML launches it as a separate process without `shell=True`;
-- output may be directed to an isolated Manager-owned inbox when the external
-  tool respects its current working directory;
-- the user may run any provider independently and import `data.json` or
-  `trained_chara_data.json` manually;
-- the UI and documentation credit the original project, maintained forks,
-  rewrites, and contributors;
-- no upstream scanner code is included in UMML packages.
+- the user independently downloads the upstream archive;
+- the Manager installs the user's selected bytes locally;
+- the archive SHA-256, provider, version, paths, and runtime status are recorded;
+- the tool remains a separate process;
+- no upstream source enters the Manager repository or release archive;
+- no upstream binary or source archive is republished by Uma Mod Manager;
+- UI and documentation retain the original project links and credits.
 
-Bundling or adapting implementation code requires an explicit license or written
-permission from the relevant copyright holders. Attribution is required, but it
-is not permission wearing a polite hat.
+The Manager bundles Python and the MIT-licensed `minidump` dependency, not the
+unlicensed extractor source. Bundling or adapting upstream implementation code
+still requires an explicit license or written permission from the relevant
+copyright holders. Attribution is required, but it is not permission wearing a
+polite hat.
 
 ## Privacy and provenance
 
 Imported JSON is treated as untrusted personal data. Before a snapshot is
-stored, UMML:
+stored, the Manager:
 
 1. rejects links, special files, oversized inputs, malformed JSON, non-object
    roster entries, and arrays that do not resemble trained-character data;
@@ -81,17 +153,21 @@ stored, UMML:
 7. treats an identical source hash as an idempotent re-import.
 
 The snapshot browser shows raw scrubbed records because community extractor
-formats can gain fields before UMML has a named presentation for them. Unknown
-fields are preserved rather than silently discarded.
+formats can gain fields before the Manager has a named presentation for them.
+Unknown fields are preserved rather than silently discarded.
 
 ## Compatibility currently implemented
 
 The Studio page exposes **Veteran roster**, which provides:
 
+- managed installation of recognized Werseter source ZIPs;
+- a standalone packaged Python 3.14 host for supported Werseter source;
+- optional selection of an external executable or Python script;
+- shell-free external process launching;
+- automatic import after successful extraction;
 - manual import of classic `data.json`, Werseter `trained_chara_data.json`, and
   compatible wrapped arrays;
-- an isolated external-extractor inbox;
-- optional selection and launching of an external executable or Python script;
+- an isolated external-extractor inbox and log;
 - immutable local snapshots;
 - recursive privacy-field removal;
 - provider and format detection;
@@ -107,18 +183,26 @@ The Studio page exposes **Veteran roster**, which provides:
 
 ## Safety boundary
 
-Veteran-roster tools are read-only from UMML's perspective. They do not receive
-access to mod deployment, vanilla baselines, recovery journals, profiles, or the
-`Persistent/dat` write path.
+Veteran-roster tools are read-only from Uma Mod Manager's perspective. They do
+not receive access to mod deployment, vanilla baselines, recovery journals,
+profiles, or the `Persistent/dat` write path.
 
 The external extractor may need the game running because it reads process
-memory. This does not relax UMML's deployment policy: applying or restoring mods
+memory. This does not relax the deployment policy: applying or restoring mods
 remains blocked while the game is running.
 
-UMML itself never requests administrator or root access for extraction. Linux
-providers may use `/proc`, `process_vm_readv`, Frida, or another mechanism with
-different host permission requirements. The user runs any elevated provider
-separately and imports the resulting JSON; the Manager GUI must not be elevated.
+The Manager itself never requests administrator or root access for extraction.
+Linux providers may use `/proc`, `process_vm_readv`, Frida, or another mechanism
+with different host permission requirements. The user runs any elevated
+provider separately and imports the resulting JSON; the Manager GUI must not be
+elevated.
+
+The packaged host does not run `pip`, create a virtual environment, or execute
+Python packaging hooks. If a future source ZIP declares unsupported dependencies,
+the host fails closed and asks for an upstream standalone executable or an
+explicit external Python environment instead of silently modifying the system.
+The selected upstream source is still third-party code and executes only after
+explicit installation and launch actions.
 
 ## Deliberately deferred
 
@@ -129,9 +213,13 @@ The current stage does not claim to:
 - calculate inheritance probabilities or compatibility scores;
 - browse Werseter's support-card, card, friend, trophy, replay, or training-state
   outputs in dedicated pages;
-- bundle any extractor;
+- bundle or redistribute any extractor source or executable;
+- download upstream source automatically without a declared redistribution
+  boundary;
 - automate Linux privilege escalation;
-- hook IL2CPP or scan game memory from UMML itself.
+- hook IL2CPP or scan game memory from the Manager process itself;
+- guarantee future Werseter versions whose required files or dependencies differ
+  from the supported contract.
 
 Those features require versioned schemas, real output samples, master-database
 resolution, explicit upstream licensing, and a separate safety review. A polished

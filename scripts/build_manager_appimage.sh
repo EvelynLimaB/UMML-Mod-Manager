@@ -26,6 +26,10 @@ OUTPUT="$OUT_DIR/umml-manager_${DISPLAY_VERSION}_${ARCH}.AppImage"
   echo "Portable AppImage version still contains Debian's '~': $DISPLAY_VERSION" >&2
   exit 1
 }
+[[ -f "$ROOT/docs/releases/$DISPLAY_VERSION.md" ]] || {
+  echo "Release notes not found: docs/releases/$DISPLAY_VERSION.md" >&2
+  exit 1
+}
 [[ -x "$BUNDLE/umml-manager-bin" ]] || {
   echo "Frozen manager bundle not found: $BUNDLE" >&2
   echo "Run scripts/build_manager_frozen.sh first." >&2
@@ -67,12 +71,19 @@ install -m 0644 \
   "$APPDIR/usr/share/metainfo/$DESKTOP_ID.metainfo.xml"
 install -m 0644 "$ROOT/LICENSE" "$APPDIR/usr/share/doc/umml-manager/copyright"
 install -m 0644 "$ROOT/NOTICE.md" "$APPDIR/usr/share/doc/umml-manager/NOTICE.md"
+install -m 0644 "$ROOT/third_party/licenses/Python-3.14.6.txt" \
+  "$APPDIR/usr/share/doc/umml-manager/Python-3.14.6-LICENSE.txt"
+install -m 0644 "$ROOT/third_party/licenses/minidump-0.0.24.txt" \
+  "$APPDIR/usr/share/doc/umml-manager/minidump-0.0.24-LICENSE.txt"
 install -m 0644 "$ROOT/README.md" "$APPDIR/usr/share/doc/umml-manager/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$APPDIR/usr/share/doc/umml-manager/MANAGER_README.md"
 install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$APPDIR/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md"
+install -m 0644 "$ROOT/docs/DOWNLOADS.md" "$APPDIR/usr/share/doc/umml-manager/DOWNLOADS.md"
+install -m 0644 "$ROOT/docs/GAMEBANANA_PROVIDER.md" "$APPDIR/usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md"
+install -m 0644 "$ROOT/docs/UMAEXTRACTOR_INTEGRATION.md" "$APPDIR/usr/share/doc/umml-manager/UMAEXTRACTOR_INTEGRATION.md"
 install -m 0644 "$ROOT/docs/TESTING_AND_FEEDBACK.md" "$APPDIR/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md"
 install -m 0644 "$ROOT/docs/RELEASE_PROCESS.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_PROCESS.md"
-install -m 0644 "$ROOT/docs/releases/0.2.0-alpha.19.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_NOTES.md"
+install -m 0644 "$ROOT/docs/releases/$DISPLAY_VERSION.md" "$APPDIR/usr/share/doc/umml-manager/RELEASE_NOTES.md"
 install -m 0644 "$ROOT/MANAGER_CHANGELOG.md" "$APPDIR/usr/share/doc/umml-manager/changelog"
 
 cat > "$APPDIR/AppRun" <<'EOF_APPRUN'
@@ -88,7 +99,7 @@ case "${1-}" in
     shift
     exec "$BINARY" cli "$@"
     ;;
-  cli|--legacy-host|--version|-V)
+  cli|--legacy-host|--extractor-host|--extractor-host-probe|--version|-V)
     exec "$BINARY" "$@"
     ;;
   *)
@@ -139,6 +150,8 @@ ACTUAL_VERSION="$(APPIMAGE_EXTRACT_AND_RUN=1 "$OUTPUT" --version)"
   echo "AppImage version mismatch: expected $VERSION, got $ACTUAL_VERSION" >&2
   exit 1
 }
+APPIMAGE_EXTRACT_AND_RUN=1 "$OUTPUT" --extractor-host-probe \
+  | python3 -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
 APPIMAGE_EXTRACT_AND_RUN=1 "$OUTPUT" --cli --help >/dev/null
 
 VERIFY_ROOT="$(mktemp -d)"
@@ -153,7 +166,12 @@ diff -qr \
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/metainfo/$DESKTOP_ID.metainfo.xml" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/applications/$DESKTOP_ID.desktop" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/NOTICE.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/Python-3.14.6-LICENSE.txt" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/minidump-0.0.24-LICENSE.txt" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/DOWNLOADS.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/UMAEXTRACTOR_INTEGRATION.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_PROCESS.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/RELEASE_NOTES.md" ]]

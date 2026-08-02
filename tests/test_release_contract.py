@@ -103,14 +103,13 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn(version, readme)
         self.assertIn(version, metainfo)
 
-    def test_manager_docs_and_appstream_mention_current_version(self):
+    def test_manager_candidate_metadata_matches_current_version(self):
         version = (ROOT / "MANAGER_VERSION").read_text(
             encoding="utf-8"
         ).strip()
         appstream_version = version.replace("~alpha", "-alpha.")
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        manager_readme = (ROOT / "MANAGER_README.md").read_text(
-            encoding="utf-8"
+        release_notes = (
+            ROOT / "docs" / "releases" / f"{appstream_version}.md"
         )
         metainfo = (
             ROOT
@@ -118,14 +117,26 @@ class ReleaseContractTests(unittest.TestCase):
             / "linux"
             / "io.github.evelynlimab.ummlmanager.metainfo.xml"
         ).read_text(encoding="utf-8")
-        changelog = (ROOT / "MANAGER_CHANGELOG.md").read_text(
+        spec = (
+            ROOT / "packaging" / "pyinstaller" / "umml-manager.spec"
+        ).read_text(encoding="utf-8")
+
+        self.assertTrue(release_notes.is_file())
+        notes = release_notes.read_text(encoding="utf-8")
+        self.assertIn(appstream_version, notes)
+        self.assertIn(appstream_version, metainfo)
+        self.assertIn(f"{appstream_version}.md", spec)
+
+        # The repository README and citation describe the latest published
+        # release until the candidate is actually published. Candidate identity
+        # is enforced through MANAGER_VERSION, AppStream, notes, packaging, and
+        # the prerelease workflow instead of advertising unavailable binaries.
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        manager_readme = (ROOT / "MANAGER_README.md").read_text(
             encoding="utf-8"
         )
-
-        self.assertIn(version, readme)
-        self.assertIn(version, manager_readme)
-        self.assertIn(appstream_version, metainfo)
-        self.assertIn(version, changelog)
+        self.assertIn("Community Test", readme)
+        self.assertIn("Testing and feedback", manager_readme)
 
     def test_manager_checks_protect_main_and_exercise_finished_packages(self):
         workflow = (

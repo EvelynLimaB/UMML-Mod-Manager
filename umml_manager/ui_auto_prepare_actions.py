@@ -100,11 +100,15 @@ class AutoPrepareActions(MaintenanceActions):
 
         if mod.package_type != PACKAGE_UMML_ASSETS:
             return f"{mod.package_type}; backend needed"
+        if not self._record_needs_auto_prepare(mod):
+            # A direct Inspect & edit retry can complete outside the background
+            # callback. Do not let an old in-memory error outlive the repaired
+            # record and keep the UI permanently labelled as broken.
+            self._clear_auto_prepare_error(mod.id)
+            return "ready"
         if self._auto_prepare_errors().get(mod.id):
             return "automatic preparation issue"
-        if self._record_needs_auto_prepare(mod):
-            return "preparing automatically"
-        return "ready"
+        return "preparing automatically"
 
     def refresh_action_states(self) -> None:
         super().refresh_action_states()
@@ -119,6 +123,15 @@ class AutoPrepareActions(MaintenanceActions):
         )
 
     def show_selected_mod(self):
+        mod_id = self.library.selected_id() if hasattr(self, "library") else None
+        if mod_id:
+            try:
+                selected = self.store.get_mod(mod_id)
+                if not self._record_needs_auto_prepare(selected):
+                    self._clear_auto_prepare_error(selected.id)
+            except Exception:
+                pass
+
         result = super().show_selected_mod()
         mod_id = self.library.selected_id() if hasattr(self, "library") else None
         if not mod_id:
@@ -145,14 +158,16 @@ class AutoPrepareActions(MaintenanceActions):
         if record.compatibility_notes:
             extra.append("Compatibility notes\n" + record.compatibility_notes)
 
-        error = self._auto_prepare_errors().get(record.id)
+        needs_prepare = self._record_needs_auto_prepare(record)
+        error = self._auto_prepare_errors().get(record.id) if needs_prepare else None
         if error:
             extra.append(
                 "Automatic preparation issue\n"
                 + error
-                + "\nThe imported source is unchanged. The Manager will retry after metadata or package changes."
+                + "\nThe imported source is unchanged. The Manager will retry after a restart or update, "
+                "after metadata or package changes, or when Inspect & edit is opened again."
             )
-        elif self._record_needs_auto_prepare(record):
+        elif needs_prepare:
             extra.append(
                 "Automatic preparation\nQueued. No manual Prepare or Re-prepare action is required."
             )
@@ -214,6 +229,7 @@ class AutoPrepareActions(MaintenanceActions):
             return
 
         records = self.store.list_mods()
+        self._reconcile_auto_prepare_failures(records)
         by_id = {record.id: record for record in records}
         priority = self._auto_prepare_priority()
         ordered = []
@@ -338,6 +354,24 @@ class AutoPrepareActions(MaintenanceActions):
         self._auto_prepare_errors().pop(mod_id, None)
         self._auto_prepare_failures = {
             key for key in self._auto_prepare_failed_keys() if key[0] != mod_id
+        }
+
+    def _reconcile_auto_prepare_failures(self, records) -> None:
+        """Drop stale failure labels after a record becomes ready or is removed."""
+
+        pending_ids = {
+            record.id
+            for record in records
+            if self._record_needs_auto_prepare(record)
+        }
+        errors = self._auto_prepare_errors()
+        for mod_id in tuple(errors):
+            if mod_id not in pending_ids:
+                errors.pop(mod_id, None)
+        self._auto_prepare_failures = {
+            key
+            for key in self._auto_prepare_failed_keys()
+            if key[0] in pending_ids
         }
 
 

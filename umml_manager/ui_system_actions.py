@@ -11,6 +11,7 @@ from .network import tls_diagnostics
 from .process import running_game_processes
 from .studio import LEGACY_TOOLS, LegacyToolLauncher, open_path
 from .ui_theme import SURFACE, TEXT
+from .ui_windows import present_toplevel
 
 
 class SystemActions:
@@ -159,6 +160,7 @@ class SystemActions:
                     "installation_key": self.installation_key.get(),
                     "metadata_fingerprint": self.metadata_fingerprint.get(),
                     "gamebanana_region": self.gb_region.get(),
+                    "gamebanana_sort": self.gb_sort.get().strip().casefold() or "updated",
                     "scan_roots": roots,
                 }
             )
@@ -219,8 +221,12 @@ class SystemActions:
         ready = ready and tls_ready and manager_ready
 
         window = tk.Toplevel(self.root)
-        window.title("UMML diagnostics")
+        window.title("Uma Mod Manager diagnostics")
+        window.transient(self.root)
         window.geometry("920x620")
+        window.minsize(680, 440)
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(0, weight=1)
         box = tk.Text(
             window,
             wrap="none",
@@ -229,9 +235,16 @@ class SystemActions:
             insertbackground=TEXT,
             font=("TkFixedFont", 10),
         )
-        box.pack(fill="both", expand=True, padx=12, pady=12)
+        vertical = tk.Scrollbar(window, orient="vertical", command=box.yview)
+        horizontal = tk.Scrollbar(window, orient="horizontal", command=box.xview)
+        box.configure(yscrollcommand=vertical.set, xscrollcommand=horizontal.set)
+        box.grid(row=0, column=0, sticky="nsew", padx=(12, 0), pady=(12, 0))
+        vertical.grid(row=0, column=1, sticky="ns", padx=(0, 12), pady=(12, 0))
+        horizontal.grid(row=1, column=0, sticky="ew", padx=(12, 0), pady=(0, 12))
         box.insert("1.0", report)
         box.configure(state="disabled")
+        window.bind("<Escape>", lambda _event: window.destroy())
+        present_toplevel(window, self.root)
         self.status.set(
             "Diagnostics READY"
             if ready
@@ -335,12 +348,12 @@ class SystemActions:
             if failed:
                 failed(
                     RuntimeError(
-                        "Another UMML operation is still running."
+                        "Another Uma Mod Manager operation is still running."
                     )
                 )
             else:
                 messagebox.showinfo(
-                    "UMML is busy",
+                    "Uma Mod Manager is busy",
                     "Another operation is still running.",
                     parent=self.root,
                 )

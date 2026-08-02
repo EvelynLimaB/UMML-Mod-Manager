@@ -5,6 +5,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BUNDLE="${1:-$ROOT/build/manager-frozen/umml-manager}"
 OUT_DIR="${2:-$ROOT/dist}"
 VERSION="$(tr -d '[:space:]' < "$ROOT/MANAGER_VERSION")"
+DISPLAY_VERSION="${VERSION/~alpha/-alpha.}"
 # Keep the technical package identifier stable so existing installations upgrade
 # in place and continue using the same state, desktop ID, and recovery paths.
 PACKAGE="umml-manager"
@@ -14,6 +15,10 @@ PAYLOAD="$BUILD_ROOT/usr/lib/umml-manager"
 DESKTOP_ID="io.github.evelynlimab.ummlmanager"
 
 [[ -n "$VERSION" ]] || { echo "MANAGER_VERSION is empty" >&2; exit 1; }
+[[ -f "$ROOT/docs/releases/$DISPLAY_VERSION.md" ]] || {
+  echo "Release notes not found: docs/releases/$DISPLAY_VERSION.md" >&2
+  exit 1
+}
 [[ -x "$BUNDLE/umml-manager-bin" ]] || {
   echo "Frozen manager bundle not found: $BUNDLE" >&2
   echo "Run scripts/build_manager_frozen.sh first." >&2
@@ -54,16 +59,23 @@ install -m 0644 "$ROOT/packaging/linux/$DESKTOP_ID.metainfo.xml" \
   "$BUILD_ROOT/usr/share/metainfo/$DESKTOP_ID.metainfo.xml"
 install -m 0644 "$ROOT/LICENSE" "$BUILD_ROOT/usr/share/doc/$PACKAGE/copyright"
 install -m 0644 "$ROOT/NOTICE.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/NOTICE.md"
+install -m 0644 "$ROOT/third_party/licenses/Python-3.14.6.txt" \
+  "$BUILD_ROOT/usr/share/doc/$PACKAGE/Python-3.14.6-LICENSE.txt"
+install -m 0644 "$ROOT/third_party/licenses/minidump-0.0.24.txt" \
+  "$BUILD_ROOT/usr/share/doc/$PACKAGE/minidump-0.0.24-LICENSE.txt"
 install -m 0644 "$ROOT/README.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_README.md"
 install -m 0644 "$ROOT/CONTRIBUTING.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/CONTRIBUTING.md"
 install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/BRANDING_AND_COMPATIBILITY.md"
+install -m 0644 "$ROOT/docs/DOWNLOADS.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/DOWNLOADS.md"
+install -m 0644 "$ROOT/docs/GAMEBANANA_PROVIDER.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/GAMEBANANA_PROVIDER.md"
+install -m 0644 "$ROOT/docs/UMAEXTRACTOR_INTEGRATION.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/UMAEXTRACTOR_INTEGRATION.md"
 install -m 0644 "$ROOT/docs/MANAGER_ARCHITECTURE.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_ARCHITECTURE.md"
 install -m 0644 "$ROOT/docs/MANAGER_DEVELOPMENT.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_DEVELOPMENT.md"
 install -m 0644 "$ROOT/docs/PACKAGING.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/PACKAGING.md"
 install -m 0644 "$ROOT/docs/TESTING_AND_FEEDBACK.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/TESTING_AND_FEEDBACK.md"
 install -m 0644 "$ROOT/docs/RELEASE_PROCESS.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/RELEASE_PROCESS.md"
-install -m 0644 "$ROOT/docs/releases/0.2.0-alpha.19.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/RELEASE_NOTES.md"
+install -m 0644 "$ROOT/docs/releases/$DISPLAY_VERSION.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/RELEASE_NOTES.md"
 install -m 0644 "$ROOT/MANAGER_CHANGELOG.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/changelog"
 gzip -n -9 "$BUILD_ROOT/usr/share/doc/$PACKAGE/changelog"
 
@@ -84,9 +96,10 @@ Description: Umamusume mod manager and creator toolkit
  game assets transactionally. It provides conflict previews, target-bound
  vanilla baselines, recovery journals, external-change protection, creator
  workspaces, compatibility metadata, GameBanana discovery, privacy-scrubbed
- tester support bundles, and guarded access to original UMML tools. The
- technical package name remains umml-manager so existing installations and
- user state upgrade in place.
+ tester support bundles, a bundled Python 3.14 host for supported user-supplied
+ Werseter source ZIPs, and guarded access to original UMML tools. The technical
+ package name remains umml-manager so existing installations and user state
+ upgrade in place.
 EOF_CONTROL
 
 cat > "$BUILD_ROOT/DEBIAN/postinst" <<'EOF_POSTINST'
@@ -124,7 +137,12 @@ grep -q 'usr/bin/umml-manager$' "$CONTENTS"
 grep -q 'usr/bin/umml-manager-cli$' "$CONTENTS"
 grep -q "usr/share/metainfo/$DESKTOP_ID.metainfo.xml$" "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/NOTICE.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/Python-3.14.6-LICENSE.txt$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/minidump-0.0.24-LICENSE.txt$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/DOWNLOADS.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/UMAEXTRACTOR_INTEGRATION.md$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/TESTING_AND_FEEDBACK.md$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/RELEASE_PROCESS.md$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/RELEASE_NOTES.md$' "$CONTENTS"

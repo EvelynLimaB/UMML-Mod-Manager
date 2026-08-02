@@ -14,6 +14,7 @@ from .store import ManagerStore, default_root
 from .ui_auto_prepare_actions import AutoPrepareActions
 from .ui_discover import DiscoverPage
 from .ui_discover_actions import DiscoverActions
+from .ui_discover_experience import DiscoverExperienceActions
 from .ui_library import LibraryPage
 from .ui_library_actions import LibraryActions
 from .ui_settings import SettingsPage
@@ -25,12 +26,19 @@ PRODUCT_NAME = "Uma Mod Manager"
 
 
 class ManagerGUI(
+    DiscoverExperienceActions,
     AutoPrepareActions,
     LibraryActions,
     DiscoverActions,
     SystemActions,
 ):
-    def __init__(self, root: tk.Tk, store: ManagerStore | None = None):
+    def __init__(
+        self,
+        root: tk.Tk,
+        store: ManagerStore | None = None,
+        *,
+        auto_network: bool = True,
+    ):
         self.root = root
         self.store = store or ManagerStore(default_root())
         self._closing = False
@@ -43,6 +51,8 @@ class ManagerGUI(
         self._gb_can_previous = False
         self._gb_can_next = False
         self._saving_detected_installation = False
+        self._auto_network_enabled = auto_network
+        self._current_page = "library"
         settings = self.store.load_settings()
         self.profile_name = tk.StringVar(
             value=str(settings.get("profile", "Default"))
@@ -77,7 +87,9 @@ class ManagerGUI(
                 settings.get("gamebanana_region", self.region.get())
             )
         )
-        self.gb_sort = tk.StringVar(value="updated")
+        self.gb_sort = tk.StringVar(
+            value=str(settings.get("gamebanana_sort", "updated"))
+        )
         self.gb_query = tk.StringVar()
         self.gb_page = 1
         self.gb_results: dict[str, GameBananaMod] = {}
@@ -101,10 +113,13 @@ class ManagerGUI(
         self._build_header()
         self._build_body()
         self._build_footer()
+        self.configure_discover_experience()
         self.refresh()
         self.show_page("library")
         self._refresh_game_status()
         self.refresh_action_states()
+        if self._auto_network_enabled:
+            self.schedule_initial_gamebanana_load()
         if self.store.settings_warning:
             self.status.set(
                 "Settings were reset and preserved; Run diagnostics for the path"
@@ -401,10 +416,22 @@ class ManagerGUI(
             text=apply_text,
         )
 
-        self.discover.gb_region_box.configure(state="disabled" if busy else "readonly")
-        self.discover.gb_sort_box.configure(state="disabled" if busy else "readonly")
-        self.discover.gb_query_entry.configure(state="disabled" if busy else "normal")
-        self._configure_button(self.discover.browse_button, enabled=not busy)
+        catalog_loading = bool(getattr(self, "_gb_catalog_loading", False))
+        discover_busy = busy or catalog_loading
+        self.discover.gb_region_box.configure(
+            state="disabled" if discover_busy else "readonly"
+        )
+        self.discover.gb_sort_box.configure(
+            state="disabled" if discover_busy else "readonly"
+        )
+        self.discover.gb_query_entry.configure(
+            state="disabled" if discover_busy else "normal"
+        )
+        self._configure_button(
+            self.discover.browse_button,
+            enabled=not discover_busy,
+            text="Loading…" if catalog_loading else "Refresh",
+        )
         selected_gb = bool(
             self.gb_selected is not None
             and str(self.gb_selected.id) in self.gb_results
@@ -415,16 +442,20 @@ class ManagerGUI(
         )
         self._configure_button(
             self.discover.install_gb_button,
-            enabled=selected_gb and self._gb_install_enabled and not busy,
+            enabled=(
+                selected_gb
+                and self._gb_install_enabled
+                and not discover_busy
+            ),
             text=self._gb_install_text,
         )
         self._configure_button(
             self.discover.prev_button,
-            enabled=self._gb_can_previous and not busy,
+            enabled=self._gb_can_previous and not discover_busy,
         )
         self._configure_button(
             self.discover.next_button,
-            enabled=self._gb_can_next and not busy,
+            enabled=self._gb_can_next and not discover_busy,
         )
         self.discover.scan_roots_entry.configure(state="disabled" if busy else "normal")
         self._configure_button(self.discover.add_folder_button, enabled=not busy)
@@ -480,6 +511,7 @@ class ManagerGUI(
         if page is None:
             self.status.set(f"Unknown page: {key}")
             return
+        self._current_page = key
         page.tkraise()
         self.page_title.set(key.title())
         for name, button in self._nav_buttons.items():
@@ -492,6 +524,8 @@ class ManagerGUI(
             )
         if key == "conflicts":
             self.render_plan()
+        elif key == "discover" and self._auto_network_enabled:
+            self.discover_page_activated()
         self.refresh_action_states()
 
     @staticmethod
@@ -543,7 +577,7 @@ def run_gui_smoke_test() -> None:
         )
 
         root = tk.Tk()
-        app = ManagerGUI(root, store)
+        app = ManagerGUI(root, store, auto_network=False)
         try:
             root.update_idletasks()
             root.update()
