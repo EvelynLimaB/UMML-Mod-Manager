@@ -109,13 +109,6 @@ class VeteranMediaCache:
         self.root = Path(root).expanduser()
         self.root.mkdir(parents=True, exist_ok=True)
         self._tls_configuration = None
-        if opener is None:
-            context, configuration = create_ssl_context()
-            self._tls_configuration = configuration
-            opener = urllib.request.build_opener(
-                _SafeRedirectHandler(),
-                urllib.request.HTTPSHandler(context=context),
-            )
         self.opener = opener
 
     def fetch_selection(
@@ -211,6 +204,16 @@ class VeteranMediaCache:
                 continue
         return removed
 
+    def _get_opener(self):
+        if self.opener is None:
+            context, configuration = create_ssl_context()
+            self._tls_configuration = configuration
+            self.opener = urllib.request.build_opener(
+                _SafeRedirectHandler(),
+                urllib.request.HTTPSHandler(context=context),
+            )
+        return self.opener
+
     def _fetch_png(self, url: str, kind: str) -> tuple[Path, bool]:
         if not is_allowed_media_url(url):
             raise VeteranMediaError("Generated media URL is not approved.")
@@ -227,7 +230,7 @@ class VeteranMediaCache:
             method="GET",
         )
         try:
-            response = self.opener.open(request, timeout=20)
+            response = self._get_opener().open(request, timeout=20)
             with response:
                 final_url = str(response.geturl() or url)
                 if not is_allowed_media_url(final_url):
