@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Iterable
 
+from .extractor_host import ExtractorHostError, validate_supported_requirements
+
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_ARCHIVE_ENTRIES = 4096
 MAX_EXPANDED_BYTES = 1024 * 1024 * 1024
@@ -106,10 +108,10 @@ def install_extractor_archive(
     """Safely install a recognized external extractor from a source ZIP.
 
     Source bytes are copied into an immutable, hash-addressed directory. When a
-    compatible Python 3.14 interpreter is available, the Manager creates a
-    private virtual environment and installs only the package's declared
-    requirements into it. The upstream source is never imported into the
-    Manager process.
+    compatible Python 3.14 interpreter is available, source/development builds
+    can create a private virtual environment. Standalone Manager packages use
+    their bundled host instead. The upstream source is never imported into the
+    Manager GUI process.
     """
 
     source = _validate_archive_path(archive)
@@ -162,11 +164,15 @@ def install_extractor_archive(
             raise ExternalToolPackageError(
                 "The extractor package changed while it was being installed."
             )
+        try:
+            validate_supported_requirements(requirements)
+        except ExtractorHostError as exc:
+            raise ExternalToolPackageError(str(exc)) from exc
 
         runtime_ready = False
         runtime_message = (
-            "Source installed. Python 3.14+ was not configured; choose a "
-            "standalone upstream executable or install Python 3.14 to run it."
+            "Source installed. A compatible bundled host or external Python "
+            "3.14 runtime is required to run it."
         )
         if create_runtime:
             command = tuple(python_command or _find_python_314_command())
@@ -433,9 +439,9 @@ def _find_python_314_command() -> tuple[str, ...]:
             command = (launcher, "-3.14")
             if _python_command_is_314(command):
                 return command
-        candidates = ("python3.14.exe", "python.exe")
+        candidates = ("python3.14.exe", "python.exe", "python3.exe")
     else:
-        candidates = ("python3.14",)
+        candidates = ("python3.14", "python3", "python")
     for name in candidates:
         executable = shutil.which(name)
         if executable and _python_command_is_314((executable,)):
