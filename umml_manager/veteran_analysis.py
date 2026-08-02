@@ -53,6 +53,7 @@ _SKILL_KEYS = (
     "skills",
     "skill_id_array",
 )
+_FACTOR_LEVELS = frozenset((1, 2, 3))
 
 
 def factor_entries(record: dict[str, Any]) -> tuple[RosterEntry, ...]:
@@ -60,7 +61,9 @@ def factor_entries(record: dict[str, Any]) -> tuple[RosterEntry, ...]:
         _first(record, *_FACTOR_KEYS),
         id_keys=("factor_id", "factorId", "id"),
         name_keys=("factor_name", "factorName", "name", "label"),
-        level_keys=("level", "factor_level", "factorLevel", "star", "rarity"),
+        level_keys=("level", "factor_level", "factorLevel", "star"),
+        fallback_level_keys=("rarity",),
+        valid_levels=_FACTOR_LEVELS,
         fallback_prefix="Factor",
     )
 
@@ -149,6 +152,8 @@ def _entries(
     name_keys: tuple[str, ...],
     level_keys: tuple[str, ...],
     fallback_prefix: str,
+    fallback_level_keys: tuple[str, ...] = (),
+    valid_levels: frozenset[int] | None = None,
 ) -> tuple[RosterEntry, ...]:
     if not isinstance(raw, (list, tuple)):
         return ()
@@ -159,8 +164,12 @@ def _entries(
             identifier = _text(_first(item, *id_keys))
             explicit_name = _text(_first(item, *name_keys))
             raw_level = _first(item, *level_keys)
-            level_known = raw_level not in (None, "")
-            level = _integer(raw_level) if level_known else 0
+            level_known, level = _resolved_level(raw_level, valid_levels)
+            if not level_known and fallback_level_keys:
+                level_known, level = _resolved_level(
+                    _first(item, *fallback_level_keys),
+                    valid_levels,
+                )
         else:
             identifier = _text(item)
             explicit_name = ""
@@ -179,6 +188,18 @@ def _entries(
             )
         )
     return tuple(values)
+
+
+def _resolved_level(
+    raw_level: Any,
+    valid_levels: frozenset[int] | None,
+) -> tuple[bool, int]:
+    if raw_level in (None, ""):
+        return False, 0
+    level = _integer(raw_level)
+    if valid_levels is not None and level not in valid_levels:
+        return False, 0
+    return True, level
 
 
 def _first(record: dict[str, Any], *keys: str) -> Any:
