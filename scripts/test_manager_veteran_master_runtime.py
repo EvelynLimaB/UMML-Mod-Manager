@@ -147,6 +147,15 @@ def main() -> int:
         try:
             root.update_idletasks()
             root.update()
+            # Do not depend on a platform scheduler advancing the 280 ms
+            # selection debounce during an otherwise immediate smoke test.
+            if page._portrait_after is not None:
+                page.after_cancel(page._portrait_after)
+                page._portrait_after = None
+            page._refresh_primary_portrait()
+            root.update_idletasks()
+            root.update()
+
             if len(page.records) != 1:
                 raise RuntimeError("master-resolved workspace did not load one veteran")
             row = row_from_record(0, page.records[0])
@@ -163,6 +172,7 @@ def main() -> int:
                 raise RuntimeError(f"optional Media tab is missing: {tabs}")
             page.detail_notebook.select(page.media_tab)
             root.update_idletasks()
+            root.update()
             if not page.load_media_button.winfo_ismapped():
                 raise RuntimeError("explicit artwork action is not visible")
             if not page.primary_portrait_label.winfo_ismapped():
