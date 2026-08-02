@@ -1,4 +1,5 @@
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -113,6 +114,29 @@ class VeteranMediaTests(unittest.TestCase):
             self.assertEqual(second.downloads, 0)
             self.assertEqual(second.cache_hits, 3)
             self.assertEqual(len(opener.calls), 3)
+
+    def test_symlinked_cache_entry_is_replaced_not_trusted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            opener = _Opener(_png_bytes())
+            cache = VeteranMediaCache(root, opener=opener)
+            url = character_image_url(100101)
+            target = cache._cache_path(url, "portrait")
+            outside = root / "outside.png"
+            outside.write_bytes(b"not manager cache")
+            try:
+                os.symlink(outside, target)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable on this runner")
+
+            cached = cache.cached_selection(100101, [])
+            self.assertIsNone(cached.portrait)
+
+            result = cache.fetch_selection(100101, [])
+            self.assertEqual(result.downloads, 1)
+            self.assertEqual(len(opener.calls), 1)
+            self.assertFalse(target.is_symlink())
+            self.assertEqual(outside.read_bytes(), b"not manager cache")
 
     def test_non_image_response_is_reported_without_poisoning_cache(self):
         with tempfile.TemporaryDirectory() as temp:
