@@ -16,13 +16,11 @@ from .veterans import row_from_record
 
 
 class VeteranRosterPage(_PreviousVeteranRosterPage):
-    """Roster workspace with correct grid ownership and incremental artwork loading.
+    """Incremental roster artwork with local-first, consent-aware loading.
 
-    The previous pass accidentally placed the inherited credit footer and the
-    main paned workspace on the same grid row. It also queued portrait work as a
-    single sequential batch, so nothing appeared until the whole batch ended.
-    This layer gives every structural region one row, prioritizes the selected
-    and currently visible records, and renders each completed portrait at once.
+    Cached and installed-game portraits can load automatically. New HTTPS
+    downloads occur only after the user requests the selected portrait or uses
+    the explicit all-portraits action.
     """
 
     def __init__(self, parent, app):
@@ -39,6 +37,9 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
             thread_name_prefix="umml-roster-background",
         )
         self._portrait_futures: dict[str, Future] = {}
+        self._portrait_future_remote: dict[str, bool] = {}
+        self._remote_requested_cards: set[str] = set()
+        self._local_only_misses: set[str] = set()
         self._skill_future: Future | None = None
         self._skill_generation = 0
         self._card_rows: dict[str, tuple[int, ...]] = {}
@@ -129,7 +130,7 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
     def _build_loading_feedback(self) -> None:
         chrome = self.quick_search_entry.master
         chrome.columnconfigure(7, weight=1)
-        self.preload_portraits_button.configure(text="Refresh portraits")
+        self.preload_portraits_button.configure(text="Load all portraits online")
 
         host = ttk.Frame(chrome, style="Roster.Surface.TFrame")
         host.grid(row=2, column=0, columnspan=8, sticky="ew", pady=(7, 0))
@@ -218,15 +219,26 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
                 self.tree.item(item_id, image=photo)
 
     # ------------------------------------------------------------------
-    # Priority and automatic loading
+    # Priority and loading policy
 
     def _auto_preload_portraits(self) -> None:
         self._auto_preload_after = None
-        self._enqueue_portraits(self._ordered_card_ids(), priority_visible=True)
+        self._enqueue_portraits(
+            self._ordered_card_ids(),
+            priority_visible=True,
+            allow_remote=False,
+        )
 
     def preload_all_portraits(self) -> None:
+        """Explicitly allow HTTPS fallback for all unresolved costume portraits."""
+
         self._failed_cards.clear()
-        self._enqueue_portraits(self._ordered_card_ids(), priority_visible=True)
+        self._local_only_misses.clear()
+        self._enqueue_portraits(
+            self._ordered_card_ids(),
+            priority_visible=True,
+            allow_remote=True,
+        )
         self._update_chrome_status()
 
     def _queue_visible_portraits(self, _event=None) -> None:
@@ -241,7 +253,11 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
 
     def _load_visible_portraits(self) -> None:
         self._visible_preload_after = None
-        self._enqueue_portraits(self._visible_card_ids(), priority_visible=True)
+        self._enqueue_portraits(
+            self._visible_card_ids(),
+            priority_visible=True,
+            allow_remote=False,
+        )
 
     def _ordered_card_ids(self) -> tuple[str, ...]:
         selected: list[str] = []
@@ -283,34 +299,53 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
         card_ids: tuple[str, ...],
         *,
         priority_visible: bool,
+        allow_remote: bool,
     ) -> None:
         visible = set(self._visible_card_ids()) if priority_visible else set()
         selected = self._selected_media_ids()
         selected_card = str(selected[0]) if selected is not None else ""
         for card_id in card_ids:
             priority = card_id == selected_card or card_id in visible
-            self._enqueue_portrait(card_id, priority=priority)
+            self._enqueue_portrait(
+                card_id,
+                priority=priority,
+                allow_remote=allow_remote,
+            )
         self._ensure_portrait_poller()
         self._update_chrome_status()
 
-    def _enqueue_portrait(self, card_id: str, *, priority: bool) -> None:
+    def _enqueue_portrait(
+        self,
+        card_id: str,
+        *,
+        priority: bool,
+        allow_remote: bool,
+    ) -> None:
         if not card_id:
             return
         cached = self._cached_portrait(card_id)
         if cached is not None:
             self._apply_portrait_to_rows(card_id, cached)
             return
+        if not allow_remote and card_id in self._local_only_misses:
+            return
+        if allow_remote:
+            self._remote_requested_cards.add(card_id)
+            self._local_only_misses.discard(card_id)
 
         existing = self._portrait_futures.get(card_id)
         if existing is not None:
-            if priority and existing.cancel():
+            existing_allows_remote = self._portrait_future_remote.get(card_id, False)
+            if allow_remote and not existing_allows_remote and priority and existing.cancel():
                 self._portrait_futures.pop(card_id, None)
+                self._portrait_future_remote.pop(card_id, None)
             else:
                 return
 
         executor = self._priority_executor if priority else self._background_executor
-        future = executor.submit(self._load_portrait, card_id)
+        future = executor.submit(self._load_portrait, card_id, allow_remote)
         self._portrait_futures[card_id] = future
+        self._portrait_future_remote[card_id] = allow_remote
         self._apply_placeholder_to_rows(card_id, "loading")
         future.add_done_callback(
             lambda completed, key=card_id: self._portrait_events.put(
@@ -318,12 +353,19 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
             )
         )
 
-    def _load_portrait(self, card_id: str) -> PortraitLoadResult:
+    def _load_portrait(
+        self,
+        card_id: str,
+        allow_remote: bool,
+    ) -> PortraitLoadResult:
         # Use a task-local remote client. urllib openers keep mutable connection
         # state and should not be shared across worker threads.
         local = self._get_local_portrait_cache()
         remote = VeteranMediaCache(self._get_media_cache().root)
-        return VeteranPortraitResolver(local, remote).resolve(card_id)
+        return VeteranPortraitResolver(local, remote).resolve(
+            card_id,
+            allow_remote=allow_remote,
+        )
 
     # ------------------------------------------------------------------
     # Selected record portrait and skill icons
@@ -334,15 +376,16 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
         *,
         force: bool = False,
     ) -> None:
-        card_id, skill_ids = selection
+        card_id, _skill_ids = selection
         card_id = str(card_id)
         if force:
             self._failed_cards.discard(card_id)
             self._portrait_failures.discard(card_id)
+        self._local_only_misses.discard(card_id)
 
         self._portrait_request = selection
         self.primary_portrait_button.configure(state="disabled", text="Loading…")
-        self._enqueue_portrait(card_id, priority=True)
+        self._enqueue_portrait(card_id, priority=True, allow_remote=True)
         self._request_selected_skill_icons(selection)
         self._ensure_portrait_poller()
 
@@ -384,7 +427,7 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
             self._render_primary_portrait(portrait)
             self.primary_portrait_button.configure(
                 state="normal",
-                text="Reload portrait",
+                text="Reload portrait online",
             )
 
     # ------------------------------------------------------------------
@@ -416,6 +459,7 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
         current = self._portrait_futures.get(card_id)
         if current is not future:
             return
+        allow_remote = self._portrait_future_remote.pop(card_id, False)
         self._portrait_futures.pop(card_id, None)
         try:
             result: PortraitLoadResult = future.result()
@@ -423,16 +467,25 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
             result = PortraitLoadResult(
                 card_id=card_id,
                 portrait=None,
-                source="unavailable",
+                source="unavailable" if allow_remote else "local-unavailable",
                 warning="Portrait worker failed.",
             )
 
         if result.portrait is not None:
+            self._remote_requested_cards.discard(card_id)
+            self._local_only_misses.discard(card_id)
             self._failed_cards.discard(card_id)
             self._portrait_failures.discard(card_id)
             self._card_photos.pop(card_id, None)
             self._apply_portrait_to_rows(card_id, result.portrait)
+        elif not allow_remote and card_id in self._remote_requested_cards:
+            self._enqueue_portrait(card_id, priority=True, allow_remote=True)
+            return
+        elif not allow_remote:
+            self._local_only_misses.add(card_id)
+            self._apply_placeholder_to_rows(card_id, "empty")
         else:
+            self._remote_requested_cards.discard(card_id)
             self._failed_cards.add(card_id)
             self._portrait_failures.add(card_id)
             self._apply_placeholder_to_rows(card_id, "failed")
@@ -440,14 +493,14 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
         selected = self._selected_media_ids()
         if selected is not None and str(selected[0]) == card_id:
             if result.portrait is None:
-                self.primary_portrait_label.configure(
-                    image="",
-                    text="Portrait unavailable\nUse Retry portrait",
-                )
-                self.primary_portrait_button.configure(
-                    state="normal",
-                    text="Retry portrait",
-                )
+                if allow_remote:
+                    text = "Portrait unavailable\nOnline fallback also failed"
+                    button = "Retry portrait online"
+                else:
+                    text = "No installed portrait found\nOnline fallback is optional"
+                    button = "Load portrait online"
+                self.primary_portrait_label.configure(image="", text=text)
+                self.primary_portrait_button.configure(state="normal", text=button)
             else:
                 self._render_selected_cached_media()
 
@@ -486,6 +539,8 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
             status += f" · {loading:,} loading"
         elif self._failed_cards:
             status += f" · {len(self._failed_cards):,} unavailable"
+        elif self._local_only_misses:
+            status += f" · {len(self._local_only_misses):,} online optional"
         self.chrome_status_value.set(status)
 
         host = getattr(self, "_portrait_progress_host", None)
@@ -506,7 +561,11 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
 
         if hasattr(self, "preload_portraits_button"):
             self.preload_portraits_button.configure(
-                text=f"Loading portraits ({loading})" if loading else "Refresh portraits",
+                text=(
+                    f"Loading portraits ({loading})"
+                    if loading
+                    else "Load all portraits online"
+                ),
                 state="disabled" if loading else "normal",
             )
 
@@ -514,9 +573,15 @@ class VeteranRosterPage(_PreviousVeteranRosterPage):
         super().clear_media_cache()
         self._card_photos.clear()
         self._failed_cards.clear()
+        self._local_only_misses.clear()
+        self._remote_requested_cards.clear()
         self._reindex_card_rows()
         self._restore_row_art()
-        self._enqueue_portraits(self._ordered_card_ids(), priority_visible=True)
+        self._enqueue_portraits(
+            self._ordered_card_ids(),
+            priority_visible=True,
+            allow_remote=False,
+        )
 
     def _shutdown_portrait_workers(self, event) -> None:
         if event.widget is not self or self._destroying:
