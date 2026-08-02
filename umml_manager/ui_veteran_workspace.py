@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tkinter as tk
 from tkinter import ttk
 
 from .ui_veteran_lab import RosterLabPage
@@ -13,8 +14,14 @@ class VeteranRosterPage(RosterLabPage):
     """
 
     def __init__(self, parent, app):
+        self._workspace_after: str | None = None
+        self._workspace_compact: bool | None = None
         super().__init__(parent, app)
+        self._summary_panel = self.metrics.master
         self._compact_selected_actions()
+        self.bind("<Configure>", self._queue_workspace_layout, add="+")
+        self.bind("<Destroy>", self._cancel_pending_callbacks, add="+")
+        self.after_idle(self._apply_workspace_layout)
 
     def _compact_selected_actions(self) -> None:
         bar = self.copy_ids_button.master
@@ -43,6 +50,50 @@ class VeteranRosterPage(RosterLabPage):
                     child.grid_remove()
             except (AttributeError, TypeError):
                 continue
+
+    def _queue_workspace_layout(self, event) -> None:
+        if event.widget is not self:
+            return
+        if self._workspace_after is not None:
+            try:
+                self.after_cancel(self._workspace_after)
+            except tk.TclError:
+                pass
+        self._workspace_after = self.after(35, self._apply_workspace_layout)
+
+    def _apply_workspace_layout(self) -> None:
+        self._workspace_after = None
+        try:
+            scaling = float(self.tk.call("tk", "scaling"))
+            height = self.winfo_height()
+        except (tk.TclError, TypeError, ValueError):
+            return
+
+        # At increased text scaling, the metric summary is useful but not more
+        # useful than the actual roster. Reclaim that fixed vertical space at a
+        # compact height while preserving every search, filter, import, export,
+        # and comparison control.
+        compact = scaling >= 1.2 and height < 720
+        if compact == self._workspace_compact:
+            return
+        self._workspace_compact = compact
+        if compact:
+            self._summary_panel.grid_remove()
+        else:
+            self._summary_panel.grid()
+
+    def _cancel_pending_callbacks(self, event) -> None:
+        if event.widget is not self:
+            return
+        for attribute in ("_workspace_after", "_layout_after", "_search_after"):
+            callback = getattr(self, attribute, None)
+            if callback is None:
+                continue
+            try:
+                self.after_cancel(callback)
+            except tk.TclError:
+                pass
+            setattr(self, attribute, None)
 
     def _layout_metrics(self, width: int) -> None:
         self._layout_after = None
