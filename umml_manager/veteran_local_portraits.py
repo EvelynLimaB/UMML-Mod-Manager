@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+import stat
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,8 +38,9 @@ class LocalPortraitCache:
 
     ``master.mdb`` maps a card to its character and race dress. ``meta`` maps
     the logical asset name to a content hash, and ``dat`` contains the Unity
-    bundle at ``dat/<first-two-hash-characters>/<hash>``. Only Manager-owned PNG
-    cache files are written; all game databases and bundles remain read-only.
+    bundle at ``dat/<first-two-hash-characters>/<hash>``. Only regular
+    Manager-owned PNG cache files are trusted; all game databases and bundles
+    remain read-only.
     """
 
     def __init__(
@@ -96,7 +98,7 @@ class LocalPortraitCache:
         if resolved is None:
             return None
         candidate = self.root / f"local-portrait-{resolved}.png"
-        return candidate if candidate.is_file() else None
+        return candidate if _regular_file(candidate) else None
 
     def extract(self, card_id: object) -> LocalPortraitResult:
         resolved = _positive_integer(card_id)
@@ -127,7 +129,7 @@ class LocalPortraitCache:
                 warnings.append(f"Asset hash {content_hash!r} is invalid or absent from dat.")
                 continue
             try:
-                if self.extractor(bundle, stems, target) and target.is_file():
+                if self.extractor(bundle, stems, target) and _regular_file(target):
                     return LocalPortraitResult(
                         resolved,
                         target,
@@ -246,7 +248,7 @@ class LocalPortraitCache:
                 continue
             if not _is_relative_to(resolved, root):
                 continue
-            if resolved.is_file():
+            if _regular_file(resolved):
                 return resolved
         return None
 
@@ -348,6 +350,13 @@ def _escape_like(value: str) -> str:
 
 def _safe_asset_hash(value: str) -> bool:
     return bool(_SAFE_ASSET_HASH.fullmatch(value))
+
+
+def _regular_file(path: Path) -> bool:
+    try:
+        return stat.S_ISREG(path.lstat().st_mode)
+    except OSError:
+        return False
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:
