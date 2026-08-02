@@ -16,7 +16,24 @@ from .veterans import VeteranDataError, row_from_record
 
 
 class VeteranRosterPage(_VeteranRosterPage):
-    """Final window-facing roster page with hardened user-selected exports."""
+    """Final window-facing roster page with hardened exports and teardown."""
+
+    def __init__(self, parent, app):
+        super().__init__(parent, app)
+        self.bind("<Destroy>", self._cancel_pending_ui_callbacks, add="+")
+
+    def _cancel_pending_ui_callbacks(self, event) -> None:
+        if event.widget is not self:
+            return
+        for attribute in ("_layout_after", "_search_after"):
+            callback_id = getattr(self, attribute, None)
+            if callback_id is None:
+                continue
+            try:
+                self.after_cancel(callback_id)
+            except tk.TclError:
+                pass
+            setattr(self, attribute, None)
 
     def export_selected(self) -> None:
         if self._selected_index is None:
