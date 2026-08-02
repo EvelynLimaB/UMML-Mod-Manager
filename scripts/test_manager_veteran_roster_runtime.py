@@ -16,7 +16,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from umml_manager.store import ManagerStore
 from umml_manager.ui_theme import configure_theme
-from umml_manager.ui_veteran_lab import RosterLabPage
+from umml_manager.ui_veteran_workspace import VeteranRosterPage
 from umml_manager.veterans import VeteranStore
 
 CASES = (
@@ -139,7 +139,7 @@ def exercise_case(label: str, width: int, height: int, scaling: float) -> None:
         window.minsize(1020, 680)
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
-        page = RosterLabPage(window, app)
+        page = VeteranRosterPage(window, app)
         page.grid(row=0, column=0, sticky="nsew", padx=16, pady=14)
         window.update_idletasks()
         window.update()
