@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 import tempfile
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ class LocalPortraitResult:
 
 
 Extractor = Callable[[Path, tuple[str, ...], Path], bool]
+_SAFE_ASSET_HASH = re.compile(r"^[0-9A-Fa-f]{8,128}$")
 
 
 class LocalPortraitCache:
@@ -122,7 +124,7 @@ class LocalPortraitCache:
         for logical_name, content_hash in candidates:
             bundle = self._bundle_path(content_hash)
             if bundle is None:
-                warnings.append(f"Asset hash {content_hash} is not present in dat.")
+                warnings.append(f"Asset hash {content_hash!r} is invalid or absent from dat.")
                 continue
             try:
                 if self.extractor(bundle, stems, target) and target.is_file():
@@ -207,14 +209,15 @@ class LocalPortraitCache:
             found: list[tuple[str, str]] = []
             seen: set[str] = set()
             for stem in stems:
+                escaped = _escape_like(stem)
                 rows = connection.execute(
-                    "SELECT n, h FROM a WHERE n LIKE ? ORDER BY n LIMIT 32",
-                    (f"%{stem}%",),
+                    "SELECT n, h FROM a WHERE n LIKE ? ESCAPE '\\' ORDER BY n LIMIT 32",
+                    (f"%{escaped}%",),
                 )
                 for logical_name, content_hash in rows:
                     logical = str(logical_name or "")
-                    digest = str(content_hash or "")
-                    if not digest or digest in seen:
+                    digest = str(content_hash or "").strip()
+                    if not _safe_asset_hash(digest) or digest in seen:
                         continue
                     seen.add(digest)
                     found.append((logical, digest))
@@ -225,16 +228,27 @@ class LocalPortraitCache:
     def _bundle_path(self, content_hash: str) -> Path | None:
         if self.dat_root is None:
             return None
-        digest = content_hash.strip()
-        if len(digest) < 2:
+        digest = str(content_hash).strip()
+        if not _safe_asset_hash(digest):
+            return None
+
+        try:
+            root = self.dat_root.resolve(strict=True)
+        except OSError:
             return None
         prefixes = tuple(dict.fromkeys((digest[:2], digest[:2].lower(), digest[:2].upper())))
-        for prefix in prefixes:
-            candidate = self.dat_root / prefix / digest
-            if candidate.is_file():
-                return candidate
-        direct = self.dat_root / digest
-        return direct if direct.is_file() else None
+        candidates = [root / prefix / digest for prefix in prefixes]
+        candidates.append(root / digest)
+        for candidate in candidates:
+            try:
+                resolved = candidate.resolve(strict=True)
+            except OSError:
+                continue
+            if not _is_relative_to(resolved, root):
+                continue
+            if resolved.is_file():
+                return resolved
+        return None
 
 
 def _extract_unity_portrait(
@@ -312,7 +326,7 @@ def _open_read_only(path: Path) -> sqlite3.Connection:
     resolved = path.resolve()
     uri_path = quote(resolved.as_posix(), safe="/:")
     connection = sqlite3.connect(
-        f"file:{uri_path}?mode=ro&immutable=1",
+        f"file:{uri_path}?mode=ro",
         uri=True,
         timeout=5,
     )
@@ -326,6 +340,22 @@ def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
         return {str(row[1]) for row in connection.execute(f'PRAGMA table_info("{safe}")')}
     except sqlite3.Error:
         return set()
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _safe_asset_hash(value: str) -> bool:
+    return bool(_SAFE_ASSET_HASH.fullmatch(value))
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 def _path_or_none(value: str | Path | None) -> Path | None:
