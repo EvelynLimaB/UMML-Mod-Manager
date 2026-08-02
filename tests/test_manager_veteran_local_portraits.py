@@ -72,7 +72,7 @@ class VeteranLocalPortraitTests(unittest.TestCase):
                 extractor=extractor,
             )
             first = cache.extract(100101)
-            self.assertEqual(first.source_bundle, bundle)
+            self.assertEqual(first.source_bundle, bundle.resolve())
             self.assertIsNotNone(first.portrait)
             self.assertTrue(first.portrait.is_file())
             self.assertFalse(first.cache_hit)
@@ -84,6 +84,71 @@ class VeteranLocalPortraitTests(unittest.TestCase):
             self.assertTrue(second.cache_hit)
             self.assertEqual(second.portrait, first.portrait)
             self.assertEqual(len(calls), 1)
+
+    def test_like_wildcards_in_portrait_stem_are_escaped(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="umm-local-portrait-like-") as temp:
+            root = Path(temp)
+            master, meta, dat, _bundle = self._fixture(root)
+            decoy_hash = "CD0123456789"
+            connection = sqlite3.connect(meta)
+            try:
+                connection.execute(
+                    "INSERT INTO a(n, h) VALUES (?, ?)",
+                    (
+                        "3d/chara/stand/charaXstandX1001X000106.unity3d",
+                        decoy_hash,
+                    ),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+            decoy = dat / "CD" / decoy_hash
+            decoy.parent.mkdir(parents=True)
+            decoy.write_bytes(b"decoy")
+
+            cache = LocalPortraitCache(
+                root / "cache",
+                master_path=master,
+                meta_path=meta,
+                dat_root=dat,
+                extractor=lambda *_args: False,
+            )
+            candidates = cache._bundle_candidates(("chara_stand_1001_000106",))
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0][1], "AB0123456789")
+
+    def test_malformed_meta_hash_cannot_escape_dat_root(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="umm-local-portrait-traversal-") as temp:
+            root = Path(temp)
+            master, meta, dat, _bundle = self._fixture(root)
+            outside = root / "outside.unity3d"
+            outside.write_bytes(b"must not be read")
+            connection = sqlite3.connect(meta)
+            try:
+                connection.execute(
+                    "UPDATE a SET h = ?",
+                    ("../../outside.unity3d",),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+            calls: list[Path] = []
+
+            def extractor(source: Path, _stems: tuple[str, ...], _target: Path) -> bool:
+                calls.append(source)
+                return False
+
+            cache = LocalPortraitCache(
+                root / "cache",
+                master_path=master,
+                meta_path=meta,
+                dat_root=dat,
+                extractor=extractor,
+            )
+            result = cache.extract(100101)
+            self.assertIsNone(result.portrait)
+            self.assertEqual(calls, [])
+            self.assertEqual(cache._bundle_path("../../outside.unity3d"), None)
 
     def test_missing_installation_fails_without_writing(self) -> None:
         with tempfile.TemporaryDirectory(prefix="umm-local-portrait-missing-") as temp:
