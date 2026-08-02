@@ -6,8 +6,8 @@ from .ui_veteran_external import (
     configure_external_extractor,
     launch_configured_extractor,
 )
-from .ui_veteran_lab import RosterLabPage
 from .ui_veteran_providers import launch_provider_window
+from .ui_veteran_workspace import VeteranRosterPage
 from .ui_windows import present_toplevel
 
 
@@ -34,7 +34,7 @@ def launch_veterans_window(app) -> None:
     window.columnconfigure(0, weight=1)
     window.rowconfigure(0, weight=1)
 
-    page = RosterLabPage(window, app)
+    page = VeteranRosterPage(window, app)
     page.rowconfigure(2, weight=0)
     page.rowconfigure(3, weight=1)
     page.grid(row=0, column=0, sticky="nsew", padx=16, pady=14)
