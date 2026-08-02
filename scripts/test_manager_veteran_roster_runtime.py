@@ -147,8 +147,16 @@ def exercise_case(label: str, width: int, height: int, scaling: float) -> None:
         try:
             if len(page.tree.get_children()) != 3:
                 raise RuntimeError(f"Roster rendered {len(page.tree.get_children())} rows, expected 3")
-            if page.detail_notebook.index("end") != 4:
-                raise RuntimeError("Roster detail notebook did not expose four readable tabs")
+            tabs = {
+                str(page.detail_notebook.tab(tab_id, "text")).split(" (")[0]
+                for tab_id in page.detail_notebook.tabs()
+            }
+            required_tabs = {"Overview", "Factors", "Skills", "Raw", "Media"}
+            if not required_tabs.issubset(tabs):
+                raise RuntimeError(
+                    "Roster detail notebook is missing required readable tabs: "
+                    f"expected {sorted(required_tabs)}, got {sorted(tabs)}"
+                )
             if page.metric_values["veterans"].get() != "3":
                 raise RuntimeError("Roster summary did not count imported veterans")
             if page.factor_summary_value.get() != "2 factor(s) · 5 known stars · 1 at 3★":
@@ -161,6 +169,10 @@ def exercise_case(label: str, width: int, height: int, scaling: float) -> None:
                 raise RuntimeError("Selected veteran skills were not rendered")
             if len(page.aptitude_tree.get_children()) != 2:
                 raise RuntimeError("Selected veteran aptitudes were not rendered")
+            if not page.load_media_button.winfo_exists():
+                raise RuntimeError("Optional artwork action was not constructed")
+            if list((page.store.root / "media-cache").glob("*.png")):
+                raise RuntimeError("Roster downloaded artwork without explicit user action")
 
             page.toggle_legacy_shortlist()
             window.update_idletasks()
