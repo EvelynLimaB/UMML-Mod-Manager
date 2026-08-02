@@ -79,12 +79,25 @@ class VeteranPortraitResolverTests(unittest.TestCase):
             self.assertEqual(local.calls, 1)
             self.assertEqual(remote.fetch_calls, [])
 
-    def test_remote_is_used_only_when_local_portrait_is_missing(self):
+    def test_automatic_resolution_never_starts_remote_request(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             local = _LocalStub(root, available=False)
             remote = _RemoteStub(root)
             result = VeteranPortraitResolver(local, remote).resolve(100101)
+            self.assertEqual(result.source, "local-unavailable")
+            self.assertIsNone(result.portrait)
+            self.assertEqual(remote.fetch_calls, [])
+
+    def test_remote_is_used_only_after_explicit_permission(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            local = _LocalStub(root, available=False)
+            remote = _RemoteStub(root)
+            result = VeteranPortraitResolver(local, remote).resolve(
+                100101,
+                allow_remote=True,
+            )
             self.assertEqual(result.source, "remote")
             self.assertEqual(remote.fetch_calls, [("100101", ())])
 
