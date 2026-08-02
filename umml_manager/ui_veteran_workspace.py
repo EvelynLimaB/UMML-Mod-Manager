@@ -108,8 +108,9 @@ class VeteranRosterPage(RosterLabPage):
         self.media_status_value = tk.StringVar(
             master=self.media_tab,
             value=(
-                "Artwork is optional and never bundled. Load it explicitly to cache the "
-                "selected costume and up to 12 skill icons from approved HTTPS hosts."
+                "Artwork is cached locally. The roster uses installed game assets first; "
+                "the explicit load action can use the approved HTTPS fallback for missing "
+                "costume art and up to 12 skill icons."
             ),
         )
         ttk.Label(
@@ -173,8 +174,9 @@ class VeteranRosterPage(RosterLabPage):
         ttk.Label(
             self.media_tab,
             text=(
-                "Images are served by GameTora and retained only in the Manager-owned local "
-                "cache. Names, IDs, stars, and descriptions come from your master.mdb."
+                "Portraits extracted from your installation and validated fallback images are "
+                "retained only in the Manager-owned cache. Names, IDs, stars, and descriptions "
+                "come from your master.mdb."
             ),
             style="RosterSurfaceMuted.TLabel",
             wraplength=430,
