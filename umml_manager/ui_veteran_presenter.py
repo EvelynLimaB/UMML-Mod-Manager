@@ -104,7 +104,8 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
 
     def _render_media(self, result: VeteranMediaResult) -> None:
         super()._render_media(result)
-        self._render_primary_portrait(result.portrait)
+        if hasattr(self, "primary_portrait_label"):
+            self._render_primary_portrait(result.portrait)
 
     def _queue_primary_portrait(self) -> None:
         if self._portrait_after is not None:
@@ -217,6 +218,8 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
         )
 
     def _render_primary_portrait(self, path: Path | None) -> None:
+        if not hasattr(self, "primary_portrait_label"):
+            return
         if path is None:
             self._detail_portrait_photo = None
             self.primary_portrait_label.configure(
