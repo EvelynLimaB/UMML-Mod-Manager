@@ -13,12 +13,15 @@ class RosterEntry:
     name: str
     level: int
     level_known: bool
+    level_kind: str = "stars"
 
     @property
     def level_label(self) -> str:
-        if not self.level_known:
+        if not self.level_known or self.level <= 0:
             return "—"
-        return f"{self.level}★" if self.level > 0 else "—"
+        if self.level_kind == "level":
+            return f"Lv {self.level}"
+        return f"{self.level}★"
 
 
 @dataclass(frozen=True)
@@ -65,16 +68,21 @@ def factor_entries(record: dict[str, Any]) -> tuple[RosterEntry, ...]:
         fallback_level_keys=("rarity",),
         valid_levels=_FACTOR_LEVELS,
         fallback_prefix="Factor",
+        level_kind="stars",
     )
 
 
 def skill_entries(record: dict[str, Any]) -> tuple[RosterEntry, ...]:
+    # Master-data rarity describes the skill itself; it is not the acquired
+    # skill level from the trained-character record. Keep those concepts apart.
     return _entries(
         _first(record, *_SKILL_KEYS),
         id_keys=("skill_id", "skillId", "id"),
         name_keys=("skill_name", "skillName", "name", "label"),
-        level_keys=("level", "skill_level", "skillLevel", "rarity"),
+        level_keys=("level", "skill_level", "skillLevel"),
         fallback_prefix="Skill",
+        minimum_level=1,
+        level_kind="level",
     )
 
 
@@ -154,6 +162,8 @@ def _entries(
     fallback_prefix: str,
     fallback_level_keys: tuple[str, ...] = (),
     valid_levels: frozenset[int] | None = None,
+    minimum_level: int | None = None,
+    level_kind: str = "stars",
 ) -> tuple[RosterEntry, ...]:
     if not isinstance(raw, (list, tuple)):
         return ()
@@ -164,11 +174,16 @@ def _entries(
             identifier = _text(_first(item, *id_keys))
             explicit_name = _text(_first(item, *name_keys))
             raw_level = _first(item, *level_keys)
-            level_known, level = _resolved_level(raw_level, valid_levels)
+            level_known, level = _resolved_level(
+                raw_level,
+                valid_levels,
+                minimum_level=minimum_level,
+            )
             if not level_known and fallback_level_keys:
                 level_known, level = _resolved_level(
                     _first(item, *fallback_level_keys),
                     valid_levels,
+                    minimum_level=minimum_level,
                 )
         else:
             identifier = _text(item)
@@ -185,6 +200,7 @@ def _entries(
                 name=name,
                 level=max(0, level),
                 level_known=level_known,
+                level_kind=level_kind,
             )
         )
     return tuple(values)
@@ -193,11 +209,15 @@ def _entries(
 def _resolved_level(
     raw_level: Any,
     valid_levels: frozenset[int] | None,
+    *,
+    minimum_level: int | None = None,
 ) -> tuple[bool, int]:
     if raw_level in (None, ""):
         return False, 0
     level = _integer(raw_level)
     if valid_levels is not None and level not in valid_levels:
+        return False, 0
+    if minimum_level is not None and level < minimum_level:
         return False, 0
     return True, level
 
