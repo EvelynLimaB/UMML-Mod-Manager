@@ -165,8 +165,9 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
         *,
         force: bool = False,
     ) -> None:
-        if self._portrait_request is not None and not force:
-            return
+        if self._portrait_request is not None:
+            if not force or self._portrait_request == selection:
+                return
         card_id, _skill_ids = selection
         cache = self._get_media_cache()
         self._portrait_request = selection
@@ -176,6 +177,7 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
             self._portrait_request = None
             current = self._selected_media_ids()
             if current != selection:
+                self._queue_primary_portrait()
                 return
             if result.portrait is None:
                 self._portrait_failures.add(card_id)
@@ -185,6 +187,7 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
                 )
                 self.primary_portrait_button.configure(state="normal", text="Retry portrait")
                 return
+            self._portrait_failures.discard(card_id)
             # Re-render the whole selected media state so the existing Media tab
             # and the primary portrait remain synchronized.
             self._render_media(cache.cached_selection(*selection))
@@ -194,6 +197,7 @@ class VeteranRosterPage(_WorkspaceVeteranRosterPage):
             self._portrait_request = None
             self._portrait_failures.add(card_id)
             if self._selected_media_ids() != selection:
+                self._queue_primary_portrait()
                 return
             self.primary_portrait_label.configure(
                 image="",
