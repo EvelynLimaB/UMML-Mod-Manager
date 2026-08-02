@@ -36,10 +36,13 @@ def build_external_launch(
     stays outside the Manager process and writes only to the isolated inbox.
     """
 
-    path = Path(extractor).expanduser().resolve()
+    selected = Path(extractor).expanduser()
+    if not _regular_file(selected):
+        raise FileNotFoundError(
+            f"External extractor must be a regular non-symlink file: {selected}"
+        )
+    path = selected.resolve()
     output = Path(inbox).expanduser().resolve()
-    if not path.is_file():
-        raise FileNotFoundError(f"External extractor does not exist: {path}")
     output.mkdir(parents=True, exist_ok=True)
 
     if path.suffix.casefold() != ".py":
@@ -111,10 +114,18 @@ def configure_external_extractor(app, page) -> None:
     )
     if not selected:
         return
-    path = Path(selected).expanduser().resolve()
+    selected_path = Path(selected).expanduser()
+    if not _regular_file(selected_path):
+        messagebox.showerror(
+            "External extractor unavailable",
+            f"The selected extractor package must be a regular non-symlink file:\n{selected_path}",
+            parent=app.root,
+        )
+        return
+    path = selected_path.resolve()
     if path.suffix.casefold() != ".zip":
         try:
-            _save_external_selection(page, path)
+            _save_external_selection(page, selected_path)
         except (OSError, RuntimeError) as exc:
             messagebox.showerror(
                 "External extractor unavailable",
@@ -216,8 +227,10 @@ def launch_configured_extractor(app, page) -> None:
     configured_python = (
         str(settings.get("extractor_python") or "").strip() or None
     )
+    configured_path = Path(configured).expanduser()
     if (
-        _looks_like_werseter_source(Path(configured).expanduser().resolve())
+        _regular_file(configured_path)
+        and _looks_like_werseter_source(configured_path.resolve())
         and bool(getattr(sys, "frozen", False))
         and packaged_host_available()
     ):
@@ -340,14 +353,10 @@ def _open_extractor_log(path: Path) -> BinaryIO:
     try:
         if not stat.S_ISREG(os.fstat(descriptor).st_mode):
             raise OSError("Extractor log destination is not a regular file")
-        if not nofollow:
-            # Windows lacks O_NOFOLLOW. Compare the path entry itself after open
-            # and reject reparse/symlink-style links before handing it to Popen.
-            try:
-                if stat.S_ISLNK(path.lstat().st_mode):
-                    raise OSError("Extractor log destination cannot be a symlink")
-            except OSError:
-                raise
+        if not nofollow and stat.S_ISLNK(path.lstat().st_mode):
+            # Windows lacks O_NOFOLLOW. Reject link-like path entries before the
+            # descriptor is handed to the child process.
+            raise OSError("Extractor log destination cannot be a symlink")
         return os.fdopen(descriptor, "ab", closefd=True)
     except Exception:
         os.close(descriptor)
@@ -366,10 +375,11 @@ def _save_external_selection(page, path: Path) -> None:
         raise FileNotFoundError(
             f"External extractor must be a regular non-symlink file: {path}"
         )
+    resolved = path.resolve()
     settings = page.store.load_settings()
     settings.update(
         {
-            "extractor_path": str(path),
+            "extractor_path": str(resolved),
             "extractor_python": "",
             "extractor_runtime": "external",
             "extractor_package_root": "",
