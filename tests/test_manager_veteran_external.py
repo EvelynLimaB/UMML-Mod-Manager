@@ -51,6 +51,20 @@ class ExternalVeteranExtractorTests(unittest.TestCase):
             self.assertEqual(launch.cwd, inbox.resolve())
             self.assertTrue(inbox.is_dir())
 
+    def test_linked_extractor_cannot_bypass_launch_validation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            executable = root / "UmaExtractor.exe"
+            executable.write_bytes(b"MZ")
+            link = root / "linked.exe"
+            try:
+                os.symlink(executable, link)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable on this runner")
+
+            with self.assertRaises(FileNotFoundError):
+                build_external_launch(link, root / "inbox")
+
     def test_generic_python_extractor_uses_configured_interpreter(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
