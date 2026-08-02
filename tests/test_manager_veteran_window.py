@@ -30,10 +30,9 @@ class _Window:
 
 
 def _parse_geometry(value: str) -> tuple[int, int, int, int]:
-    size, x, y = value.replace("+", "x", 2).split("x")
-    width, height = value.split("+", 1)[0].split("x")
-    offsets = value.split("+")[1:]
-    return int(width), int(height), int(offsets[0]), int(offsets[1])
+    dimensions, x, y = value.split("+")
+    width, height = dimensions.split("x")
+    return int(width), int(height), int(x), int(y)
 
 
 class VeteranWindowGeometryTests(unittest.TestCase):
