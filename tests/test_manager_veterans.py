@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +16,26 @@ from umml_manager.veterans import (
 
 
 class VeteranStoreTests(unittest.TestCase):
+    @staticmethod
+    def _write_roster(path: Path) -> None:
+        path.write_text(
+            json.dumps(
+                [
+                    {
+                        "trained_chara_id": 91,
+                        "chara_id": 1001,
+                        "card_id": 100101,
+                        "speed": 900,
+                        "stamina": 700,
+                        "power": 800,
+                        "guts": 400,
+                        "wiz": 600,
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
     def test_import_scrubs_private_fields_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -48,6 +69,7 @@ class VeteranStoreTests(unittest.TestCase):
             second = store.import_json(source)
 
             self.assertEqual(first.id, second.id)
+            self.assertTrue(first.data_sha256)
             self.assertEqual(len(store.list_snapshots()), 1)
             records = store.load_records(first)
             self.assertEqual(len(records), 1)
@@ -176,6 +198,79 @@ class VeteranStoreTests(unittest.TestCase):
             store = VeteranStore(root / "veterans")
             with self.assertRaises(VeteranDataError):
                 store.import_json(source)
+
+    def test_selected_source_symlink_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "actual.json"
+            link = root / "linked.json"
+            self._write_roster(source)
+            try:
+                os.symlink(source, link)
+            except OSError:
+                self.skipTest("symlink creation is unavailable on this runner")
+            store = VeteranStore(root / "veterans")
+            with self.assertRaises(VeteranDataError):
+                store.import_json(link)
+
+    def test_index_cannot_reference_file_outside_snapshot_store(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = VeteranStore(root / "veterans")
+            outside = root / "outside.json"
+            outside.write_text('{"records": []}', encoding="utf-8")
+            store.index_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "snapshots": [
+                            {
+                                "id": "safe-id",
+                                "imported_at": "",
+                                "source_name": "data.json",
+                                "source_sha256": "",
+                                "record_count": 0,
+                                "data_file": "../outside.json",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(VeteranDataError):
+                store.list_snapshots()
+
+    def test_tampered_new_snapshot_fails_integrity_check(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "data.json"
+            self._write_roster(source)
+            store = VeteranStore(root / "veterans")
+            snapshot = store.import_json(source)
+            data_path = store.snapshots_dir / snapshot.data_file
+            data_path.write_text('{"records": []}', encoding="utf-8")
+
+            with self.assertRaisesRegex(VeteranDataError, "integrity"):
+                store.load_records(snapshot)
+
+    def test_export_rejects_symlink_destination(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "data.json"
+            self._write_roster(source)
+            store = VeteranStore(root / "veterans")
+            snapshot = store.import_json(source)
+            real_target = root / "real.json"
+            real_target.write_text("do not replace", encoding="utf-8")
+            link = root / "export.json"
+            try:
+                os.symlink(real_target, link)
+            except OSError:
+                self.skipTest("symlink creation is unavailable on this runner")
+
+            with self.assertRaises(VeteranDataError):
+                store.export_snapshot(snapshot, link)
+            self.assertEqual(real_target.read_text(encoding="utf-8"), "do not replace")
 
     def test_row_filter_summary_and_csv_export(self):
         records = [
