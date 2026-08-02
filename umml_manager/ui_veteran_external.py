@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
 from tkinter import filedialog, messagebox
+from typing import BinaryIO
 
 from .extractor_host import packaged_host_available, packaged_host_command
 from .extractor_packages import ManagedExtractor, install_extractor_archive
@@ -111,7 +113,15 @@ def configure_external_extractor(app, page) -> None:
         return
     path = Path(selected).expanduser().resolve()
     if path.suffix.casefold() != ".zip":
-        _save_external_selection(page, path)
+        try:
+            _save_external_selection(page, path)
+        except (OSError, RuntimeError) as exc:
+            messagebox.showerror(
+                "External extractor unavailable",
+                str(exc),
+                parent=app.root,
+            )
+            return
         app.status.set(f"External extractor selected: {path}")
         return
 
@@ -248,7 +258,8 @@ def launch_configured_extractor(app, page) -> None:
 
     log_path = page.store.inbox / "veteran-extractor.log"
     try:
-        with log_path.open("ab") as log:
+        log = _open_extractor_log(log_path)
+        try:
             process = subprocess.Popen(
                 list(launch.command),
                 cwd=launch.cwd,
@@ -257,6 +268,8 @@ def launch_configured_extractor(app, page) -> None:
                 stderr=subprocess.STDOUT,
                 start_new_session=os.name != "nt",
             )
+        finally:
+            log.close()
     except OSError as exc:
         messagebox.showerror(
             "Could not launch external extractor",
@@ -296,7 +309,7 @@ def _wait_for_extractor(
         candidates = [
             path
             for path in page.store.inbox.glob("*.json")
-            if path.is_file()
+            if _regular_file(path)
         ]
         if not candidates:
             app.status.set(
@@ -315,10 +328,43 @@ def _wait_for_extractor(
         return
 
 
+def _open_extractor_log(path: Path) -> BinaryIO:
+    """Open the Manager-owned extractor log without following a planted link."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    if nofollow:
+        flags |= nofollow
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise OSError("Extractor log destination is not a regular file")
+        if not nofollow:
+            # Windows lacks O_NOFOLLOW. Compare the path entry itself after open
+            # and reject reparse/symlink-style links before handing it to Popen.
+            try:
+                if stat.S_ISLNK(path.lstat().st_mode):
+                    raise OSError("Extractor log destination cannot be a symlink")
+            except OSError:
+                raise
+        return os.fdopen(descriptor, "ab", closefd=True)
+    except Exception:
+        os.close(descriptor)
+        raise
+
+
+def _regular_file(path: Path) -> bool:
+    try:
+        return stat.S_ISREG(path.lstat().st_mode)
+    except OSError:
+        return False
+
+
 def _save_external_selection(page, path: Path) -> None:
-    if not path.is_file():
+    if not _regular_file(path):
         raise FileNotFoundError(
-            f"External extractor does not exist: {path}"
+            f"External extractor must be a regular non-symlink file: {path}"
         )
     settings = page.store.load_settings()
     settings.update(
