@@ -12,6 +12,14 @@ datas = [
     (str(ROOT / "LICENSE"), "."),
     (str(ROOT / "NOTICE.md"), "."),
     (str(ROOT / "CITATION.cff"), "."),
+    (
+        str(ROOT / "third_party" / "licenses" / "Python-3.14.6.txt"),
+        "third_party/licenses",
+    ),
+    (
+        str(ROOT / "third_party" / "licenses" / "minidump-0.0.24.txt"),
+        "third_party/licenses",
+    ),
     (str(ROOT / "docs" / "PROJECT_VISION.md"), "docs"),
     (str(ROOT / "docs" / "BRANDING_AND_COMPATIBILITY.md"), "docs"),
     (str(ROOT / "docs" / "MOD_CREATOR_GUIDE.md"), "docs"),
