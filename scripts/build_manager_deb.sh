@@ -59,6 +59,10 @@ install -m 0644 "$ROOT/packaging/linux/$DESKTOP_ID.metainfo.xml" \
   "$BUILD_ROOT/usr/share/metainfo/$DESKTOP_ID.metainfo.xml"
 install -m 0644 "$ROOT/LICENSE" "$BUILD_ROOT/usr/share/doc/$PACKAGE/copyright"
 install -m 0644 "$ROOT/NOTICE.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/NOTICE.md"
+install -m 0644 "$ROOT/third_party/licenses/Python-3.14.6.txt" \
+  "$BUILD_ROOT/usr/share/doc/$PACKAGE/Python-3.14.6-LICENSE.txt"
+install -m 0644 "$ROOT/third_party/licenses/minidump-0.0.24.txt" \
+  "$BUILD_ROOT/usr/share/doc/$PACKAGE/minidump-0.0.24-LICENSE.txt"
 install -m 0644 "$ROOT/README.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/MANAGER_README.md"
 install -m 0644 "$ROOT/CONTRIBUTING.md" "$BUILD_ROOT/usr/share/doc/$PACKAGE/CONTRIBUTING.md"
@@ -92,9 +96,10 @@ Description: Umamusume mod manager and creator toolkit
  game assets transactionally. It provides conflict previews, target-bound
  vanilla baselines, recovery journals, external-change protection, creator
  workspaces, compatibility metadata, GameBanana discovery, privacy-scrubbed
- tester support bundles, and guarded access to original UMML tools. The
- technical package name remains umml-manager so existing installations and
- user state upgrade in place.
+ tester support bundles, a bundled Python 3.14 host for supported user-supplied
+ Werseter source ZIPs, and guarded access to original UMML tools. The technical
+ package name remains umml-manager so existing installations and user state
+ upgrade in place.
 EOF_CONTROL
 
 cat > "$BUILD_ROOT/DEBIAN/postinst" <<'EOF_POSTINST'
@@ -132,6 +137,8 @@ grep -q 'usr/bin/umml-manager$' "$CONTENTS"
 grep -q 'usr/bin/umml-manager-cli$' "$CONTENTS"
 grep -q "usr/share/metainfo/$DESKTOP_ID.metainfo.xml$" "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/NOTICE.md$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/Python-3.14.6-LICENSE.txt$' "$CONTENTS"
+grep -q 'usr/share/doc/umml-manager/minidump-0.0.24-LICENSE.txt$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/DOWNLOADS.md$' "$CONTENTS"
 grep -q 'usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md$' "$CONTENTS"
