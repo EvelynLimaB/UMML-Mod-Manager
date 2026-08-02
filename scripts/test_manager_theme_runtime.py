@@ -63,6 +63,10 @@ def main(argv: list[str] | None = None) -> int:
                 "test_manager_veteran_master_runtime.py",
                 "master-resolved veteran workspace smoke test",
             ),
+            (
+                "test_manager_veteran_workspace_v2_runtime.py",
+                "corrected veteran grid and portrait smoke test",
+            ),
         ):
             status = _run_source_script(env, theme, script_name, label)
             if status:
