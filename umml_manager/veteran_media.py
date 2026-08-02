@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import stat
 import tempfile
 import urllib.error
 import urllib.parse
@@ -97,7 +98,7 @@ class VeteranMediaCache:
     Images are never bundled with the Manager and are fetched only after an
     explicit user action. Every URL is generated from a numeric game ID, HTTPS
     verified, host-restricted, size-limited, decoded by Pillow, and rewritten as
-    a Manager-owned PNG before it reaches Tk.
+    a regular Manager-owned PNG before it reaches Tk.
     """
 
     def __init__(
@@ -169,7 +170,7 @@ class VeteranMediaCache:
         portrait_url = character_image_url(card_id)
         if portrait_url:
             candidate = self._cache_path(portrait_url, "portrait")
-            if candidate.is_file():
+            if _regular_file(candidate):
                 portrait = candidate
 
         seen: set[int] = set()
@@ -184,7 +185,7 @@ class VeteranMediaCache:
             if not url:
                 continue
             candidate = self._cache_path(url, "skill")
-            if candidate.is_file():
+            if _regular_file(candidate):
                 icons.append((skill_id, candidate))
         return VeteranMediaResult(
             portrait=portrait,
@@ -197,7 +198,8 @@ class VeteranMediaCache:
         removed = 0
         for path in self.root.glob("*.png"):
             try:
-                if path.is_file():
+                mode = path.lstat().st_mode
+                if stat.S_ISREG(mode) or stat.S_ISLNK(mode):
                     path.unlink()
                     removed += 1
             except OSError:
@@ -218,7 +220,7 @@ class VeteranMediaCache:
         if not is_allowed_media_url(url):
             raise VeteranMediaError("Generated media URL is not approved.")
         target = self._cache_path(url, kind)
-        if target.is_file():
+        if _regular_file(target):
             return target, True
 
         request = urllib.request.Request(
@@ -312,6 +314,13 @@ class VeteranMediaCache:
                 temporary.unlink(missing_ok=True)
             except OSError:
                 pass
+
+
+def _regular_file(path: Path) -> bool:
+    try:
+        return stat.S_ISREG(path.lstat().st_mode)
+    except OSError:
+        return False
 
 
 def _positive_integer(value: object) -> int | None:
