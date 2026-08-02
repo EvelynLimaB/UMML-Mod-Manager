@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -84,6 +85,41 @@ class VeteranLocalPortraitTests(unittest.TestCase):
             self.assertTrue(second.cache_hit)
             self.assertEqual(second.portrait, first.portrait)
             self.assertEqual(len(calls), 1)
+
+    def test_symlinked_cached_portrait_is_replaced_not_trusted(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="umm-local-portrait-link-") as temp:
+            root = Path(temp)
+            master, meta, dat, _bundle = self._fixture(root)
+            cache_root = root / "cache"
+            cache_root.mkdir()
+            outside = root / "outside.png"
+            outside.write_bytes(b"outside")
+            target = cache_root / "local-portrait-100101.png"
+            try:
+                os.symlink(outside, target)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable on this runner")
+            calls = 0
+
+            def extractor(_source: Path, _stems: tuple[str, ...], output: Path) -> bool:
+                nonlocal calls
+                calls += 1
+                Image.new("RGBA", (16, 16), (1, 2, 3, 255)).save(output, "PNG")
+                return True
+
+            cache = LocalPortraitCache(
+                cache_root,
+                master_path=master,
+                meta_path=meta,
+                dat_root=dat,
+                extractor=extractor,
+            )
+            self.assertIsNone(cache.cached(100101))
+            result = cache.extract(100101)
+            self.assertEqual(calls, 1)
+            self.assertIsNotNone(result.portrait)
+            self.assertFalse(target.is_symlink())
+            self.assertEqual(outside.read_bytes(), b"outside")
 
     def test_like_wildcards_in_portrait_stem_are_escaped(self) -> None:
         with tempfile.TemporaryDirectory(prefix="umm-local-portrait-like-") as temp:
