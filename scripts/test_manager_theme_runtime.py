@@ -7,6 +7,7 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 THEMES = ("light", "dark")
 
@@ -29,6 +30,22 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_responsive_source_smoke(env: dict[str, str], theme: str) -> int:
+    script = Path(__file__).with_name("test_manager_responsive_runtime.py")
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        env=env,
+        check=False,
+    )
+    if completed.returncode:
+        print(
+            f"Manager {theme} responsive source smoke test failed with exit "
+            f"{completed.returncode}",
+            file=sys.stderr,
+        )
+    return completed.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     command = list(args.command)
@@ -40,6 +57,9 @@ def main(argv: list[str] | None = None) -> int:
     for theme in THEMES:
         env = os.environ.copy()
         env["UMML_SYSTEM_THEME"] = theme
+        responsive_status = _run_responsive_source_smoke(env, theme)
+        if responsive_status:
+            return responsive_status
         completed = subprocess.run(
             [*command, "--smoke-test"],
             env=env,
