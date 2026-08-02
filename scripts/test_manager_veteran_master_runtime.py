@@ -143,8 +143,11 @@ def main() -> int:
             tabs = [page.detail_notebook.tab(tab_id, "text") for tab_id in page.detail_notebook.tabs()]
             if "Media" not in tabs:
                 raise RuntimeError(f"optional Media tab is missing: {tabs}")
+            page.detail_notebook.select(page.media_tab)
+            root.update_idletasks()
+            root.update()
             if not page.load_media_button.winfo_ismapped():
-                raise RuntimeError("explicit artwork action is not visible")
+                raise RuntimeError("explicit artwork action is not visible inside Media")
             if list((page.store.root / "media-cache").glob("*.png")):
                 raise RuntimeError("artwork was downloaded before explicit user action")
             if "resolved read-only" not in page.tool_hint_value.get():
