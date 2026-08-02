@@ -6,7 +6,7 @@ from .ui_veteran_external import (
     configure_external_extractor,
     launch_configured_extractor,
 )
-from .ui_veteran_presenter import VeteranRosterPage
+from .ui_veteran_presenter_v2 import VeteranRosterPage
 from .ui_veteran_providers import launch_provider_window
 from .ui_windows import present_toplevel
 
@@ -72,8 +72,7 @@ def launch_veterans_window(app) -> None:
     window.rowconfigure(0, weight=1)
 
     page = VeteranRosterPage(window, app)
-    page.rowconfigure(2, weight=0)
-    page.rowconfigure(3, weight=1)
+    page.configure_workspace_rows()
     page.grid(row=0, column=0, sticky="nsew", padx=16, pady=14)
     page.import_button.configure(text="Import roster JSON")
     page.choose_extractor_button.configure(
