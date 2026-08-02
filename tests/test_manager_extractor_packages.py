@@ -18,6 +18,7 @@ class ManagedExtractorPackageTests(unittest.TestCase):
         destination: Path,
         *,
         root: str = "umadump-2.5.4",
+        requirements: str = "minidump~=0.0.24\n",
     ) -> Path:
         archive = destination / "umadump-2.5.4.zip"
         files = {
@@ -25,7 +26,7 @@ class ManagedExtractorPackageTests(unittest.TestCase):
             "memory.py": "\n",
             "game_structs.py": "\n",
             "json_encoders.py": "\n",
-            "requirements.txt": "\n",
+            "requirements.txt": requirements,
             "update_check.py": 'CURRENT_VERSION = "2.5.4"\n',
             "README.md": "fixture\n",
         }
@@ -76,6 +77,34 @@ class ManagedExtractorPackageTests(unittest.TestCase):
             self.assertEqual(
                 load_managed_extractor(first.install_root),
                 first,
+            )
+
+    def test_rejects_unbundled_dependency_before_installation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive = self._write_package(
+                root,
+                requirements=(
+                    "minidump~=0.0.24\n"
+                    "requests==2.0\n"
+                ),
+            )
+            tools = root / "tools"
+
+            with self.assertRaisesRegex(
+                ExternalToolPackageError,
+                "dependencies not bundled",
+            ):
+                install_extractor_archive(
+                    archive,
+                    tools,
+                    create_runtime=False,
+                )
+
+            provider_root = tools / "werseter-umadump"
+            self.assertFalse(
+                provider_root.exists()
+                and any(provider_root.iterdir())
             )
 
     def test_rejects_archive_traversal(self):
