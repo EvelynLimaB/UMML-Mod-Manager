@@ -30,8 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_responsive_source_smoke(env: dict[str, str], theme: str) -> int:
-    script = Path(__file__).with_name("test_manager_responsive_runtime.py")
+def _run_source_script(env: dict[str, str], theme: str, script_name: str, label: str) -> int:
+    script = Path(__file__).with_name(script_name)
     completed = subprocess.run(
         [sys.executable, str(script)],
         env=env,
@@ -39,8 +39,7 @@ def _run_responsive_source_smoke(env: dict[str, str], theme: str) -> int:
     )
     if completed.returncode:
         print(
-            f"Manager {theme} responsive source smoke test failed with exit "
-            f"{completed.returncode}",
+            f"Manager {theme} {label} failed with exit {completed.returncode}",
             file=sys.stderr,
         )
     return completed.returncode
@@ -57,9 +56,13 @@ def main(argv: list[str] | None = None) -> int:
     for theme in THEMES:
         env = os.environ.copy()
         env["UMML_SYSTEM_THEME"] = theme
-        responsive_status = _run_responsive_source_smoke(env, theme)
-        if responsive_status:
-            return responsive_status
+        for script_name, label in (
+            ("test_manager_responsive_runtime.py", "responsive source smoke test"),
+            ("test_manager_veteran_roster_runtime.py", "veteran roster source smoke test"),
+        ):
+            status = _run_source_script(env, theme, script_name, label)
+            if status:
+                return status
         completed = subprocess.run(
             [*command, "--smoke-test"],
             env=env,
