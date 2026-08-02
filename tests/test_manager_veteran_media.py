@@ -2,6 +2,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
@@ -78,6 +79,19 @@ class VeteranMediaTests(unittest.TestCase):
         self.assertFalse(is_allowed_media_url("https://media.gametora.com.evil.test/x.png"))
         self.assertFalse(is_allowed_media_url("https://user@media.gametora.com/x.png"))
         self.assertFalse(is_allowed_media_url("https://media.gametora.com:444/x.png"))
+
+    def test_cached_lookup_does_not_initialize_networking(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with mock.patch(
+                "umml_manager.veteran_media.create_ssl_context",
+                side_effect=AssertionError("cache lookup initialized networking"),
+            ) as create_context:
+                cache = VeteranMediaCache(Path(temp))
+                result = cache.cached_selection(100101, [10071])
+
+            self.assertIsNone(result.portrait)
+            self.assertEqual(result.skill_icons, ())
+            create_context.assert_not_called()
 
     def test_downloads_validated_pngs_once_then_uses_cache(self):
         with tempfile.TemporaryDirectory() as temp:
