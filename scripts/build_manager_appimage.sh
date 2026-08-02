@@ -71,6 +71,10 @@ install -m 0644 \
   "$APPDIR/usr/share/metainfo/$DESKTOP_ID.metainfo.xml"
 install -m 0644 "$ROOT/LICENSE" "$APPDIR/usr/share/doc/umml-manager/copyright"
 install -m 0644 "$ROOT/NOTICE.md" "$APPDIR/usr/share/doc/umml-manager/NOTICE.md"
+install -m 0644 "$ROOT/third_party/licenses/Python-3.14.6.txt" \
+  "$APPDIR/usr/share/doc/umml-manager/Python-3.14.6-LICENSE.txt"
+install -m 0644 "$ROOT/third_party/licenses/minidump-0.0.24.txt" \
+  "$APPDIR/usr/share/doc/umml-manager/minidump-0.0.24-LICENSE.txt"
 install -m 0644 "$ROOT/README.md" "$APPDIR/usr/share/doc/umml-manager/README.md"
 install -m 0644 "$ROOT/MANAGER_README.md" "$APPDIR/usr/share/doc/umml-manager/MANAGER_README.md"
 install -m 0644 "$ROOT/docs/BRANDING_AND_COMPATIBILITY.md" "$APPDIR/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md"
@@ -162,6 +166,8 @@ diff -qr \
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/metainfo/$DESKTOP_ID.metainfo.xml" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/applications/$DESKTOP_ID.desktop" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/NOTICE.md" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/Python-3.14.6-LICENSE.txt" ]]
+[[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/minidump-0.0.24-LICENSE.txt" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/BRANDING_AND_COMPATIBILITY.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/DOWNLOADS.md" ]]
 [[ -f "$VERIFY_ROOT/squashfs-root/usr/share/doc/umml-manager/GAMEBANANA_PROVIDER.md" ]]
