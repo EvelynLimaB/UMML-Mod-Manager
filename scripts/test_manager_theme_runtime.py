@@ -59,6 +59,10 @@ def main(argv: list[str] | None = None) -> int:
         for script_name, label in (
             ("test_manager_responsive_runtime.py", "responsive source smoke test"),
             ("test_manager_veteran_roster_runtime.py", "veteran roster source smoke test"),
+            (
+                "test_manager_veteran_master_runtime.py",
+                "master-resolved veteran workspace smoke test",
+            ),
         ):
             status = _run_source_script(env, theme, script_name, label)
             if status:
