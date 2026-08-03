@@ -4,28 +4,48 @@ import os
 import stat
 import unicodedata
 from pathlib import Path
+from typing import Any
 
 
 class ImportSafetyError(RuntimeError):
     """Raised when a user-selected import input is not a safe regular path."""
 
 
-def is_link_like(path: str | Path, mode: int | None = None) -> bool:
-    """Return whether *path* is a symlink or Windows directory junction.
+def is_link_like(
+    path: str | Path,
+    metadata: os.stat_result | int | None = None,
+) -> bool:
+    """Return whether *path* is a symlink or Windows reparse-point link.
 
-    ``stat.S_ISLNK`` covers ordinary symbolic links. Windows can also expose
-    directory junctions as reparse points that resolve like links without using
-    the POSIX symlink mode, so importer boundaries reject both forms.
+    POSIX links are represented in ``st_mode``. Windows directory junctions and
+    some symbolic links are represented primarily through reparse metadata, so
+    callers must preserve the complete ``lstat`` result instead of reducing it
+    to the mode bits before this check.
     """
 
     selected = Path(path)
-    if mode is None:
+    if metadata is None:
         try:
-            mode = selected.lstat().st_mode
+            metadata = selected.lstat()
         except OSError:
             return False
+
+    if isinstance(metadata, int):
+        mode = metadata
+        file_attributes = 0
+        reparse_tag = 0
+    else:
+        mode = metadata.st_mode
+        file_attributes = int(getattr(metadata, "st_file_attributes", 0) or 0)
+        reparse_tag = int(getattr(metadata, "st_reparse_tag", 0) or 0)
+
     if stat.S_ISLNK(mode):
         return True
+
+    reparse_flag = int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0) or 0)
+    if reparse_tag or (reparse_flag and file_attributes & reparse_flag):
+        return True
+
     isjunction = getattr(os.path, "isjunction", None)
     if isjunction is None:
         return False
@@ -40,10 +60,10 @@ def resolve_regular_file(value: str | Path, *, label: str) -> Path:
 
     selected = Path(value).expanduser()
     try:
-        mode = selected.lstat().st_mode
+        metadata = selected.lstat()
     except OSError as exc:
         raise ImportSafetyError(f"{label} not found: {selected}") from exc
-    if is_link_like(selected, mode) or not stat.S_ISREG(mode):
+    if is_link_like(selected, metadata) or not stat.S_ISREG(metadata.st_mode):
         raise ImportSafetyError(
             f"{label} must be a regular non-link file: {selected}"
         )
@@ -55,10 +75,10 @@ def resolve_regular_directory(value: str | Path, *, label: str) -> Path:
 
     selected = Path(value).expanduser()
     try:
-        mode = selected.lstat().st_mode
+        metadata = selected.lstat()
     except OSError as exc:
         raise ImportSafetyError(f"{label} not found: {selected}") from exc
-    if is_link_like(selected, mode) or not stat.S_ISDIR(mode):
+    if is_link_like(selected, metadata) or not stat.S_ISDIR(metadata.st_mode):
         raise ImportSafetyError(
             f"{label} must be a regular non-link directory: {selected}"
         )
@@ -81,7 +101,7 @@ def latest_regular_json(directory: str | Path) -> Path | None:
             metadata = path.lstat()
         except OSError:
             continue
-        if is_link_like(path, metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        if is_link_like(path, metadata) or not stat.S_ISREG(metadata.st_mode):
             continue
         candidates.append((metadata.st_mtime_ns, path))
     if not candidates:
