@@ -14,6 +14,12 @@ from pathlib import Path
 from typing import Any, BinaryIO
 
 from .discovery import is_mod_root, scan_mod_candidates
+from .importer_safety import (
+    ImportSafetyError,
+    archive_collision_key,
+    resolve_regular_directory,
+    resolve_regular_file,
+)
 from .locking import FileLock, LockError
 from .models import (
     PACKAGE_HACHIMI,
@@ -286,9 +292,10 @@ class ManagerStore:
         source: SourceSpec | None = None,
         metadata_overrides: dict[str, Any] | None = None,
     ) -> ModRecord:
-        selected = Path(folder).expanduser().resolve()
-        if not selected.is_dir():
-            raise StoreError(f"Mod folder not found: {selected}")
+        try:
+            selected = resolve_regular_directory(folder, label="Mod folder")
+        except ImportSafetyError as exc:
+            raise StoreError(str(exc)) from exc
         if not is_mod_root(selected):
             selected = find_mod_root(selected)
         try:
@@ -380,15 +387,10 @@ class ManagerStore:
         source: SourceSpec | None = None,
         metadata_overrides: dict[str, Any] | None = None,
     ) -> ModRecord:
-        archive_path = Path(archive).expanduser().resolve()
         try:
-            mode = archive_path.lstat().st_mode
-        except OSError as exc:
-            raise StoreError(f"Archive not found: {archive_path}") from exc
-        if not stat.S_ISREG(mode):
-            raise StoreError(
-                f"Archive is not a regular file: {archive_path}"
-            )
+            archive_path = resolve_regular_file(archive, label="Archive")
+        except ImportSafetyError as exc:
+            raise StoreError(str(exc)) from exc
         archive_source = source or SourceSpec()
         archive_source = replace(
             archive_source,
@@ -560,15 +562,16 @@ def _extract_zip(archive: Path, destination: Path) -> None:
             len(members),
             sum(max(0, member.file_size) for member in members),
         )
-        seen: set[str] = set()
+        seen: dict[str, tuple[str, bool]] = {}
         actual = 0
         for member in members:
             relative = _safe_member(member.filename)
-            if relative in seen and not member.is_dir():
-                raise StoreError(
-                    f"Archive contains duplicate file path: {relative}"
-                )
-            seen.add(relative)
+            is_directory = member.is_dir() or member.filename.endswith("/")
+            _remember_archive_member(
+                seen,
+                relative,
+                is_directory=is_directory,
+            )
             if member.flag_bits & 0x1:
                 raise StoreError(
                     f"Encrypted ZIP entry is unsupported: {member.filename}"
@@ -579,7 +582,7 @@ def _extract_zip(archive: Path, destination: Path) -> None:
                     f"Archive special file rejected: {member.filename}"
                 )
             target = path_under(destination, relative)
-            if member.is_dir() or member.filename.endswith("/"):
+            if is_directory:
                 target.mkdir(parents=True, exist_ok=True)
                 continue
             with package.open(member, "r") as source:
@@ -603,22 +606,23 @@ def _extract_tar(archive: Path, destination: Path) -> None:
                 if member.isfile()
             ),
         )
-        seen: set[str] = set()
+        seen: dict[str, tuple[str, bool]] = {}
         actual = 0
         for member in members:
             relative = _safe_member(member.name)
-            if relative in seen and member.isfile():
-                raise StoreError(
-                    f"Archive contains duplicate file path: {relative}"
-                )
-            seen.add(relative)
+            is_directory = member.isdir()
+            _remember_archive_member(
+                seen,
+                relative,
+                is_directory=is_directory,
+            )
             if not (member.isfile() or member.isdir()):
                 raise StoreError(
                     "Archive link, device, or special file rejected: "
                     + member.name
                 )
             target = path_under(destination, relative)
-            if member.isdir():
+            if is_directory:
                 target.mkdir(parents=True, exist_ok=True)
                 continue
             source = package.extractfile(member)
@@ -633,6 +637,30 @@ def _extract_tar(archive: Path, destination: Path) -> None:
                     actual,
                     archive,
                 )
+
+
+def _remember_archive_member(
+    seen: dict[str, tuple[str, bool]],
+    relative: str,
+    *,
+    is_directory: bool,
+) -> None:
+    key = archive_collision_key(relative)
+    previous = seen.get(key)
+    if previous is None:
+        seen[key] = (relative, is_directory)
+        return
+    previous_relative, previous_is_directory = previous
+    if (
+        previous_relative == relative
+        and previous_is_directory
+        and is_directory
+    ):
+        return
+    raise StoreError(
+        "Archive contains duplicate or cross-platform colliding path: "
+        f"{previous_relative!r} and {relative!r}"
+    )
 
 
 def _extract_stream(
