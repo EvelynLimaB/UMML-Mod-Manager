@@ -79,7 +79,10 @@ class GameBananaBrowserBridgeTests(unittest.TestCase):
                     poll=0.01,
                     opener=browser_open,
                 )
-            self.assertEqual(result, downloads / "sukumizu (1).zip")
+            self.assertEqual(
+                os.path.normcase(str(result.resolve())),
+                os.path.normcase(str((downloads / "sukumizu (1).zip").resolve())),
+            )
 
     def test_browser_bridge_rejects_external_download_page(self):
         with self.assertRaisesRegex(Exception, "Unsafe GameBanana browser URL"):
