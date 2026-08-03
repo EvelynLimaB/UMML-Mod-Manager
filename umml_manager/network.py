@@ -4,6 +4,7 @@ import http.cookiejar
 import os
 import ssl
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,19 @@ SYSTEM_CA_FILES = (
     "/etc/ssl/certs/ca-bundle.crt",
     "/etc/ssl/ca-bundle.pem",
 )
+
+_GAMEBANANA_DOWNLOAD_REFERER = "https://gamebanana.com/"
+_GAMEBANANA_DOWNLOAD_ACCEPT = (
+    "application/octet-stream, application/zip, "
+    "application/x-zip-compressed, application/x-tar, application/gzip, */*;q=0.1"
+)
+_GAMEBANANA_DENIAL_CONTENT_TYPES = {
+    "application/json",
+    "application/problem+json",
+    "text/html",
+    "text/json",
+    "text/plain",
+}
 
 
 class TLSConfigurationError(RuntimeError):
@@ -40,6 +54,69 @@ class TLSConfiguration:
         if self.capath:
             parts.append(f"CA directory: {self.capath}")
         return "\n".join(parts)
+
+
+class ProviderDownloadPolicy(urllib.request.BaseHandler):
+    """Apply narrow provider headers and reject obvious web error payloads.
+
+    GameBanana's public API can return a `/dl/<id>` link whose redirect path is
+    protected by normal session and anti-abuse behavior. Treat that request as a
+    site-originated download rather than a context-free scraper request. The
+    policy deliberately applies only to GameBanana download routes and never
+    weakens TLS or follows a non-HTTPS URL.
+    """
+
+    @staticmethod
+    def _is_gamebanana_download(request: urllib.request.Request) -> bool:
+        parsed = urllib.parse.urlparse(request.full_url)
+        hostname = (parsed.hostname or "").casefold()
+        path = parsed.path.casefold()
+        return bool(
+            parsed.scheme.casefold() == "https"
+            and (
+                hostname == "gamebanana.com"
+                or hostname.endswith(".gamebanana.com")
+            )
+            and (path.startswith("/dl/") or path.startswith("/download/"))
+        )
+
+    @staticmethod
+    def _has_gamebanana_download_context(
+        request: urllib.request.Request,
+    ) -> bool:
+        referer = str(request.get_header("Referer") or "").strip()
+        return referer.startswith(_GAMEBANANA_DOWNLOAD_REFERER)
+
+    def https_request(
+        self,
+        request: urllib.request.Request,
+    ) -> urllib.request.Request:
+        if not self._is_gamebanana_download(request):
+            return request
+        if not request.has_header("Referer"):
+            # Use a normal header rather than an unredirected header so urllib's
+            # HTTPS redirect request retains the site context on the file CDN.
+            request.add_header("Referer", _GAMEBANANA_DOWNLOAD_REFERER)
+        if not request.has_header("Accept"):
+            request.add_header("Accept", _GAMEBANANA_DOWNLOAD_ACCEPT)
+        return request
+
+    def https_response(self, request, response):
+        if not self._has_gamebanana_download_context(request):
+            return response
+        raw_content_type = str(
+            getattr(response, "headers", {}).get("Content-Type", "") or ""
+        )
+        content_type = raw_content_type.split(";", 1)[0].strip().casefold()
+        if content_type not in _GAMEBANANA_DENIAL_CONTENT_TYPES:
+            return response
+        try:
+            response.close()
+        finally:
+            raise urllib.error.URLError(
+                "GameBanana returned a web or error document instead of the "
+                f"selected mod file (Content-Type: {content_type or 'unknown'})"
+            )
 
 
 def resolve_tls_configuration(
@@ -111,6 +188,7 @@ def build_https_opener() -> tuple[urllib.request.OpenerDirector, TLSConfiguratio
     # so provider state never escapes the running Manager process.
     cookie_jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(
+        ProviderDownloadPolicy(),
         urllib.request.HTTPSHandler(context=context),
         urllib.request.HTTPCookieProcessor(cookie_jar),
     )
