@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from . import store as _store
+from .importer_safety import ImportSafetyError, resolve_regular_directory
 from .locking import FileLock, LockError
 from .manifest import ManifestError, normalize_manifest_policy
 from .models import ModRecord, SourceSpec
@@ -87,14 +88,21 @@ class ManagerStore(_BaseManagerStore):
         source: SourceSpec | None = None,
         metadata_overrides: dict[str, Any] | None = None,
     ) -> ModRecord:
-        selected = Path(folder).expanduser().resolve()
-        if selected.is_dir() and not _store.is_mod_root(selected):
+        try:
+            # Validate the user-selected leaf before resolution. The public
+            # compatibility class is the path used by GUI, CLI, and providers;
+            # resolving here first would silently bypass the base store's link
+            # and Windows reparse-point protection.
+            selected = resolve_regular_directory(folder, label="Mod folder")
+        except ImportSafetyError as exc:
+            raise _store.StoreError(str(exc)) from exc
+        if not _store.is_mod_root(selected):
             selected = find_mod_root(selected)
 
         # Validate all creator-facing policy before the low-level store copies or
         # registers anything. Invalid options, targeting, dependencies, regions,
         # or ordering must not leave a half-imported immutable record.
-        metadata = _store.read_mod_metadata(selected) if selected.is_dir() else {}
+        metadata = _store.read_mod_metadata(selected)
         if metadata_overrides:
             metadata.update(
                 {
