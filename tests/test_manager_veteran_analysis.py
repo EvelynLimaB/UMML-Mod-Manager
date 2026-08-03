@@ -3,7 +3,11 @@ from types import SimpleNamespace
 
 from umml_manager.veteran_analysis import (
     aptitude_entries,
+    aptitude_grade,
     comparison_rows,
+    evaluation_rank,
+    evaluation_rank_from_record,
+    evaluation_score,
     factor_entries,
     factor_quality,
     legacy_sort_key,
@@ -38,8 +42,53 @@ class VeteranAnalysisTests(unittest.TestCase):
         self.assertEqual(quality.count, 2)
         self.assertEqual(quality.total_stars, 5)
         self.assertEqual(quality.three_star_count, 1)
-        self.assertIn(("Distance Mile", "7"), aptitude_entries(record))
-        self.assertIn(("Running Style Nige", "8"), aptitude_entries(record))
+        self.assertIn(("Distance Mile", "A"), aptitude_entries(record))
+        self.assertIn(("Running Style Nige", "S"), aptitude_entries(record))
+
+    def test_aptitudes_use_game_grades_instead_of_storage_values(self):
+        self.assertEqual(
+            [aptitude_grade(value) for value in range(1, 9)],
+            ["G", "F", "E", "D", "C", "B", "A", "S"],
+        )
+        self.assertEqual(aptitude_grade("s"), "S")
+        self.assertEqual(aptitude_grade(0), "—")
+
+    def test_evaluation_points_use_readable_game_ranks(self):
+        cases = {
+            0: "G",
+            300: "G+",
+            14_500: "S",
+            15_899: "S",
+            15_900: "S+",
+            17_500: "SS",
+            19_200: "SS+",
+            19_600: "UG",
+            20_000: "UG1",
+            28_800: "UE",
+            40_700: "UC",
+            63_400: "US",
+            71_600: "US7",
+            72_000: "US7+",
+        }
+        for score, expected in cases.items():
+            with self.subTest(score=score):
+                self.assertEqual(evaluation_rank(score), expected)
+
+    def test_record_rank_prefers_label_and_falls_back_to_score(self):
+        self.assertEqual(
+            evaluation_rank_from_record({"rank_name": "S+", "evaluation_point": 14_500}),
+            "S+",
+        )
+        self.assertEqual(
+            evaluation_rank_from_record({"rank": 15_900}),
+            "S+",
+        )
+        self.assertEqual(
+            evaluation_rank_from_record({"evaluation_point": 17_500}),
+            "SS",
+        )
+        self.assertEqual(evaluation_score({"evaluation_point": 17_500}), 17_500)
+        self.assertIsNone(evaluation_score({"rank": "S+"}))
 
     def test_skill_rarity_is_not_misrepresented_as_acquired_level(self):
         skills = skill_entries(
