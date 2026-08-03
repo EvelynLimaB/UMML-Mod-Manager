@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.cookiejar
 import os
 import ssl
 import urllib.error
@@ -104,8 +105,14 @@ def create_ssl_context() -> tuple[ssl.SSLContext, TLSConfiguration]:
 
 def build_https_opener() -> tuple[urllib.request.OpenerDirector, TLSConfiguration]:
     context, configuration = create_ssl_context()
+    # Keep cookies in memory for the lifetime of one client. GameBanana can set
+    # session or anti-abuse cookies while returning API metadata and then expect
+    # them on the subsequent /dl request. The jar is deliberately not persisted,
+    # so provider state never escapes the running Manager process.
+    cookie_jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(
         urllib.request.HTTPSHandler(context=context),
+        urllib.request.HTTPCookieProcessor(cookie_jar),
     )
     return opener, configuration
 
