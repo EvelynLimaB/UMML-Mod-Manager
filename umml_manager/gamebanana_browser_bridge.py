@@ -3,9 +3,11 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
+import subprocess
+import sys
 import time
 import urllib.parse
-import webbrowser
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +21,7 @@ from .providers.gamebanana_previews import PreviewGameBananaClient
 from .regions import region_from_game_name
 from .safety import hash_file
 from .store import StoreError
+from .studio import external_process_environment
 
 _BROWSER_WAIT_SECONDS = 10 * 60
 _BROWSER_POLL_SECONDS = 0.75
@@ -162,6 +165,8 @@ def browser_download_directories() -> tuple[Path, ...]:
     seen: set[str] = set()
     for value in values:
         try:
+            if value.is_symlink():
+                continue
             resolved = value.resolve(strict=False)
         except OSError:
             continue
@@ -240,13 +245,68 @@ def _candidate_is_complete(
     return True
 
 
+def open_browser_url(url: str) -> bool:
+    """Launch the host browser without leaking the frozen runtime environment."""
+
+    if sys.platform.startswith("win"):
+        try:
+            os.startfile(url)  # type: ignore[attr-defined]
+            return True
+        except OSError:
+            return False
+
+    env = external_process_environment()
+    if sys.platform == "darwin":
+        commands = (("open", url),)
+    else:
+        desktop = " ".join(
+            (
+                env.get("XDG_CURRENT_DESKTOP", ""),
+                env.get("XDG_SESSION_DESKTOP", ""),
+                env.get("DESKTOP_SESSION", ""),
+            )
+        ).casefold()
+        kde = (
+            ("kioclient6", "exec", url),
+            ("kioclient5", "exec", url),
+            ("kioclient", "exec", url),
+        )
+        generic = (
+            ("gio", "open", url),
+            ("xdg-open", url),
+        )
+        commands = (*kde, *generic) if "kde" in desktop or "plasma" in desktop else (*generic, *kde)
+
+    for command in commands:
+        executable = shutil.which(command[0], path=env.get("PATH"))
+        if not executable:
+            continue
+        try:
+            process = subprocess.Popen(
+                (executable, *command[1:]),
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            try:
+                return_code = process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                return True
+            if return_code == 0:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def wait_for_browser_download(
     url: str,
     expected: BrowserFileExpectation,
     *,
     timeout: float = _BROWSER_WAIT_SECONDS,
     poll: float = _BROWSER_POLL_SECONDS,
-    opener: Callable[[str], bool] = webbrowser.open,
+    opener: Callable[[str], bool] = open_browser_url,
     sleeper: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> Path:
