@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from umml_manager.network import (
+    ProviderDownloadPolicy,
     TLSConfiguration,
     TLSConfigurationError,
     build_https_opener,
@@ -99,6 +100,9 @@ class ManagerNetworkTests(unittest.TestCase):
         self.assertIs(opener, built)
         self.assertEqual(actual_configuration, configuration)
         handlers = build_opener.call_args.args
+        self.assertTrue(
+            any(isinstance(handler, ProviderDownloadPolicy) for handler in handlers)
+        )
         cookie_handlers = [
             handler
             for handler in handlers
@@ -107,6 +111,44 @@ class ManagerNetworkTests(unittest.TestCase):
         self.assertEqual(len(cookie_handlers), 1)
         self.assertIsInstance(cookie_handlers[0].cookiejar, http.cookiejar.CookieJar)
         self.assertEqual(list(cookie_handlers[0].cookiejar), [])
+
+    def test_gamebanana_download_policy_adds_site_context(self):
+        request = urllib.request.Request("https://gamebanana.com/dl/456")
+        processed = ProviderDownloadPolicy().https_request(request)
+
+        self.assertEqual(processed.get_header("Referer"), "https://gamebanana.com/")
+        self.assertIn("application/octet-stream", processed.get_header("Accept"))
+
+    def test_gamebanana_download_policy_does_not_touch_other_hosts(self):
+        request = urllib.request.Request("https://example.com/download/456")
+        processed = ProviderDownloadPolicy().https_request(request)
+
+        self.assertIsNone(processed.get_header("Referer"))
+        self.assertIsNone(processed.get_header("Accept"))
+
+    def test_gamebanana_download_policy_rejects_html_payload(self):
+        request = urllib.request.Request("https://gamebanana.com/dl/456")
+        policy = ProviderDownloadPolicy()
+        policy.https_request(request)
+        response = MagicMock()
+        response.headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        with self.assertRaisesRegex(
+            urllib.error.URLError,
+            "web or error document",
+        ):
+            policy.https_response(request, response)
+        response.close.assert_called_once_with()
+
+    def test_gamebanana_download_policy_accepts_archive_payload(self):
+        request = urllib.request.Request("https://gamebanana.com/dl/456")
+        policy = ProviderDownloadPolicy()
+        policy.https_request(request)
+        response = MagicMock()
+        response.headers = {"Content-Type": "application/octet-stream"}
+
+        self.assertIs(policy.https_response(request, response), response)
+        response.close.assert_not_called()
 
     def test_gamebanana_certificate_failure_is_actionable_and_stays_verified(self):
         verification_error = ssl.SSLCertVerificationError(
