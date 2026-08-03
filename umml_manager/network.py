@@ -59,11 +59,11 @@ class TLSConfiguration:
 class ProviderDownloadPolicy(urllib.request.BaseHandler):
     """Apply narrow provider headers and reject obvious web error payloads.
 
-    GameBanana's public API can return a `/dl/<id>` link whose redirect path is
-    protected by normal session and anti-abuse behavior. Treat that request as a
-    site-originated download rather than a context-free scraper request. The
-    policy deliberately applies only to GameBanana download routes and never
-    weakens TLS or follows a non-HTTPS URL.
+    GameBanana's public API can return `/dl/<id>` or manager-oriented
+    `/mmdl/<id>` links whose redirect paths are protected by normal session and
+    anti-abuse behavior. Treat those requests as site-originated downloads
+    rather than context-free scraper requests. The policy deliberately applies
+    only to GameBanana download routes and never weakens TLS or accepts HTTP.
     """
 
     @staticmethod
@@ -77,7 +77,11 @@ class ProviderDownloadPolicy(urllib.request.BaseHandler):
                 hostname == "gamebanana.com"
                 or hostname.endswith(".gamebanana.com")
             )
-            and (path.startswith("/dl/") or path.startswith("/download/"))
+            and (
+                path.startswith("/dl/")
+                or path.startswith("/download/")
+                or path.startswith("/mmdl/")
+            )
         )
 
     @staticmethod
@@ -184,8 +188,8 @@ def build_https_opener() -> tuple[urllib.request.OpenerDirector, TLSConfiguratio
     context, configuration = create_ssl_context()
     # Keep cookies in memory for the lifetime of one client. GameBanana can set
     # session or anti-abuse cookies while returning API metadata and then expect
-    # them on the subsequent /dl request. The jar is deliberately not persisted,
-    # so provider state never escapes the running Manager process.
+    # them on the subsequent download request. The jar is deliberately not
+    # persisted, so provider state never escapes the running Manager process.
     cookie_jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(
         ProviderDownloadPolicy(),
