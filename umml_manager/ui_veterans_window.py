@@ -11,6 +11,7 @@ from .ui_veteran_external import (
 from .ui_veteran_presenter_v2 import VeteranRosterPage as _VeteranRosterPage
 from .ui_veteran_providers import launch_provider_window
 from .ui_windows import present_toplevel
+from .veteran_analysis import evaluation_rank_from_record, evaluation_score
 from .veteran_export import atomic_export_json
 from .veterans import VeteranDataError, row_from_record
 
@@ -34,6 +35,50 @@ class VeteranRosterPage(_VeteranRosterPage):
             except tk.TclError:
                 pass
             setattr(self, attribute, None)
+
+    def _sort_visible_rows(self) -> None:
+        if getattr(self, "_sort_key", "") != "rank":
+            super()._sort_visible_rows()
+            return
+
+        known: list[tuple[int, Any]] = []
+        unknown: list[Any] = []
+        for row in self.visible_rows:
+            score = evaluation_score(self.records[row.index])
+            if score is None:
+                unknown.append(row)
+            else:
+                known.append((score, row))
+        known.sort(key=lambda item: item[0], reverse=self._sort_reverse)
+        self.visible_rows[:] = [row for _score, row in known] + unknown
+
+    def _render_rows(self) -> None:
+        super()._render_rows()
+        for row in getattr(self, "visible_rows", ()):
+            item_id = f"record-{row.index}"
+            if not self.tree.exists(item_id):
+                continue
+            values = list(self.tree.item(item_id, "values"))
+            if not values:
+                continue
+            values[0] = evaluation_rank_from_record(self.records[row.index])
+            self.tree.item(item_id, values=values)
+
+    def _record_selected(self, _event=None) -> None:
+        super()._record_selected(_event)
+        index = getattr(self, "_selected_index", None)
+        if index is None or index < 0 or index >= len(getattr(self, "records", ())):
+            return
+        record = self.records[index]
+        row = row_from_record(index, record)
+        rank = evaluation_rank_from_record(record)
+        identity = [
+            f"Card {row.card_id}" if row.card_id else "",
+            f"Character {row.chara_id}" if row.chara_id else "",
+            f"Veteran {row.trained_chara_id}" if row.trained_chara_id else "",
+            f"Rank {rank}" if rank != "—" else "",
+        ]
+        self.selected_subtitle_value.set(" · ".join(item for item in identity if item))
 
     def export_selected(self) -> None:
         if self._selected_index is None:
