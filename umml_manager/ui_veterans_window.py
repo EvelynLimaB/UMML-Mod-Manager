@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any
 
+from .importer_safety import latest_regular_json
 from .ui_veteran_external import (
     configure_external_extractor,
     launch_configured_extractor,
@@ -79,6 +80,18 @@ class VeteranRosterPage(_VeteranRosterPage):
             f"Rank {rank}" if rank != "—" else "",
         ]
         self.selected_subtitle_value.set(" · ".join(item for item in identity if item))
+
+    def import_latest_output(self) -> None:
+        latest = latest_regular_json(self.store.inbox)
+        if latest is None:
+            messagebox.showinfo(
+                "No extractor output found",
+                "No regular non-symlink JSON file exists in the isolated "
+                f"extractor inbox:\n{self.store.inbox}",
+                parent=self.app.root,
+            )
+            return
+        self._import_path(latest)
 
     def export_selected(self) -> None:
         if self._selected_index is None:
