@@ -6,7 +6,7 @@ import webbrowser
 from collections import OrderedDict
 from pathlib import Path
 from tkinter import filedialog
-from typing import Callable
+from typing import Callable, Iterable
 
 from .discovery import ModCandidate, default_search_roots, scan_mod_candidates
 from .preview_images import PreviewImage, PreviewImageLoader
@@ -40,12 +40,56 @@ class DiscoverActions:
             self._gb_detail_serial = 0
         return self._gb_detail_serial
 
+    def _catalog_detail_runtime(self) -> int:
+        if not hasattr(self, "_gb_catalog_detail_serial"):
+            self._gb_catalog_detail_serial = 0
+        return self._gb_catalog_detail_serial
+
     def _cancel_gamebanana_preview(self) -> None:
         serial, _cache = self._preview_runtime()
         self._gb_preview_serial = serial + 1
 
     def _cancel_gamebanana_details(self) -> None:
         self._gb_detail_serial = self._detail_runtime() + 1
+
+    def _cancel_gamebanana_catalog_details(self) -> None:
+        self._gb_catalog_detail_serial = self._catalog_detail_runtime() + 1
+
+    @staticmethod
+    def _gamebanana_download_label(
+        mod: GameBananaMod,
+        *,
+        known: bool = False,
+    ) -> str:
+        # A catalog record with no files and a zero count is normally partial,
+        # not proof that nobody downloaded it. Detail hydration resolves the
+        # ambiguity; a genuine detailed zero remains visible as zero.
+        if known or mod.downloads > 0 or mod.files:
+            return f"{mod.downloads:,}"
+        return "…"
+
+    def _update_gamebanana_tree_row(
+        self,
+        mod: GameBananaMod,
+        *,
+        known: bool = False,
+        download_label: str | None = None,
+    ) -> None:
+        tree = self.discover.gb_tree
+        key = str(mod.id)
+        if not tree.exists(key):
+            return
+        tree.item(
+            key,
+            text=mod.name,
+            values=(
+                mod.author,
+                mod.version or "—",
+                download_label
+                if download_label is not None
+                else self._gamebanana_download_label(mod, known=known),
+            ),
+        )
 
     def _clear_gamebanana_selection(self):
         self._cancel_gamebanana_preview()
@@ -67,13 +111,16 @@ class DiscoverActions:
         )
 
     def _show_gamebanana_page(self, page: GameBananaPage):
+        self._cancel_gamebanana_catalog_details()
         tree = self.discover.gb_tree
         tree.delete(*tree.get_children())
         self.gb_results = {}
         self._clear_gamebanana_selection()
+        unresolved: list[GameBananaMod] = []
         for mod in page.mods:
             key = str(mod.id)
             self.gb_results[key] = mod
+            known_downloads = bool(mod.downloads > 0 or mod.files)
             tree.insert(
                 "",
                 "end",
@@ -82,9 +129,11 @@ class DiscoverActions:
                 values=(
                     mod.author,
                     mod.version or "—",
-                    f"{mod.downloads:,}",
+                    self._gamebanana_download_label(mod, known=known_downloads),
                 ),
             )
+            if not known_downloads:
+                unresolved.append(mod)
         self.gb_page = page.page
         self.discover.page_label.configure(
             text=f"Page {page.page}"
@@ -97,6 +146,106 @@ class DiscoverActions:
             state="normal" if page.has_more else "disabled"
         )
         self.status.set(f"Loaded {len(page.mods)} GameBanana mod(s)")
+        self._hydrate_gamebanana_downloads(unresolved)
+
+    def _hydrate_gamebanana_downloads(
+        self,
+        mods: Iterable[GameBananaMod],
+    ) -> None:
+        mod_ids = tuple(dict.fromkeys(mod.id for mod in mods if mod.id > 0))
+        if not mod_ids:
+            return
+        token = self._catalog_detail_runtime()
+
+        def worker() -> None:
+            client = PreviewGameBananaClient()
+            for mod_id in mod_ids:
+                if (
+                    getattr(self, "_closing", False)
+                    or token != getattr(self, "_gb_catalog_detail_serial", -1)
+                ):
+                    return
+                try:
+                    detailed = client.fetch(str(mod_id))
+                except Exception:
+                    self._schedule_catalog_detail_callback(
+                        token,
+                        lambda key=mod_id: self._show_failed_gamebanana_catalog_detail(
+                            token,
+                            key,
+                        ),
+                    )
+                else:
+                    self._schedule_catalog_detail_callback(
+                        token,
+                        lambda value=detailed: self._show_hydrated_gamebanana_row(
+                            token,
+                            value,
+                        ),
+                    )
+
+        threading.Thread(
+            target=worker,
+            name=f"umml-gamebanana-catalog-details-{token}",
+            daemon=True,
+        ).start()
+
+    def _schedule_catalog_detail_callback(
+        self,
+        token: int,
+        callback: Callable[[], None],
+    ) -> None:
+        if (
+            getattr(self, "_closing", False)
+            or token != getattr(self, "_gb_catalog_detail_serial", -1)
+        ):
+            return
+        try:
+            self.root.after(0, callback)
+        except tk.TclError:
+            self._closing = True
+
+    def _catalog_detail_is_current(self, token: int, mod_id: int) -> bool:
+        return bool(
+            not getattr(self, "_closing", False)
+            and token == getattr(self, "_gb_catalog_detail_serial", -1)
+            and str(mod_id) in self.gb_results
+        )
+
+    def _show_hydrated_gamebanana_row(
+        self,
+        token: int,
+        detailed: GameBananaMod,
+    ) -> None:
+        if not self._catalog_detail_is_current(token, detailed.id):
+            return
+        key = str(detailed.id)
+        self.gb_results[key] = detailed
+        self._update_gamebanana_tree_row(detailed, known=True)
+
+        selected = self.gb_selected
+        if selected is None or selected.id != detailed.id:
+            return
+        previous_image = selected.image_url
+        self.gb_selected = detailed
+        self._render_gamebanana_mod(detailed)
+        self._configure_gamebanana_files(
+            detailed,
+            details_complete=True,
+        )
+        if detailed.image_url != previous_image:
+            self._load_gamebanana_preview(detailed.id, detailed.image_url)
+
+    def _show_failed_gamebanana_catalog_detail(
+        self,
+        token: int,
+        mod_id: int,
+    ) -> None:
+        if not self._catalog_detail_is_current(token, mod_id):
+            return
+        mod = self.gb_results.get(str(mod_id))
+        if mod is not None:
+            self._update_gamebanana_tree_row(mod, download_label="—")
 
     def select_gamebanana_mod(self):
         selected = self.discover.gb_tree.selection()
@@ -251,6 +400,7 @@ class DiscoverActions:
         previous_image = previous.image_url if previous is not None else ""
         self.gb_results[str(mod_id)] = detailed
         self.gb_selected = detailed
+        self._update_gamebanana_tree_row(detailed, known=True)
         self._render_gamebanana_mod(detailed)
         self._configure_gamebanana_files(
             detailed,

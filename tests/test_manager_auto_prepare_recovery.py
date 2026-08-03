@@ -17,6 +17,23 @@ class _Probe(AutoPrepareActions):
         return self.needs.get(record.id, False)
 
 
+class _AfterRoot:
+    def __init__(self):
+        self.cancelled: list[str] = []
+        self.bound = None
+        self.callback = None
+
+    def after(self, _delay, callback):
+        self.callback = callback
+        return "after-1"
+
+    def after_cancel(self, callback_id):
+        self.cancelled.append(callback_id)
+
+    def bind(self, event_name, callback, add=None):
+        self.bound = (event_name, callback, add)
+
+
 class AutoPrepareRecoveryTests(unittest.TestCase):
     @staticmethod
     def _record(mod_id: str):
@@ -70,6 +87,21 @@ class AutoPrepareRecoveryTests(unittest.TestCase):
             {"pending": "still broken"},
         )
         self.assertEqual(app._auto_prepare_failures, {pending_key})
+
+    def test_scheduled_callback_is_cancelled_when_root_is_destroyed(self):
+        app = _Probe({})
+        app.root = _AfterRoot()
+        app._closing = False
+
+        app._schedule_auto_prepare_scan(delay=1)
+        self.assertEqual(app._auto_prepare_after_id, "after-1")
+        self.assertEqual(app.root.bound[0], "<Destroy>")
+
+        app._auto_prepare_root_destroyed(SimpleNamespace(widget=app.root))
+
+        self.assertEqual(app.root.cancelled, ["after-1"])
+        self.assertIsNone(app._auto_prepare_after_id)
+        self.assertFalse(app._auto_prepare_scan_scheduled)
 
 
 if __name__ == "__main__":

@@ -66,20 +66,30 @@ def run_audit(expected_tag: str = "") -> dict[str, str]:
         )
 
     release_notes = f"docs/releases/{display}.md"
+    deb_filename = f"umml-manager_{version}_amd64.deb"
+    appimage_filename = f"umml-manager_{display}_x86_64.AppImage"
 
-    # README, player-guide, changelog, and citation metadata describe the latest
-    # published release until the candidate is actually published. Advertising
-    # an unavailable candidate is less useful than keeping one stable public
-    # download path. Exact candidate identity instead lives in the version file,
-    # release notes, AppStream, package payloads, checksums, and release workflow.
+    # Public setup documentation is part of the release contract. Letting it
+    # describe an older alpha while current packages advertise a newer one
+    # creates precisely the sort of ambiguity checksums are meant to prevent.
     require_contains(
         "README.md",
+        version,
+        display,
+        deb_filename,
+        appimage_filename,
+        release_notes,
         "Community Test",
         "docs/TESTING_AND_FEEDBACK.md",
         "Create support bundle",
     )
     require_contains(
         "MANAGER_README.md",
+        version,
+        display,
+        deb_filename,
+        appimage_filename,
+        release_notes,
         "Testing and feedback",
         "Create support bundle",
     )

@@ -2,9 +2,11 @@
 
 **Uma Mod Manager** is the primary desktop mod manager and creator workspace in this repository. It is a fork and continuation of UMML, with the original editor and loader functionality preserved through a guarded compatibility Studio while tested native workflows replace it piece by piece.
 
-> **Community Test:** `0.2.0~alpha19`. The application includes bounded imports, immutable versions, provider browsing, automatic preparation and source analysis, profile-scoped configuration, visual package editing, read-only veteran-data tools, verified deployment, recovery journals, installation detection, privacy-scrubbed support bundles, and native Linux/Windows packages. Real-game and destructive-recovery testing are still required before a stable release.
+> **Community Test candidate:** `0.2.0~alpha21`. The application includes bounded imports, immutable versions, provider browsing, automatic preparation and source analysis, profile-scoped configuration, visual package editing, read-only veteran-data tools, verified deployment, recovery journals, installation detection, privacy-scrubbed support bundles, and native Linux/Windows packages. Real-game and destructive-recovery testing are still required before a stable release.
+>
+> PR #10 is an audited development branch stacked on the exact PR #6 alpha21 candidate. Packages produced by PR #10 are test artifacts until its Bazzite and Windows real-machine gates are complete.
 
-Read the [alpha19 release notes](docs/releases/0.2.0-alpha.19.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before testing this build.
+Read the [alpha21 release notes](docs/releases/0.2.0-alpha.21.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before testing this build.
 
 ## Naming and compatibility
 
@@ -39,25 +41,25 @@ A compatibility launcher named `UMML Manager.cmd` remains during the migration w
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha19_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha21_amd64.deb
 /usr/bin/umml-manager
 ```
 
-The technical package name remains `umml-manager`, so an alpha19 package upgrades an earlier Manager package in place and continues using the same data root.
+The technical package name remains `umml-manager`, so an alpha21 package upgrades an earlier Manager package in place and continues using the same data root.
 
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha.19_x86_64.AppImage
-./umml-manager_0.2.0-alpha.19_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha.21_x86_64.AppImage
+./umml-manager_0.2.0-alpha.21_x86_64.AppImage
 ```
 
 The AppImage also exposes the CLI:
 
 ```bash
-./umml-manager_0.2.0-alpha.19_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha.19_x86_64.AppImage --cli list
-./umml-manager_0.2.0-alpha.19_x86_64.AppImage --cli doctor
+./umml-manager_0.2.0-alpha.21_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha.21_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha.21_x86_64.AppImage --cli doctor
 ```
 
 The Debian package, AppImage, and native Windows portable are built and validated independently. Verify published artifacts with:
@@ -145,9 +147,14 @@ It can:
 - import Werseter `trained_chara_data.json`;
 - reject support-card, trophy, friend, card, and replay outputs masquerading as rosters;
 - remove known viewer/account identifiers and account-name fields recursively;
-- store immutable timestamped snapshots;
-- search, sort, inspect, and export scrubbed records;
+- store timestamped scrubbed snapshots with provenance and integrity hashes;
+- enrich names, factor metadata, and exact factor stars from the installed `master.mdb` without modifying it;
+- search, sort, inspect, compare, and export scrubbed records;
 - launch a user-selected external extractor in an isolated inbox.
+
+Factors use `1–3★`. Extractor `level: 0` values are treated as placeholders and fall back to the matching installed factor rarity. Skill acquisition levels are displayed separately as `Lv N`; a skill's master-data rarity is not presented as its acquired level.
+
+Cached artwork and portraits decoded from the installed game may appear automatically. Opening or scrolling the roster never starts a new artwork download. HTTPS fallback requires **Load portrait online** for the selected record or **Load all portraits online** for the visible roster. The artwork cache can be cleared without touching snapshots or game files.
 
 Upstream extractor code and binaries are not bundled when their repository does not declare a compatible project-wide license. See [UmaExtractor integration](docs/UMAEXTRACTOR_INTEGRATION.md).
 
@@ -212,7 +219,7 @@ Uma Mod Manager uses:
 - external-change protection;
 - fail-closed critical-state handling.
 
-Corrupt preferences are quarantined and reset with their original bytes preserved. Corrupt deployment, baseline, profile, library, or recovery state blocks mutation rather than silently starting over.
+Corrupt preferences are quarantined and reset with their original bytes preserved. Corrupt deployment, baseline, profile, library, recovery, or Veteran snapshot state blocks the affected operation rather than silently starting over.
 
 ## Testing and feedback
 
@@ -246,7 +253,7 @@ The legacy technical command name is intentional during the compatibility window
 
 ## Further documentation
 
-- [Alpha19 release notes](docs/releases/0.2.0-alpha.19.md)
+- [Alpha21 release notes](docs/releases/0.2.0-alpha.21.md)
 - [Testing and feedback](docs/TESTING_AND_FEEDBACK.md)
 - [Release process](docs/RELEASE_PROCESS.md)
 - [Project vision](docs/PROJECT_VISION.md)

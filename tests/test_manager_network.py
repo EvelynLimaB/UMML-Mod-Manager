@@ -1,15 +1,21 @@
+import http.cookiejar
 import os
 import ssl
 import tempfile
 import unittest
 import urllib.error
+import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from umml_manager.network import (
+    ProviderDownloadPolicy,
     TLSConfiguration,
     TLSConfigurationError,
+    _extract_gamebanana_landing_target,
+    _gamebanana_manager_fallback,
+    build_https_opener,
     create_ssl_context,
     resolve_tls_configuration,
     tls_diagnostics,
@@ -72,6 +78,171 @@ class ManagerNetworkTests(unittest.TestCase):
         )
         self.assertIs(actual_context, context)
         self.assertEqual(actual_configuration, configuration)
+
+    def test_https_opener_keeps_ephemeral_provider_cookies(self):
+        configuration = TLSConfiguration(
+            cafile="/synthetic/ca.pem",
+            capath=None,
+            source="test",
+        )
+        context = MagicMock(spec=ssl.SSLContext)
+        built = MagicMock(spec=urllib.request.OpenerDirector)
+        with (
+            patch(
+                "umml_manager.network.create_ssl_context",
+                return_value=(context, configuration),
+            ),
+            patch(
+                "umml_manager.network.urllib.request.build_opener",
+                return_value=built,
+            ) as build_opener,
+        ):
+            opener, actual_configuration = build_https_opener()
+
+        self.assertIs(opener, built)
+        self.assertEqual(actual_configuration, configuration)
+        handlers = build_opener.call_args.args
+        self.assertTrue(
+            any(isinstance(handler, ProviderDownloadPolicy) for handler in handlers)
+        )
+        cookie_handlers = [
+            handler
+            for handler in handlers
+            if isinstance(handler, urllib.request.HTTPCookieProcessor)
+        ]
+        self.assertEqual(len(cookie_handlers), 1)
+        self.assertIsInstance(cookie_handlers[0].cookiejar, http.cookiejar.CookieJar)
+        self.assertEqual(list(cookie_handlers[0].cookiejar), [])
+
+    def test_gamebanana_download_policy_adds_site_context(self):
+        policy = ProviderDownloadPolicy()
+        for path in ("/dl/456", "/download/456", "/mmdl/456"):
+            with self.subTest(path=path):
+                request = urllib.request.Request(f"https://gamebanana.com{path}")
+                processed = policy.https_request(request)
+                self.assertEqual(
+                    processed.get_header("Referer"),
+                    "https://gamebanana.com/",
+                )
+                self.assertIn(
+                    "application/octet-stream",
+                    processed.get_header("Accept"),
+                )
+
+    def test_gamebanana_download_policy_does_not_touch_other_hosts(self):
+        request = urllib.request.Request("https://example.com/download/456")
+        processed = ProviderDownloadPolicy().https_request(request)
+
+        self.assertIsNone(processed.get_header("Referer"))
+        self.assertIsNone(processed.get_header("Accept"))
+
+    def test_gamebanana_download_policy_follows_html_cdn_target(self):
+        request = urllib.request.Request(
+            "https://gamebanana.com/dl/456",
+            headers={"User-Agent": "UMML-Test"},
+        )
+        policy = ProviderDownloadPolicy()
+        policy.https_request(request)
+        parent = MagicMock(spec=urllib.request.OpenerDirector)
+        archive_response = MagicMock()
+        parent.open.return_value = archive_response
+        policy.parent = parent
+        response = MagicMock()
+        response.headers = {"Content-Type": "text/html; charset=utf-8"}
+        response.geturl.return_value = "https://gamebanana.com/dl/456"
+        response.read.return_value = (
+            b'<html><head><meta http-equiv="refresh" content="0; '
+            b'url=https://filecache39.gamebanana.com/mods/example.zip">'
+            b"</head></html>"
+        )
+
+        self.assertIs(policy.https_response(request, response), archive_response)
+        response.close.assert_called_once_with()
+        next_request = parent.open.call_args.args[0]
+        self.assertEqual(
+            next_request.full_url,
+            "https://filecache39.gamebanana.com/mods/example.zip",
+        )
+        self.assertEqual(
+            next_request.get_header("Referer"),
+            "https://gamebanana.com/dl/456",
+        )
+        self.assertEqual(parent.open.call_args.kwargs["timeout"], 60)
+
+    def test_gamebanana_download_policy_falls_back_from_dl_to_mmdl(self):
+        request = urllib.request.Request("https://gamebanana.com/dl/1765152")
+        policy = ProviderDownloadPolicy()
+        policy.https_request(request)
+        parent = MagicMock(spec=urllib.request.OpenerDirector)
+        archive_response = MagicMock()
+        parent.open.return_value = archive_response
+        policy.parent = parent
+        response = MagicMock()
+        response.headers = {"Content-Type": "text/html"}
+        response.geturl.return_value = "https://gamebanana.com/dl/1765152"
+        response.read.return_value = b"<html><title>Tango Down!</title></html>"
+
+        self.assertIs(policy.https_response(request, response), archive_response)
+        next_request = parent.open.call_args.args[0]
+        self.assertEqual(
+            next_request.full_url,
+            "https://gamebanana.com/mmdl/1765152",
+        )
+        self.assertEqual(
+            getattr(next_request, "_umml_gamebanana_landing_hops"),
+            1,
+        )
+
+    def test_gamebanana_download_policy_rejects_unsafe_html_target(self):
+        request = urllib.request.Request("https://gamebanana.com/mmdl/456")
+        policy = ProviderDownloadPolicy()
+        policy.https_request(request)
+        response = MagicMock()
+        response.headers = {"Content-Type": "text/html; charset=utf-8"}
+        response.geturl.return_value = "https://gamebanana.com/mmdl/456"
+        response.read.return_value = (
+            b'<html><title>Tango Down!</title><a href="https://evil.example/mod.zip">'
+            b"download</a></html>"
+        )
+
+        with self.assertRaisesRegex(
+            urllib.error.URLError,
+            "No safe GameBanana CDN link",
+        ) as context:
+            policy.https_response(request, response)
+        self.assertIn("Tango Down!", str(context.exception))
+        response.close.assert_called_once_with()
+
+    def test_gamebanana_landing_parser_handles_escaped_javascript(self):
+        target = _extract_gamebanana_landing_target(
+            b'<script>window.location.href="https:\\/\\/files.gamebanana.com\\/mods\\/x.zip";</script>',
+            "https://gamebanana.com/dl/1",
+        )
+        self.assertEqual(target, "https://files.gamebanana.com/mods/x.zip")
+
+    def test_gamebanana_manager_fallback_is_narrow(self):
+        self.assertEqual(
+            _gamebanana_manager_fallback("https://gamebanana.com/download/456"),
+            "https://gamebanana.com/mmdl/456",
+        )
+        self.assertEqual(
+            _gamebanana_manager_fallback("https://gamebanana.com/mmdl/456"),
+            "",
+        )
+        self.assertEqual(
+            _gamebanana_manager_fallback("https://evil.example/dl/456"),
+            "",
+        )
+
+    def test_gamebanana_download_policy_accepts_archive_payload(self):
+        request = urllib.request.Request("https://gamebanana.com/dl/456")
+        policy = ProviderDownloadPolicy()
+        policy.https_request(request)
+        response = MagicMock()
+        response.headers = {"Content-Type": "application/octet-stream"}
+
+        self.assertIs(policy.https_response(request, response), response)
+        response.close.assert_not_called()
 
     def test_gamebanana_certificate_failure_is_actionable_and_stays_verified(self):
         verification_error = ssl.SSLCertVerificationError(

@@ -14,13 +14,15 @@
 
 No user should need to manually prepare or re-prepare a mod. That is internal plumbing, and plumbing belongs inside the wall rather than beside the Apply button.
 
-> **Current status:** `0.2.0~alpha19` Community Test. Windows portable, Debian, and AppImage builds are testing prereleases. Keep the previous package for rollback, verify checksums, close the game before any write operation, and use expendable or independently backed-up data for recovery testing.
+> **Current status:** `0.2.0~alpha21` Community Test candidate. Windows portable, Debian, and AppImage builds are testing prereleases. Keep the previous package for rollback, verify checksums, close the game before any write operation, and use expendable or independently backed-up data for recovery testing.
+>
+> PR #10 contains additional audited UI and Veteran Roster work stacked on the exact alpha21 candidate. Its workflow artifacts are development builds, not replacements for the exact PR #6 candidate until the real-machine gates are complete.
 >
 > The preserved original UMML compatibility layer remains version `1.5.0-linux.6`; it is not the version of the new Manager application.
 
 ## Start here
 
-- [Alpha19 Community Test notes](docs/releases/0.2.0-alpha.19.md)
+- [Alpha21 Community Test notes](docs/releases/0.2.0-alpha.21.md)
 - [Testing and feedback](docs/TESTING_AND_FEEDBACK.md)
 - [Player guide](MANAGER_README.md)
 - [Mod creator guide](docs/MOD_CREATOR_GUIDE.md)
@@ -35,7 +37,7 @@ No user should need to manually prepare or re-prepare a mod. That is internal pl
 
 ## Community Test programme
 
-Alpha19 is designed to collect reproducible player and creator feedback rather than vague reports that “something was weird.” The release contract provides:
+Alpha21 is designed to collect reproducible player and creator feedback rather than vague reports that “something was weird.” The release contract provides:
 
 - one exact version across Windows, Debian, AppImage, AppStream, and Git tags;
 - SHA-256 checksums for every published package;
@@ -74,7 +76,9 @@ Read [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before using a test bu
 
 ## Read-only Uma data tools
 
-The Veteran Roster workspace imports validated JSON produced by community tools in the `umadump` / `UmaExtractor` family. It stores scrubbed immutable snapshots, rejects unrelated output classes, searches and inspects records, and exports JSON or CSV.
+The Veteran Roster workspace imports validated JSON produced by community tools in the `umadump` / `UmaExtractor` family. It stores scrubbed snapshots with provenance and integrity metadata, rejects unrelated output classes, searches and inspects records, and exports JSON or CSV.
+
+Cached artwork and portraits found in the user's installed game may load automatically. New HTTPS artwork requests are never started by opening or scrolling the roster; they require **Load portrait online** or **Load all portraits online**. Local game databases and bundles are opened read-only, and all generated PNGs stay inside the Manager cache.
 
 Supported provider families include:
 
@@ -122,15 +126,15 @@ A compatibility launcher named `UMML Manager.cmd` remains during the migration w
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha19_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha21_amd64.deb
 /usr/bin/umml-manager
 ```
 
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha.19_x86_64.AppImage
-./umml-manager_0.2.0-alpha.19_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha.21_x86_64.AppImage
+./umml-manager_0.2.0-alpha.21_x86_64.AppImage
 ```
 
 Verify published artifacts using the accompanying checksum file:

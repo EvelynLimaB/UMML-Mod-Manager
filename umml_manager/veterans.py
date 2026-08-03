@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 import shutil
 import stat
+import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,6 +38,7 @@ PRIVATE_KEY_NAMES = {
     "username",
     "circlename",
 }
+_SAFE_SNAPSHOT_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
 
 
 class VeteranDataError(RuntimeError):
@@ -58,6 +61,7 @@ class VeteranSnapshot:
     source_sha256: str
     record_count: int
     data_file: str
+    data_sha256: str = ""
     provider: str = UPSTREAM_PROJECT
     provider_url: str = UPSTREAM_URL
     license_status: str = "not-declared"
@@ -71,6 +75,10 @@ class VeteranSnapshot:
         data_file = str(value.get("data_file") or "").strip()
         if not snapshot_id or not data_file:
             raise VeteranDataError("Veteran snapshot metadata is incomplete")
+        if not _safe_snapshot_component(snapshot_id):
+            raise VeteranDataError("Veteran snapshot ID contains an unsafe path component")
+        if not _safe_snapshot_component(data_file) or Path(data_file).name != data_file:
+            raise VeteranDataError("Veteran snapshot data_file must be a safe filename")
         raw_warnings = value.get("warnings", [])
         warnings = (
             tuple(str(item) for item in raw_warnings)
@@ -84,6 +92,7 @@ class VeteranSnapshot:
             source_sha256=str(value.get("source_sha256") or ""),
             record_count=int(value.get("record_count") or 0),
             data_file=data_file,
+            data_sha256=str(value.get("data_sha256") or "").strip().casefold(),
             provider=str(value.get("provider") or UPSTREAM_PROJECT),
             provider_url=str(value.get("provider_url") or UPSTREAM_URL),
             license_status=str(value.get("license_status") or "not-declared"),
@@ -149,7 +158,9 @@ class VeteranStore:
         raise VeteranDataError(f"Unknown veteran snapshot: {snapshot_id}")
 
     def import_json(self, source: str | Path) -> VeteranSnapshot:
-        selected_path = Path(source).expanduser().resolve()
+        # Validate the path before resolving it so a selected symlink does not
+        # silently become indistinguishable from its target.
+        selected_path = Path(source).expanduser()
         source_path, records, selection_warning = self._resolve_roster_source(
             selected_path
         )
@@ -243,6 +254,7 @@ class VeteranStore:
             "records": cleaned,
         }
         atomic_write_json(data_path, payload)
+        data_sha256 = hash_file(data_path)
 
         snapshot = VeteranSnapshot(
             id=snapshot_id,
@@ -251,6 +263,7 @@ class VeteranStore:
             source_sha256=source_sha256,
             record_count=len(cleaned),
             data_file=data_name,
+            data_sha256=data_sha256,
             provider=provider.name,
             provider_url=provider.url,
             warnings=tuple(warnings),
@@ -271,7 +284,8 @@ class VeteranStore:
         self, snapshot: VeteranSnapshot | str
     ) -> list[dict[str, Any]]:
         value = self.get_snapshot(snapshot) if isinstance(snapshot, str) else snapshot
-        data_path = self.snapshots_dir / value.data_file
+        data_path = self._snapshot_path(value)
+        self._verify_snapshot_hash(value, data_path)
         try:
             document = json.loads(data_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
@@ -293,10 +307,10 @@ class VeteranStore:
         self, snapshot: VeteranSnapshot | str, destination: str | Path
     ) -> Path:
         value = self.get_snapshot(snapshot) if isinstance(snapshot, str) else snapshot
-        source = self.snapshots_dir / value.data_file
-        target = Path(destination).expanduser()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, target)
+        source = self._snapshot_path(value)
+        self._verify_snapshot_hash(value, source)
+        target = _safe_export_target(destination)
+        _atomic_copy(source, target)
         return target
 
     def export_csv(
@@ -304,51 +318,66 @@ class VeteranStore:
         records: Iterable[dict[str, Any]],
         destination: str | Path,
     ) -> Path:
-        target = Path(destination).expanduser()
-        target.parent.mkdir(parents=True, exist_ok=True)
+        target = _safe_export_target(destination)
         rows = [
             row_from_record(index, record)
             for index, record in enumerate(records)
         ]
-        with target.open("w", encoding="utf-8", newline="") as stream:
-            writer = csv.writer(stream)
-            writer.writerow(
-                [
-                    "index",
-                    "name",
-                    "chara_id",
-                    "card_id",
-                    "trained_chara_id",
-                    "rank",
-                    "speed",
-                    "stamina",
-                    "power",
-                    "guts",
-                    "wisdom",
-                    "total_stats",
-                    "factor_count",
-                    "skill_count",
-                ]
-            )
-            for row in rows:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            dir=target.parent,
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+                writer = csv.writer(stream)
                 writer.writerow(
                     [
-                        row.index,
-                        row.name,
-                        row.chara_id,
-                        row.card_id,
-                        row.trained_chara_id,
-                        row.rank,
-                        row.speed,
-                        row.stamina,
-                        row.power,
-                        row.guts,
-                        row.wisdom,
-                        row.total_stats,
-                        row.factor_count,
-                        row.skill_count,
+                        "index",
+                        "name",
+                        "chara_id",
+                        "card_id",
+                        "trained_chara_id",
+                        "rank",
+                        "speed",
+                        "stamina",
+                        "power",
+                        "guts",
+                        "wisdom",
+                        "total_stats",
+                        "factor_count",
+                        "skill_count",
                     ]
                 )
+                for row in rows:
+                    writer.writerow(
+                        [
+                            row.index,
+                            row.name,
+                            row.chara_id,
+                            row.card_id,
+                            row.trained_chara_id,
+                            row.rank,
+                            row.speed,
+                            row.stamina,
+                            row.power,
+                            row.guts,
+                            row.wisdom,
+                            row.total_stats,
+                            row.factor_count,
+                            row.skill_count,
+                        ]
+                    )
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, target)
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
         return target
 
     def load_settings(self) -> dict[str, Any]:
@@ -367,31 +396,58 @@ class VeteranStore:
         self, selected_path: Path
     ) -> tuple[Path, list[Any], str]:
         self._validate_source_file(selected_path)
+        selected_path = selected_path.resolve()
         raw = _load_json(selected_path)
         try:
             records = _extract_record_list(raw)
             _validate_veteran_records(records)
             return selected_path, records, ""
         except VeteranDataError as selected_error:
-            # Werseter/umadump 2.0 writes several JSON files in one pass. The
-            # Manager's historical "Import latest output" action may therefore
-            # hand us support_card_data.json or trophy_data.json even though the
-            # correct roster is beside it. Prefer that known sibling rather than
-            # importing a different data class as veterans.
             sibling = selected_path.parent / "trained_chara_data.json"
             if (
                 selected_path.name.casefold() != sibling.name.casefold()
                 and sibling.is_file()
             ):
                 self._validate_source_file(sibling)
+                sibling = sibling.resolve()
                 sibling_records = _extract_record_list(_load_json(sibling))
                 _validate_veteran_records(sibling_records)
                 warning = (
                     f"Selected {selected_path.name}, which was not a veteran roster; "
                     f"imported sibling {sibling.name} instead."
                 )
-                return sibling.resolve(), sibling_records, warning
+                return sibling, sibling_records, warning
             raise selected_error
+
+    def _snapshot_path(self, snapshot: VeteranSnapshot) -> Path:
+        if not _safe_snapshot_component(snapshot.data_file):
+            raise VeteranDataError("Veteran snapshot data_file is unsafe")
+        try:
+            root = self.snapshots_dir.resolve(strict=True)
+            candidate = self.snapshots_dir / snapshot.data_file
+            mode = candidate.lstat().st_mode
+            resolved = candidate.resolve(strict=True)
+        except OSError as exc:
+            raise VeteranDataError(
+                f"Veteran snapshot file is unavailable: {snapshot.data_file}: {exc}"
+            ) from exc
+        if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+            raise VeteranDataError("Veteran snapshot data must be a regular non-symlink file")
+        if not _is_relative_to(resolved, root):
+            raise VeteranDataError("Veteran snapshot path escapes the snapshot store")
+        return resolved
+
+    @staticmethod
+    def _verify_snapshot_hash(snapshot: VeteranSnapshot, path: Path) -> None:
+        expected = snapshot.data_sha256.strip().casefold()
+        if not expected:
+            # Version-1 snapshots created before integrity hashes remain readable.
+            return
+        actual = hash_file(path).casefold()
+        if actual != expected:
+            raise VeteranDataError(
+                f"Veteran snapshot {snapshot.id} failed its integrity check"
+            )
 
     def _read_index(self) -> dict[str, Any]:
         if not self.index_path.exists():
@@ -425,7 +481,7 @@ class VeteranStore:
             ) from exc
         if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
             raise VeteranDataError(
-                f"Veteran roster must be a regular file: {path}"
+                f"Veteran roster must be a regular non-symlink file: {path}"
             )
         if size > MAX_ROSTER_BYTES:
             mib = size / (1024 * 1024)
@@ -732,6 +788,53 @@ def _scrub_private_fields(value: Any) -> tuple[Any, int]:
             stripped += child_stripped
         return cleaned_list, stripped
     return value, 0
+
+
+def _safe_snapshot_component(value: str) -> bool:
+    return bool(_SAFE_SNAPSHOT_COMPONENT.fullmatch(value)) and value not in {".", ".."}
+
+
+def _safe_export_target(destination: str | Path) -> Path:
+    target = Path(destination).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if target.exists() or target.is_symlink():
+            mode = target.lstat().st_mode
+            if stat.S_ISLNK(mode):
+                raise VeteranDataError("Export destination cannot be a symlink")
+            if not stat.S_ISREG(mode):
+                raise VeteranDataError("Export destination must be a regular file")
+    except OSError as exc:
+        raise VeteranDataError(f"Could not validate export destination: {exc}") from exc
+    return target
+
+
+def _atomic_copy(source: Path, target: Path) -> None:
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.name}.",
+        suffix=".tmp",
+        dir=target.parent,
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        shutil.copyfile(source, temporary)
+        with temporary.open("rb") as stream:
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
 
 
 def _normalized_key(value: str) -> str:

@@ -7,6 +7,7 @@ import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 THEMES = ("light", "dark")
 
@@ -29,6 +30,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _run_source_script(env: dict[str, str], theme: str, script_name: str, label: str) -> int:
+    script = Path(__file__).with_name(script_name)
+    completed = subprocess.run(
+        [sys.executable, str(script)],
+        env=env,
+        check=False,
+    )
+    if completed.returncode:
+        print(
+            f"Manager {theme} {label} failed with exit {completed.returncode}",
+            file=sys.stderr,
+        )
+    return completed.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     command = list(args.command)
@@ -40,6 +56,21 @@ def main(argv: list[str] | None = None) -> int:
     for theme in THEMES:
         env = os.environ.copy()
         env["UMML_SYSTEM_THEME"] = theme
+        for script_name, label in (
+            ("test_manager_responsive_runtime.py", "responsive source smoke test"),
+            ("test_manager_veteran_roster_runtime.py", "veteran roster source smoke test"),
+            (
+                "test_manager_veteran_master_runtime.py",
+                "master-resolved veteran workspace smoke test",
+            ),
+            (
+                "test_manager_veteran_workspace_v2_runtime.py",
+                "corrected veteran grid and portrait smoke test",
+            ),
+        ):
+            status = _run_source_script(env, theme, script_name, label)
+            if status:
+                return status
         completed = subprocess.run(
             [*command, "--smoke-test"],
             env=env,

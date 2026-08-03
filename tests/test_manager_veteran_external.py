@@ -1,10 +1,27 @@
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from umml_manager.ui_veteran_external import build_external_launch
+from umml_manager.ui_veteran_external import (
+    _open_extractor_log,
+    _regular_file,
+    _save_external_selection,
+    build_external_launch,
+)
+
+
+class _Store:
+    def __init__(self):
+        self.settings = {}
+
+    def load_settings(self):
+        return dict(self.settings)
+
+    def save_settings(self, value):
+        self.settings = dict(value)
 
 
 class ExternalVeteranExtractorTests(unittest.TestCase):
@@ -33,6 +50,20 @@ class ExternalVeteranExtractorTests(unittest.TestCase):
             self.assertEqual(launch.command, (str(executable.resolve()),))
             self.assertEqual(launch.cwd, inbox.resolve())
             self.assertTrue(inbox.is_dir())
+
+    def test_linked_extractor_cannot_bypass_launch_validation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            executable = root / "UmaExtractor.exe"
+            executable.write_bytes(b"MZ")
+            link = root / "linked.exe"
+            try:
+                os.symlink(executable, link)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable on this runner")
+
+            with self.assertRaises(FileNotFoundError):
+                build_external_launch(link, root / "inbox")
 
     def test_generic_python_extractor_uses_configured_interpreter(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -123,6 +154,49 @@ class ExternalVeteranExtractorTests(unittest.TestCase):
                     root / "inbox",
                     python_executable=str(root / "missing-python"),
                 )
+
+    def test_extractor_log_is_regular_and_private(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "inbox" / "veteran-extractor.log"
+            with _open_extractor_log(path) as stream:
+                stream.write(b"test\n")
+
+            self.assertTrue(_regular_file(path))
+            self.assertEqual(path.read_bytes(), b"test\n")
+            if os.name != "nt":
+                self.assertEqual(path.stat().st_mode & 0o077, 0)
+
+    def test_extractor_log_refuses_symlink_without_touching_target(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            outside = root / "outside.log"
+            outside.write_bytes(b"keep")
+            link = root / "veteran-extractor.log"
+            try:
+                os.symlink(outside, link)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable on this runner")
+
+            with self.assertRaises(OSError):
+                _open_extractor_log(link)
+            self.assertEqual(outside.read_bytes(), b"keep")
+            self.assertFalse(_regular_file(link))
+
+    def test_external_selection_refuses_symlink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            actual = root / "extractor.py"
+            actual.write_text("print('ok')", encoding="utf-8")
+            link = root / "linked.py"
+            try:
+                os.symlink(actual, link)
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation is unavailable on this runner")
+            page = type("Page", (), {"store": _Store()})()
+
+            with self.assertRaises(FileNotFoundError):
+                _save_external_selection(page, link)
+            self.assertEqual(page.store.settings, {})
 
 
 if __name__ == "__main__":

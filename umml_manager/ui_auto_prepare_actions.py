@@ -101,9 +101,6 @@ class AutoPrepareActions(MaintenanceActions):
         if mod.package_type != PACKAGE_UMML_ASSETS:
             return f"{mod.package_type}; backend needed"
         if not self._record_needs_auto_prepare(mod):
-            # A direct Inspect & edit retry can complete outside the background
-            # callback. Do not let an old in-memory error outlive the repaired
-            # record and keep the UI permanently labelled as broken.
             self._clear_auto_prepare_error(mod.id)
             return "ready"
         if self._auto_prepare_errors().get(mod.id):
@@ -212,13 +209,45 @@ class AutoPrepareActions(MaintenanceActions):
                 queue.insert(0, prioritize)
         if getattr(self, "_auto_prepare_scan_scheduled", False):
             return
+
+        self._bind_auto_prepare_teardown()
         self._auto_prepare_scan_scheduled = True
         try:
-            self.root.after(delay, self._run_auto_prepare_scan)
+            self._auto_prepare_after_id = self.root.after(
+                delay,
+                self._run_auto_prepare_scan,
+            )
         except Exception:
             self._auto_prepare_scan_scheduled = False
+            self._auto_prepare_after_id = None
+
+    def _bind_auto_prepare_teardown(self) -> None:
+        if getattr(self, "_auto_prepare_teardown_bound", False):
+            return
+        try:
+            self.root.bind("<Destroy>", self._auto_prepare_root_destroyed, add="+")
+        except Exception:
+            return
+        self._auto_prepare_teardown_bound = True
+
+    def _auto_prepare_root_destroyed(self, event) -> None:
+        if getattr(event, "widget", None) is not getattr(self, "root", None):
+            return
+        self._cancel_auto_prepare_scan()
+
+    def _cancel_auto_prepare_scan(self) -> None:
+        callback_id = getattr(self, "_auto_prepare_after_id", None)
+        self._auto_prepare_after_id = None
+        self._auto_prepare_scan_scheduled = False
+        if not callback_id or not hasattr(self, "root"):
+            return
+        try:
+            self.root.after_cancel(callback_id)
+        except Exception:
+            pass
 
     def _run_auto_prepare_scan(self) -> None:
+        self._auto_prepare_after_id = None
         self._auto_prepare_scan_scheduled = False
         if getattr(self, "_closing", False):
             return
