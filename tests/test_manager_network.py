@@ -1,8 +1,10 @@
+import http.cookiejar
 import os
 import ssl
 import tempfile
 import unittest
 import urllib.error
+import urllib.request
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -10,6 +12,7 @@ from unittest.mock import MagicMock, patch
 from umml_manager.network import (
     TLSConfiguration,
     TLSConfigurationError,
+    build_https_opener,
     create_ssl_context,
     resolve_tls_configuration,
     tls_diagnostics,
@@ -72,6 +75,38 @@ class ManagerNetworkTests(unittest.TestCase):
         )
         self.assertIs(actual_context, context)
         self.assertEqual(actual_configuration, configuration)
+
+    def test_https_opener_keeps_ephemeral_provider_cookies(self):
+        configuration = TLSConfiguration(
+            cafile="/synthetic/ca.pem",
+            capath=None,
+            source="test",
+        )
+        context = MagicMock(spec=ssl.SSLContext)
+        built = MagicMock(spec=urllib.request.OpenerDirector)
+        with (
+            patch(
+                "umml_manager.network.create_ssl_context",
+                return_value=(context, configuration),
+            ),
+            patch(
+                "umml_manager.network.urllib.request.build_opener",
+                return_value=built,
+            ) as build_opener,
+        ):
+            opener, actual_configuration = build_https_opener()
+
+        self.assertIs(opener, built)
+        self.assertEqual(actual_configuration, configuration)
+        handlers = build_opener.call_args.args
+        cookie_handlers = [
+            handler
+            for handler in handlers
+            if isinstance(handler, urllib.request.HTTPCookieProcessor)
+        ]
+        self.assertEqual(len(cookie_handlers), 1)
+        self.assertIsInstance(cookie_handlers[0].cookiejar, http.cookiejar.CookieJar)
+        self.assertEqual(list(cookie_handlers[0].cookiejar), [])
 
     def test_gamebanana_certificate_failure_is_actionable_and_stays_verified(self):
         verification_error = ssl.SSLCertVerificationError(
