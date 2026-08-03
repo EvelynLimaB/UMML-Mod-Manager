@@ -113,11 +113,19 @@ class ManagerNetworkTests(unittest.TestCase):
         self.assertEqual(list(cookie_handlers[0].cookiejar), [])
 
     def test_gamebanana_download_policy_adds_site_context(self):
-        request = urllib.request.Request("https://gamebanana.com/dl/456")
-        processed = ProviderDownloadPolicy().https_request(request)
-
-        self.assertEqual(processed.get_header("Referer"), "https://gamebanana.com/")
-        self.assertIn("application/octet-stream", processed.get_header("Accept"))
+        policy = ProviderDownloadPolicy()
+        for path in ("/dl/456", "/download/456", "/mmdl/456"):
+            with self.subTest(path=path):
+                request = urllib.request.Request(f"https://gamebanana.com{path}")
+                processed = policy.https_request(request)
+                self.assertEqual(
+                    processed.get_header("Referer"),
+                    "https://gamebanana.com/",
+                )
+                self.assertIn(
+                    "application/octet-stream",
+                    processed.get_header("Accept"),
+                )
 
     def test_gamebanana_download_policy_does_not_touch_other_hosts(self):
         request = urllib.request.Request("https://example.com/download/456")
