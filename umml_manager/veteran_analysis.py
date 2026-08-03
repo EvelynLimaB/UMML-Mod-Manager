@@ -67,110 +67,55 @@ _APTITUDE_GRADES = {
     7: "A",
     8: "S",
 }
-_RANK_PATTERN = re.compile(r"^(?:[A-G](?:\+)?|SS\+?|U[GFEDCBAS](?:[1-9])?|US7\+)$", re.I)
-
-# Evaluation-point thresholds used by the game. Keep this descending so the
-# first matching threshold is the visible rank. The current published table
-# defines US through US7; values above it are labelled US7+ instead of
-# inventing unpublished US8/US9 boundaries.
-_EVALUATION_RANKS: tuple[tuple[int, str], ...] = (
-    (71_600, "US7"),
-    (70_300, "US6"),
-    (69_000, "US5"),
-    (67_700, "US4"),
-    (66_400, "US3"),
-    (65_100, "US2"),
-    (64_200, "US1"),
-    (63_400, "US"),
-    (62_500, "UA9"),
-    (61_700, "UA8"),
-    (60_800, "UA7"),
-    (60_000, "UA6"),
-    (59_200, "UA5"),
-    (58_400, "UA4"),
-    (57_500, "UA3"),
-    (56_700, "UA2"),
-    (55_900, "UA1"),
-    (55_200, "UA"),
-    (54_400, "UB9"),
-    (53_600, "UB8"),
-    (52_800, "UB7"),
-    (52_000, "UB6"),
-    (51_300, "UB5"),
-    (50_500, "UB4"),
-    (49_800, "UB3"),
-    (49_000, "UB2"),
-    (48_300, "UB1"),
-    (47_600, "UB"),
-    (46_900, "UC9"),
-    (46_200, "UC8"),
-    (45_400, "UC7"),
-    (44_700, "UC6"),
-    (44_000, "UC5"),
-    (43_400, "UC4"),
-    (42_700, "UC3"),
-    (42_000, "UC2"),
-    (41_300, "UC1"),
-    (40_700, "UC"),
-    (40_000, "UD9"),
-    (39_400, "UD8"),
-    (38_700, "UD7"),
-    (38_100, "UD6"),
-    (37_500, "UD5"),
-    (36_800, "UD4"),
-    (36_200, "UD3"),
-    (35_600, "UD2"),
-    (35_000, "UD1"),
-    (34_400, "UD"),
-    (33_800, "UE9"),
-    (33_200, "UE8"),
-    (32_700, "UE7"),
-    (32_100, "UE6"),
-    (31_500, "UE5"),
-    (31_000, "UE4"),
-    (30_400, "UE3"),
-    (29_900, "UE2"),
-    (29_400, "UE1"),
-    (28_800, "UE"),
-    (28_300, "UF9"),
-    (27_800, "UF8"),
-    (27_300, "UF7"),
-    (26_800, "UF6"),
-    (26_300, "UF5"),
-    (25_800, "UF4"),
-    (25_300, "UF3"),
-    (24_800, "UF2"),
-    (24_300, "UF1"),
-    (23_900, "UF"),
-    (23_400, "UG9"),
-    (23_000, "UG8"),
-    (22_500, "UG7"),
-    (22_100, "UG6"),
-    (21_600, "UG5"),
-    (21_200, "UG4"),
-    (20_800, "UG3"),
-    (20_400, "UG2"),
-    (20_000, "UG1"),
-    (19_600, "UG"),
-    (19_200, "SS+"),
-    (17_500, "SS"),
-    (15_900, "S+"),
-    (14_500, "S"),
-    (12_100, "A+"),
-    (10_000, "A"),
-    (8_200, "B+"),
-    (6_500, "B"),
-    (4_900, "C+"),
-    (3_500, "C"),
-    (2_900, "D+"),
-    (2_300, "D"),
-    (1_800, "E+"),
-    (1_300, "E"),
-    (900, "F+"),
-    (600, "F"),
-    (300, "G+"),
-    (0, "G"),
+_RANK_PATTERN = re.compile(
+    r"^(?:[A-G](?:\+)?|S(?:\+)?|SS(?:\+)?|U[GFEDCBAS](?:[1-9])?|US7\+)$",
+    re.I,
 )
+
+_BASE_RANK_STARTS = (
+    (0, "G"),
+    (300, "G+"),
+    (600, "F"),
+    (900, "F+"),
+    (1_300, "E"),
+    (1_800, "E+"),
+    (2_300, "D"),
+    (2_900, "D+"),
+    (3_500, "C"),
+    (4_900, "C+"),
+    (6_500, "B"),
+    (8_200, "B+"),
+    (10_000, "A"),
+    (12_100, "A+"),
+    (14_500, "S"),
+    (15_900, "S+"),
+    (17_500, "SS"),
+    (19_200, "SS+"),
+)
+_HIGH_RANK_STARTS = {
+    "UG": (19_600, 20_000, 20_400, 20_800, 21_200, 21_600, 22_100, 22_500, 23_000, 23_400),
+    "UF": (23_900, 24_300, 24_800, 25_300, 25_800, 26_300, 26_800, 27_300, 27_800, 28_300),
+    "UE": (28_800, 29_400, 29_900, 30_400, 31_000, 31_500, 32_100, 32_700, 33_200, 33_800),
+    "UD": (34_400, 35_000, 35_600, 36_200, 36_800, 37_500, 38_100, 38_700, 39_400, 40_000),
+    "UC": (40_700, 41_300, 42_000, 42_700, 43_400, 44_000, 44_700, 45_400, 46_200, 46_900),
+    "UB": (47_600, 48_300, 49_000, 49_800, 50_500, 51_300, 52_000, 52_800, 53_600, 54_400),
+    "UA": (55_200, 55_900, 56_700, 57_500, 58_400, 59_200, 60_000, 60_800, 61_700, 62_500),
+    "US": (63_400, 64_200, 65_100, 66_400, 67_700, 69_000, 70_300, 71_600),
+}
+
+
+def _evaluation_thresholds() -> tuple[tuple[int, str], ...]:
+    values = list(_BASE_RANK_STARTS)
+    for prefix, starts in _HIGH_RANK_STARTS.items():
+        values.extend(
+            (score, prefix if index == 0 else f"{prefix}{index}")
+            for index, score in enumerate(starts)
+        )
+    values.sort(key=lambda item: item[0], reverse=True)
+    return tuple(values)
+
+
+_EVALUATION_RANKS = _evaluation_thresholds()
 
 
 def factor_entries(record: dict[str, Any]) -> tuple[RosterEntry, ...]:
@@ -215,7 +160,7 @@ def aptitude_grade(value: Any) -> str:
     """Return the game's G-through-S aptitude label for extractor values."""
 
     text = _text(value).upper().replace(" ", "")
-    if text in set(_APTITUDE_GRADES.values()):
+    if text in _APTITUDE_GRADES.values():
         return text
     numeric = _integer_or_none(value)
     if numeric is None or numeric <= 0:
