@@ -4,11 +4,23 @@ import os
 import stat
 import unicodedata
 from pathlib import Path
-from typing import Any
 
 
 class ImportSafetyError(RuntimeError):
     """Raised when a user-selected import input is not a safe regular path."""
+
+
+def _leaf_resolves_elsewhere(path: Path) -> bool:
+    """Detect a linked final path component while allowing linked parents."""
+
+    try:
+        resolved_parent = Path(os.path.realpath(path.parent))
+        expected = resolved_parent / path.name
+        actual = Path(os.path.realpath(path))
+    except OSError:
+        return False
+    normalize = lambda value: os.path.normcase(os.path.normpath(str(value)))
+    return normalize(expected) != normalize(actual)
 
 
 def is_link_like(
@@ -18,9 +30,9 @@ def is_link_like(
     """Return whether *path* is a symlink or Windows reparse-point link.
 
     POSIX links are represented in ``st_mode``. Windows directory junctions and
-    some symbolic links are represented primarily through reparse metadata, so
-    callers must preserve the complete ``lstat`` result instead of reducing it
-    to the mode bits before this check.
+    some symbolic links are represented primarily through reparse metadata. A
+    final resolved-destination comparison covers platforms that expose those
+    flags inconsistently while still allowing the path's parent to be linked.
     """
 
     selected = Path(path)
@@ -47,12 +59,14 @@ def is_link_like(
         return True
 
     isjunction = getattr(os.path, "isjunction", None)
-    if isjunction is None:
-        return False
-    try:
-        return bool(isjunction(selected))
-    except OSError:
-        return False
+    if isjunction is not None:
+        try:
+            if isjunction(selected):
+                return True
+        except OSError:
+            pass
+
+    return _leaf_resolves_elsewhere(selected)
 
 
 def resolve_regular_file(value: str | Path, *, label: str) -> Path:
