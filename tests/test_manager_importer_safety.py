@@ -5,11 +5,12 @@ import json
 import os
 import tarfile
 import tempfile
+import time
 import unittest
 import zipfile
 from pathlib import Path
 
-from umml_manager.importer_safety import latest_regular_json
+from umml_manager.importer_safety import is_link_like, latest_regular_json
 from umml_manager.store import ManagerStore, StoreError
 
 
@@ -29,6 +30,13 @@ class ImporterSafetyTests(unittest.TestCase):
         info = tarfile.TarInfo(name)
         info.size = len(payload)
         package.addfile(info, io.BytesIO(payload))
+
+    @staticmethod
+    def _require_created_link(path: Path) -> None:
+        if not is_link_like(path):
+            raise unittest.SkipTest(
+                "the runner did not create a detectable symlink or junction"
+            )
 
     def test_regular_folder_zip_and_tar_imports_still_succeed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -60,14 +68,18 @@ class ImporterSafetyTests(unittest.TestCase):
             self.assertEqual(tar_record.name, "TAR Mod")
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
-    def test_selected_folder_symlink_is_rejected_before_resolution(self):
+    def test_selected_folder_symlink_or_junction_is_rejected_before_resolution(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             actual = self._write_mod(root / "actual")
             selected = root / "selected"
-            os.symlink(actual, selected, target_is_directory=True)
+            try:
+                os.symlink(actual, selected, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"directory links unavailable: {exc}")
+            self._require_created_link(selected)
 
-            with self.assertRaisesRegex(StoreError, "non-symlink directory"):
+            with self.assertRaisesRegex(StoreError, "non-link directory"):
                 ManagerStore(root / "manager").import_folder(selected)
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
@@ -79,9 +91,13 @@ class ImporterSafetyTests(unittest.TestCase):
                 package.writestr("setting.json", '{"title":"Archive","mod_version":"1"}')
                 package.writestr("assets/payload.bundle", b"UnityFS")
             selected = root / "selected.zip"
-            os.symlink(actual, selected)
+            try:
+                os.symlink(actual, selected)
+            except OSError as exc:
+                self.skipTest(f"file symlinks unavailable: {exc}")
+            self._require_created_link(selected)
 
-            with self.assertRaisesRegex(StoreError, "non-symlink file"):
+            with self.assertRaisesRegex(StoreError, "non-link file"):
                 ManagerStore(root / "manager").import_archive(selected)
 
     def test_zip_casefold_collision_is_rejected(self):
@@ -114,31 +130,38 @@ class ImporterSafetyTests(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
     def test_latest_roster_output_ignores_newer_symlink(self):
-        with tempfile.TemporaryDirectory() as temp:
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside_temp:
             inbox = Path(temp)
             real = inbox / "trained_chara_data.json"
             real.write_text("[]", encoding="utf-8")
-            linked_target = inbox / "outside.json"
+            linked_target = Path(outside_temp) / "outside.json"
             linked_target.write_text("[]", encoding="utf-8")
             linked = inbox / "newest.json"
-            os.symlink(linked_target, linked)
-            os.utime(linked_target, ns=(2_000_000_000, 2_000_000_000))
+            try:
+                os.symlink(linked_target, linked)
+            except OSError as exc:
+                self.skipTest(f"file symlinks unavailable: {exc}")
+            self._require_created_link(linked)
+            now = time.time_ns()
+            os.utime(real, ns=(now - 2_000_000_000, now - 2_000_000_000))
+            os.utime(linked_target, ns=(now, now))
 
             self.assertEqual(latest_regular_json(inbox), real)
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
     def test_latest_roster_output_returns_none_for_only_symlinks(self):
-        with tempfile.TemporaryDirectory() as temp:
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside_temp:
             inbox = Path(temp)
-            target = inbox / "outside.json"
-            target.write_text("[]", encoding="utf-8")
-            target.rename(Path(temp).parent / f"{inbox.name}-outside.json")
-            outside = Path(temp).parent / f"{inbox.name}-outside.json"
+            outside = Path(outside_temp) / "outside.json"
+            outside.write_text("[]", encoding="utf-8")
+            linked = inbox / "linked.json"
             try:
-                os.symlink(outside, inbox / "linked.json")
-                self.assertIsNone(latest_regular_json(inbox))
-            finally:
-                outside.unlink(missing_ok=True)
+                os.symlink(outside, linked)
+            except OSError as exc:
+                self.skipTest(f"file symlinks unavailable: {exc}")
+            self._require_created_link(linked)
+
+            self.assertIsNone(latest_regular_json(inbox))
 
 
 if __name__ == "__main__":
