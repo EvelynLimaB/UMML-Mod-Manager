@@ -10,7 +10,13 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from umml_manager.importer_safety import is_link_like, latest_regular_json
+import umml_manager.store as store_module
+from umml_manager.importer_safety import (
+    ImportSafetyError,
+    is_link_like,
+    latest_regular_json,
+    resolve_regular_directory,
+)
 from umml_manager.store import ManagerStore, StoreError
 
 
@@ -37,6 +43,31 @@ class ImporterSafetyTests(unittest.TestCase):
             raise unittest.SkipTest(
                 "the runner did not create a detectable symlink or junction"
             )
+
+    @staticmethod
+    def _link_diagnostics(path: Path) -> str:
+        metadata = path.lstat()
+        return repr(
+            {
+                "path": str(path),
+                "is_symlink": path.is_symlink(),
+                "isjunction": bool(
+                    getattr(os.path, "isjunction", lambda _value: False)(path)
+                ),
+                "is_link_like": is_link_like(path, metadata),
+                "mode": metadata.st_mode,
+                "file_attributes": getattr(metadata, "st_file_attributes", None),
+                "reparse_tag": getattr(metadata, "st_reparse_tag", None),
+                "realpath": os.path.realpath(path),
+                "parent_realpath": os.path.realpath(path.parent),
+                "resolver_identity": (
+                    ManagerStore.import_folder.__globals__.get(
+                        "resolve_regular_directory"
+                    )
+                    is resolve_regular_directory
+                ),
+            }
+        )
 
     def test_regular_folder_zip_and_tar_imports_still_succeed(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -78,8 +109,31 @@ class ImporterSafetyTests(unittest.TestCase):
             except OSError as exc:
                 self.skipTest(f"directory links unavailable: {exc}")
             self._require_created_link(selected)
+            diagnostics = self._link_diagnostics(selected)
 
-            with self.assertRaisesRegex(StoreError, "non-link directory"):
+            self.assertIs(
+                store_module.resolve_regular_directory,
+                resolve_regular_directory,
+                diagnostics,
+            )
+            self.assertIs(
+                ManagerStore.import_folder.__globals__.get(
+                    "resolve_regular_directory"
+                ),
+                resolve_regular_directory,
+                diagnostics,
+            )
+            with self.assertRaisesRegex(
+                ImportSafetyError,
+                "non-link directory",
+                msg=diagnostics,
+            ):
+                resolve_regular_directory(selected, label="Mod folder")
+            with self.assertRaisesRegex(
+                StoreError,
+                "non-link directory",
+                msg=diagnostics,
+            ):
                 ManagerStore(root / "manager").import_folder(selected)
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
