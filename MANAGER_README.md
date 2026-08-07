@@ -2,15 +2,15 @@
 
 **Uma Mod Manager** is the primary desktop mod manager and creator workspace in this repository. It is a fork and continuation of UMML, with the original editor and loader functionality preserved through a guarded compatibility Studio while tested native workflows replace it piece by piece.
 
-> **Community Test candidate:** `0.2.0~alpha21`. The application includes bounded imports, immutable versions, provider browsing, automatic preparation and source analysis, profile-scoped configuration, visual package editing, read-only veteran-data tools, verified deployment, recovery journals, installation detection, privacy-scrubbed support bundles, and native Linux/Windows packages. Real-game and destructive-recovery testing are still required before a stable release.
+> **Community Test prerelease:** `0.2.0~alpha22`. The application includes bounded imports, immutable versions, provider browsing, automatic preparation and source analysis, profile-scoped configuration, visual package editing, the redesigned read-only Veteran Roster, verified deployment, recovery journals, installation detection, privacy-scrubbed support bundles, and native Linux/Windows packages.
 >
-> PR #10 is an audited development branch stacked on the exact PR #6 alpha21 candidate. Packages produced by PR #10 are test artifacts until its Bazzite and Windows real-machine gates are complete.
+> Alpha22 uses the browser-assisted GameBanana bridge as the supported interim fallback when GameBanana returns browser-only HTML instead of archive bytes. Official `uma-mod-manager:` one-click / Remote Install registration is planned separately.
 
-Read the [alpha21 release notes](docs/releases/0.2.0-alpha.21.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before testing this build.
+Read the [alpha22 release notes](docs/releases/0.2.0-alpha.22.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before testing this build.
 
 ## Naming and compatibility
 
-The public product and repository are named **Uma Mod Manager**. Existing technical identifiers remain unchanged during the migration so upgrades do not abandon user data or install a second application by accident:
+The public product and repository are named **Uma Mod Manager**. Existing technical identifiers remain unchanged during the migration so upgrades continue using the same data roots:
 
 ```text
 Linux package:     umml-manager
@@ -27,9 +27,9 @@ See [Branding and compatibility](docs/BRANDING_AND_COMPATIBILITY.md).
 
 ### Windows portable
 
-1. Download the exact Community Test ZIP or a successful Windows workflow artifact.
-2. Verify its SHA-256.
-3. Extract the application ZIP.
+1. Download `umml-manager_0.2.0-alpha.22_win64.zip`.
+2. Verify its SHA-256 against the release `SHA256SUMS`.
+3. Extract the ZIP into its own folder.
 4. Run:
 
 ```text
@@ -41,25 +41,25 @@ A compatibility launcher named `UMML Manager.cmd` remains during the migration w
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha21_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha22_amd64.deb
 /usr/bin/umml-manager
 ```
 
-The technical package name remains `umml-manager`, so an alpha21 package upgrades an earlier Manager package in place and continues using the same data root.
+The technical package name remains `umml-manager`, so alpha22 upgrades an earlier Manager package in place and continues using the same Manager data root.
 
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha.21_x86_64.AppImage
-./umml-manager_0.2.0-alpha.21_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha.22_x86_64.AppImage
+./umml-manager_0.2.0-alpha.22_x86_64.AppImage
 ```
 
 The AppImage also exposes the CLI:
 
 ```bash
-./umml-manager_0.2.0-alpha.21_x86_64.AppImage --version
-./umml-manager_0.2.0-alpha.21_x86_64.AppImage --cli list
-./umml-manager_0.2.0-alpha.21_x86_64.AppImage --cli doctor
+./umml-manager_0.2.0-alpha.22_x86_64.AppImage --version
+./umml-manager_0.2.0-alpha.22_x86_64.AppImage --cli list
+./umml-manager_0.2.0-alpha.22_x86_64.AppImage --cli doctor
 ```
 
 The Debian package, AppImage, and native Windows portable are built and validated independently. Verify published artifacts with:
@@ -102,6 +102,7 @@ Library owns imported packages, versions, profiles, configuration, load order, e
 Discover provides:
 
 - Global and Japan GameBanana browsing;
+- hydrated download totals rather than treating partial catalogue zeroes as confirmed zeroes;
 - exact downloadable-file selection;
 - bounded preview images;
 - verified archive provenance;
@@ -109,6 +110,32 @@ Discover provides:
 - safe archive and local-folder validation.
 
 Downloading and importing never deploys a mod.
+
+#### GameBanana downloads in alpha22
+
+The Manager first attempts a normal verified HTTPS transfer using GameBanana's file metadata. Some GameBanana `/dl/<file-id>` and `/mmdl/<file-id>` routes currently return an HTML landing or anti-abuse page instead of archive bytes.
+
+When that specific browser-only response occurs, alpha22:
+
+1. opens the selected GameBanana file URL in the user's real default browser;
+2. watches the normal user/XDG Downloads directory;
+3. ignores `.crdownload`, `.part`, `.download`, `.partial`, `.tmp`, old files, unrelated archives, and symlinks;
+4. waits until the expected archive is stable and complete;
+5. verifies expected byte size and MD5 when GameBanana's File API provides them;
+6. imports the completed archive with the original GameBanana submission ID, file ID, source hash, and provider metadata.
+
+On AppImage, the browser is launched through a sanitized host environment so Firefox/Chromium do not inherit PyInstaller's private library path.
+
+The watched directory can be overridden for one launch:
+
+```bash
+UMML_GAMEBANANA_DOWNLOAD_DIR=/path/to/downloads \
+  ./umml-manager_0.2.0-alpha.22_x86_64.AppImage
+```
+
+If the browser saves elsewhere, download the archive normally and import it through **Discover → Local folders**.
+
+This browser-assisted bridge is an interim compatibility path. The intended long-term integration is GameBanana's registered manager protocol / Remote Install model, where the site passes the actual archive URL to `uma-mod-manager:`.
 
 ### Conflicts
 
@@ -135,7 +162,7 @@ Studio currently contains:
 - native package and creator entry points;
 - the read-only Veteran Roster workspace.
 
-Legacy tools remain available until native replacements reach feature parity and pass restoration tests. They are compatibility code, not the design model for new pages.
+Legacy tools remain available until native replacements reach feature parity and pass restoration tests.
 
 ### Veteran Roster
 
@@ -149,12 +176,16 @@ It can:
 - remove known viewer/account identifiers and account-name fields recursively;
 - store timestamped scrubbed snapshots with provenance and integrity hashes;
 - enrich names, factor metadata, and exact factor stars from the installed `master.mdb` without modifying it;
-- search, sort, inspect, compare, and export scrubbed records;
+- display evaluation ranks such as `S`, `S+`, `SS`, and higher tiers instead of raw score labels;
+- display aptitude grades `G–S` instead of internal storage integers;
+- show factor rarity as `1–3★` and skill acquisition as `Lv N`;
+- search, sort, filter, build legacy shortlists, inspect, pin, compare, and export scrubbed records;
+- resolve cached/local portraits and preload unique costume portraits without duplicating work for repeated runs;
 - launch a user-selected external extractor in an isolated inbox.
 
-Factors use `1–3★`. Extractor `level: 0` values are treated as placeholders and fall back to the matching installed factor rarity. Skill acquisition levels are displayed separately as `Lv N`; a skill's master-data rarity is not presented as its acquired level.
+Extractor `level: 0` factor values are treated as placeholders and fall back to the matching installed factor rarity. A skill's master-data rarity is not presented as its acquired level.
 
-Cached artwork and portraits decoded from the installed game may appear automatically. Opening or scrolling the roster never starts a new artwork download. HTTPS fallback requires **Load portrait online** for the selected record or **Load all portraits online** for the visible roster. The artwork cache can be cleared without touching snapshots or game files.
+Cached artwork and portraits decoded from the installed game may appear automatically. Opening or scrolling the roster never starts a new artwork download. HTTPS fallback requires **Load portrait online** for the selected record or **Load all portraits online** for the roster. The artwork cache can be cleared without touching snapshots or game files.
 
 Upstream extractor code and binaries are not bundled when their repository does not declare a compatible project-wide license. See [UmaExtractor integration](docs/UMAEXTRACTOR_INTEGRATION.md).
 
@@ -165,8 +196,6 @@ Settings manages installation selection, automatic detection, Manager data and w
 Use **Create support bundle** to save a privacy-scrubbed ZIP for a bug or test report. It includes build/platform information, configuration-presence flags, high-level library/profile summaries, and read-only diagnostics. It excludes game assets, mod payloads, baselines, transaction contents, Veteran snapshots, raw settings, credentials, and known account identifiers.
 
 Inspect `support-report.json` before uploading it. Custom package names or free-form errors may still contain text you consider private.
-
-Manager-owned windows should open centered, raised, focused, and briefly topmost so new dialogs do not hide behind the main window like paperwork attempting escape.
 
 ## Player workflow
 
@@ -183,25 +212,17 @@ Manager-owned windows should open centered, raised, focused, and briefly topmost
 
 To switch setups, select another profile and apply it. To return to vanilla, apply an empty profile or use the verified restoration path shown by the interface.
 
-## Creator workflow
-
-1. Use **New package** for a fresh workspace, or **Inspect & edit** on an imported mod.
-2. Add or review source bundles under the workspace `assets/` directory.
-3. Review detected final targets, content types, parts, characters, and dresses.
-4. Edit package identity, regions, dependencies, incompatibilities, relative order, tags, and notes.
-5. Add profile-scoped variants or optional components.
-6. Validate the workspace.
-7. Import it as a new immutable version.
-8. Test it in a dedicated profile, including conflict preview, Apply, profile switching, and vanilla restoration.
-9. Publish the package with its manifest, version, credits, and compatibility information.
-
-See [Mod creator guide](docs/MOD_CREATOR_GUIDE.md) and [Manifest reference](docs/MANAGER_MOD_MANIFEST.md).
-
 ## Automatic preparation
 
 Preparation is an internal background stage that converts creator-facing inputs into a verified deployable view. The user does not manage it manually.
 
 Uma Mod Manager automatically queues newly imported compatible packages, stale metadata, older preparation layouts requiring migration, and source analysis that has not completed. Preparation never writes game files. Failure preserves the imported source and prior verified cache, continues the remaining queue, and reports a package-specific issue.
+
+## Standalone Werseter extractor host
+
+Supported user-supplied Werseter source ZIPs use the packaged Python 3.14 runtime and `minidump 0.0.24` on Windows portable, Debian, and AppImage builds. A separate Python installation is not required for that supported workflow.
+
+The Manager does not redistribute Werseter's source when the upstream repository lacks a compatible declared project-wide license. The user supplies the ZIP, and the extractor runs as a separate process under the current account.
 
 ## Safety and recovery
 
@@ -223,7 +244,7 @@ Corrupt preferences are quarantined and reset with their original bytes preserve
 
 ## Testing and feedback
 
-Testing releases are for collecting evidence, not for converting strangers into an undocumented exception-handling system.
+Testing releases are for collecting evidence.
 
 Before reporting:
 
@@ -249,12 +270,13 @@ umml-manager-cli network-smoke
 umml-manager-cli self-test
 ```
 
-The legacy technical command name is intentional during the compatibility window. The CLI is not a back door around GUI blockers; it is deliberately equally paranoid.
+The CLI is not a back door around GUI blockers; it deliberately uses the same safety boundaries.
 
 ## Further documentation
 
-- [Alpha21 release notes](docs/releases/0.2.0-alpha.21.md)
+- [Alpha22 release notes](docs/releases/0.2.0-alpha.22.md)
 - [Testing and feedback](docs/TESTING_AND_FEEDBACK.md)
+- [GameBanana provider](docs/GAMEBANANA_PROVIDER.md)
 - [Release process](docs/RELEASE_PROCESS.md)
 - [Project vision](docs/PROJECT_VISION.md)
 - [Branding and compatibility](docs/BRANDING_AND_COMPATIBILITY.md)
