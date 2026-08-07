@@ -87,7 +87,7 @@ location for one run with:
 
 ```bash
 UMML_GAMEBANANA_DOWNLOAD_DIR=/path/to/downloads \
-  ./umml-manager_0.2.0-alpha.21_x86_64.AppImage
+  ./umml-manager_0.2.0-alpha.22_x86_64.AppImage
 ```
 
 The watched root must be a normal directory, not a symbolic link. Browser
