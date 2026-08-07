@@ -46,6 +46,10 @@ datas = [
         str(ROOT / "docs" / "releases" / "0.2.0-alpha.21.md"),
         "docs/releases",
     ),
+    (
+        str(ROOT / "docs" / "releases" / "0.2.0-alpha.22.md"),
+        "docs/releases",
+    ),
 ]
 binaries = []
 hiddenimports = [
