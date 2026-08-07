@@ -37,6 +37,11 @@
     <keyword>Unity</keyword>
   </keywords>
   <releases>
+    <release version="0.2.0-alpha.22" date="2026-08-07">
+      <description>
+        <p>Publishes the audited responsive UI and Veteran Roster, readable aptitude and evaluation ranks, corrected factor and skill metadata, importer hardening, GameBanana download-count hydration, and a browser-assisted fallback for GameBanana files that return browser-only HTML.</p>
+      </description>
+    </release>
     <release version="0.2.0-alpha.21" date="2026-08-01">
       <description>
         <p>Adds a standalone packaged Python 3.14 host for supported user-supplied Werseter source ZIPs, bundles minidump 0.0.24, verifies the host with an executable fixture, improves interpreter fallback detection, and upgrades older managed source installations automatically.</p>
