@@ -6,23 +6,29 @@ on:
       release_tag:
         description: Exact prerelease tag derived from MANAGER_VERSION
         required: true
-        default: v0.2.0-alpha.21
+        default: v0.2.0-alpha.22
         type: string
       publish_release:
         description: Publish a GitHub prerelease after every build and test passes
         required: true
         default: false
         type: boolean
+  push:
+    branches:
+      - release/0.2.0-alpha.22
+    paths:
+      - RELEASE_TRIGGER
 
 permissions:
   contents: read
 
 concurrency:
-  group: uma-mod-manager-testing-release-${{ inputs.release_tag }}
+  group: uma-mod-manager-testing-release-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || 'v0.2.0-alpha.22' }}
   cancel-in-progress: false
 
 env:
-  RELEASE_NOTES: docs/releases/0.2.0-alpha.21.md
+  RELEASE_NOTES: docs/releases/0.2.0-alpha.22.md
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || 'v0.2.0-alpha.22' }}
 
 jobs:
   validate:
@@ -38,7 +44,7 @@ jobs:
           set -Eeuo pipefail
           python scripts/audit_manager.py
           python scripts/audit_branding.py
-          python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
+          python scripts/audit_release.py --tag "$RELEASE_TAG"
           test -f "$RELEASE_NOTES"
           test -f docs/TESTING_AND_FEEDBACK.md
           test -f docs/RELEASE_PROCESS.md
@@ -75,7 +81,7 @@ jobs:
           python -m compileall -q umml_manager umml_manager_packaged.py tests scripts/audit_manager.py scripts/audit_branding.py scripts/audit_release.py scripts/test_manager_theme_runtime.py
           python scripts/audit_manager.py
           python scripts/audit_branding.py
-          python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
+          python scripts/audit_release.py --tag "$env:RELEASE_TAG"
           python -m unittest discover -s tests -p 'test_manager*.py' -v
       - name: Build and exercise native portable runtime
         shell: pwsh
@@ -88,9 +94,7 @@ jobs:
             packaging/pyinstaller/umml-manager.spec
           $bundleRoot = 'build/windows-dist/umml-manager'
           $exe = Join-Path $bundleRoot 'umml-manager-bin.exe'
-          if (!(Test-Path $exe)) {
-            throw "Windows Manager executable was not built: $exe"
-          }
+          if (!(Test-Path $exe)) { throw "Windows Manager executable was not built: $exe" }
           & $exe --version
           & $exe cli self-test
           $probe = (& $exe --extractor-host-probe | ConvertFrom-Json)
@@ -120,18 +124,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           $raw = [System.IO.File]::ReadAllText((Join-Path $PWD 'MANAGER_VERSION')).Trim()
-          if ([string]::IsNullOrWhiteSpace($raw)) {
-            throw 'MANAGER_VERSION is empty'
-          }
+          if ([string]::IsNullOrWhiteSpace($raw)) { throw 'MANAGER_VERSION is empty' }
           $display = $raw -replace '~alpha', '-alpha.'
           $expectedTag = "v$display"
-          if ($expectedTag -ne '${{ inputs.release_tag }}') {
-            throw "Release tag mismatch: expected $expectedTag"
-          }
+          if ($expectedTag -ne "$env:RELEASE_TAG") { throw "Release tag mismatch: expected $expectedTag" }
           $notes = Join-Path 'docs/releases' "$display.md"
-          if (!(Test-Path $notes)) {
-            throw "Release notes are missing: $notes"
-          }
+          if (!(Test-Path $notes)) { throw "Release notes are missing: $notes" }
           $stage = Join-Path 'dist/windows' "Uma-Mod-Manager-$display-win64"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item -Recurse -Force 'build/windows-dist/umml-manager/*' $stage
@@ -152,6 +150,8 @@ jobs:
           Start the GUI with "Uma Mod Manager.cmd".
           Supported Werseter source ZIPs use the bundled Python 3.14 runtime;
           installing Python separately is not required.
+          GameBanana may open the default browser for browser-only file routes;
+          keep the Manager running until the completed archive is detected and imported.
           Create a privacy-scrubbed tester report through Settings → Create support bundle.
           Read RELEASE_NOTES.md and TESTING_AND_FEEDBACK.md before reporting results.
 
@@ -161,9 +161,7 @@ jobs:
           '@
           $zip = "dist/umml-manager_${display}_win64.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $zip -CompressionLevel Optimal
-          if (!(Test-Path $zip)) {
-            throw "Portable ZIP was not created: $zip"
-          }
+          if (!(Test-Path $zip)) { throw "Portable ZIP was not created: $zip" }
           $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
           "$hash  $([System.IO.Path]::GetFileName($zip))" | Set-Content -Encoding ascii 'dist/SHA256SUMS-WINDOWS'
           Get-Content 'dist/SHA256SUMS-WINDOWS'
@@ -193,22 +191,14 @@ jobs:
         run: |
           set -Eeuo pipefail
           sudo apt-get update
-          sudo apt-get install -y \
-            appstream-util \
-            curl \
-            desktop-file-utils \
-            dpkg-dev \
-            file \
-            python3-tk \
-            xauth \
-            xvfb
+          sudo apt-get install -y appstream-util curl desktop-file-utils dpkg-dev file python3-tk xauth xvfb
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install -r requirements.txt -r requirements-build.txt
           python -m pip check
       - name: Audit and test source
         run: |
           set -Eeuo pipefail
-          python scripts/audit_release.py --tag "${{ inputs.release_tag }}"
+          python scripts/audit_release.py --tag "$RELEASE_TAG"
           bash scripts/check_manager.sh
       - name: Build Debian package and AppImage
         run: |
@@ -221,7 +211,7 @@ jobs:
           set -Eeuo pipefail
           VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
           DISPLAY="${VERSION/~alpha/-alpha.}"
-          test "v$DISPLAY" = "${{ inputs.release_tag }}"
+          test "v$DISPLAY" = "$RELEASE_TAG"
           NOTES="docs/releases/$DISPLAY.md"
           DEB="dist/umml-manager_${VERSION}_amd64.deb"
           APPIMAGE="dist/umml-manager_${DISPLAY}_x86_64.AppImage"
@@ -230,29 +220,18 @@ jobs:
           test -x "$APPIMAGE"
           test "$(dpkg-deb --field "$DEB" Version)" = "$VERSION"
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --version
-          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --extractor-host-probe \
-            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
+          APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --extractor-host-probe | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGE" --cli self-test
-          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a \
-            python scripts/test_manager_theme_runtime.py -- "$APPIMAGE"
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a python scripts/test_manager_theme_runtime.py -- "$APPIMAGE"
           VERIFY_ROOT="$(mktemp -d)"
           trap 'rm -rf "$VERIFY_ROOT"' EXIT
           dpkg-deb -x "$DEB" "$VERIFY_ROOT/deb"
-          for document in \
-            TESTING_AND_FEEDBACK.md \
-            RELEASE_PROCESS.md \
-            GAMEBANANA_PROVIDER.md \
-            UMAEXTRACTOR_INTEGRATION.md \
-            DOWNLOADS.md \
-            RELEASE_NOTES.md
-          do
+          for document in TESTING_AND_FEEDBACK.md RELEASE_PROCESS.md GAMEBANANA_PROVIDER.md UMAEXTRACTOR_INTEGRATION.md DOWNLOADS.md RELEASE_NOTES.md; do
             test -f "$VERIFY_ROOT/deb/usr/share/doc/umml-manager/$document"
           done
-          "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" --extractor-host-probe \
-            | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
+          "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" --extractor-host-probe | python -c 'import json,sys; p=json.load(sys.stdin); assert p["ready"] and p["host_self_test"] and p["python_314_or_newer"] and p["minidump"] == "0.0.24", p'
           "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" cli self-test
-          xvfb-run -a python scripts/test_manager_theme_runtime.py -- \
-            "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" gui
+          xvfb-run -a python scripts/test_manager_theme_runtime.py -- "$VERIFY_ROOT/deb/usr/lib/umml-manager/umml-manager-bin" gui
           rm -rf "$VERIFY_ROOT"
           trap - EXIT
           cp docs/TESTING_AND_FEEDBACK.md dist/TESTING_AND_FEEDBACK.md
@@ -262,10 +241,7 @@ jobs:
           cp "$NOTES" dist/RELEASE_NOTES.md
           (
             cd dist
-            sha256sum \
-              "$(basename "$DEB")" \
-              "$(basename "$APPIMAGE")" \
-              > SHA256SUMS-LINUX
+            sha256sum "$(basename "$DEB")" "$(basename "$APPIMAGE")" > SHA256SUMS-LINUX
             sha256sum -c SHA256SUMS-LINUX
           )
       - uses: actions/upload-artifact@v4
@@ -285,7 +261,7 @@ jobs:
 
   publish:
     name: Publish GitHub prerelease
-    if: ${{ inputs.publish_release }}
+    if: ${{ github.event_name == 'push' || inputs.publish_release }}
     needs:
       - validate
       - windows
@@ -305,7 +281,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          TAG="${{ inputs.release_tag }}"
+          TAG="$RELEASE_TAG"
           python scripts/audit_release.py --tag "$TAG"
           VERSION="$(tr -d '[:space:]' < MANAGER_VERSION)"
           DISPLAY="${VERSION/~alpha/-alpha.}"
@@ -319,11 +295,7 @@ jobs:
           find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
           (
             cd release-assets
-            sha256sum \
-              umml-manager_*_win64.zip \
-              umml-manager_*_amd64.deb \
-              umml-manager_*_x86_64.AppImage \
-              > SHA256SUMS
+            sha256sum umml-manager_*_win64.zip umml-manager_*_amd64.deb umml-manager_*_x86_64.AppImage > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
           gh release create "$TAG" \
