@@ -12,21 +12,22 @@
 - **Players** get installation detection, validated imports, automatic preparation, profiles, options, conflict explanations, verified deployment, restoration, and diagnostics.
 - **Mod creators** get package workspaces, source-bundle inspection, character/dress/part targeting, compatibility editing, configurable variants, validation, testing, and growing asset/data tools.
 
-No user should need to manually prepare or re-prepare a mod. That is internal plumbing, and plumbing belongs inside the wall rather than beside the Apply button.
+No user should need to manually prepare or re-prepare a mod. That is internal plumbing and belongs inside the Manager rather than beside the Apply button.
 
-> **Current status:** `0.2.0~alpha21` Community Test candidate. Windows portable, Debian, and AppImage builds are testing prereleases. Keep the previous package for rollback, verify checksums, close the game before any write operation, and use expendable or independently backed-up data for recovery testing.
+> **Current status:** `0.2.0~alpha22` Community Test prerelease. Windows portable, Debian, and AppImage packages are produced from the same release source and validated independently. Keep the previous package for rollback, verify checksums, close the game before write operations, and use expendable or independently backed-up data for recovery testing.
 >
-> PR #10 contains additional audited UI and Veteran Roster work stacked on the exact alpha21 candidate. Its workflow artifacts are development builds, not replacements for the exact PR #6 candidate until the real-machine gates are complete.
+> Alpha22 includes the audited responsive UI, Veteran Roster, importer hardening, standalone Werseter host, GameBanana download-count hydration, and the browser-assisted GameBanana download bridge. Official `uma-mod-manager:` one-click / Remote Install registration is planned separately.
 >
 > The preserved original UMML compatibility layer remains version `1.5.0-linux.6`; it is not the version of the new Manager application.
 
 ## Start here
 
-- [Alpha21 Community Test notes](docs/releases/0.2.0-alpha.21.md)
+- [Alpha22 Community Test notes](docs/releases/0.2.0-alpha.22.md)
 - [Testing and feedback](docs/TESTING_AND_FEEDBACK.md)
 - [Player guide](MANAGER_README.md)
 - [Mod creator guide](docs/MOD_CREATOR_GUIDE.md)
 - [Package manifest reference](docs/MANAGER_MOD_MANIFEST.md)
+- [GameBanana provider](docs/GAMEBANANA_PROVIDER.md)
 - [Release process](docs/RELEASE_PROCESS.md)
 - [Project vision](docs/PROJECT_VISION.md)
 - [Architecture and safety boundaries](docs/MANAGER_ARCHITECTURE.md)
@@ -37,7 +38,7 @@ No user should need to manually prepare or re-prepare a mod. That is internal pl
 
 ## Community Test programme
 
-Alpha21 is designed to collect reproducible player and creator feedback rather than vague reports that “something was weird.” The release contract provides:
+Alpha22 is designed to collect reproducible player and creator feedback. The release contract provides:
 
 - one exact version across Windows, Debian, AppImage, AppStream, and Git tags;
 - SHA-256 checksums for every published package;
@@ -45,14 +46,15 @@ Alpha21 is designed to collect reproducible player and creator feedback rather t
 - a structured **Testing feedback** issue form for successful, partial, and failed passes;
 - a privacy-scrubbed support archive through **Settings → Create support bundle**;
 - known limitations and rollback guidance in every Community Test release note;
-- a manual prerelease workflow that refuses version drift and refuses to replace published artifacts silently.
+- a prerelease workflow that refuses version drift and refuses to replace published artifacts silently.
 
-Read [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before using a test build. Successful test passes are valuable evidence too. Silence remains maddeningly compatible with both perfection and nobody launching the application.
+Read [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before using a test build.
 
 ## Player features
 
 - Detect supported Windows, Steam, Proton, Wine, DMM, and regional installations.
-- Browse Global and Japan GameBanana catalogues with exact file selection and bounded previews.
+- Browse Global and Japan GameBanana catalogues with exact file selection, hydrated download totals, and bounded previews.
+- Download GameBanana files directly when raw archive bytes are available; when GameBanana returns browser-only HTML, open the real browser and automatically adopt the verified completed archive from Downloads.
 - Import local archives and folders through path, link, type, count, and size validation.
 - Keep every imported version immutable.
 - Prepare and analyze compatible packages automatically in the background.
@@ -78,6 +80,8 @@ Read [Testing and feedback](docs/TESTING_AND_FEEDBACK.md) before using a test bu
 
 The Veteran Roster workspace imports validated JSON produced by community tools in the `umadump` / `UmaExtractor` family. It stores scrubbed snapshots with provenance and integrity metadata, rejects unrelated output classes, searches and inspects records, and exports JSON or CSV.
 
+Alpha22 adds readable evaluation ranks (`S`, `S+`, `SS`, and higher tiers), `G–S` aptitude grades, corrected factor rarity resolution, `Lv N` skill acquisition levels, local-first portrait extraction, cached/preloaded costume portraits, retractable workspace panels, focus mode, filters, comparison, and shortlist tools.
+
 Cached artwork and portraits found in the user's installed game may load automatically. New HTTPS artwork requests are never started by opening or scrolling the roster; they require **Load portrait online** or **Load all portraits online**. Local game databases and bundles are opened read-only, and all generated PNGs stay inside the Manager cache.
 
 Supported provider families include:
@@ -86,7 +90,7 @@ Supported provider families include:
 - `NECOtype/UmaExtractor`, xancia's compatible fork, and related classic-format tools;
 - `Werseter/umadump 2.0`, including `trained_chara_data.json`.
 
-Uma Mod Manager credits and launches user-supplied external tools, but does not bundle projects that lack a compatible declared license. Attribution is required; permission remains a separate and inconveniently real concept.
+Uma Mod Manager credits and launches user-supplied external tools, but does not bundle projects that lack a compatible declared license.
 
 ## Core rules
 
@@ -105,17 +109,23 @@ Uma Mod Manager credits and launches user-supplied external tools, but does not 
 
 ## Downloads
 
-Permanent Community Test builds are published as GitHub prereleases after exact-head validation. Short-lived development artifacts remain available from successful workflows:
+Permanent Community Test builds are published as GitHub prereleases after exact-head validation:
 
 - [Community Test release workflow](https://github.com/EvelynLimaB/Uma-Mod-Manager/actions/workflows/manager-testing-release.yml)
-- [Windows portable workflow](https://github.com/EvelynLimaB/Uma-Mod-Manager/actions/workflows/manager-windows-checks.yml?query=branch%3Amain)
-- [Debian and AppImage workflow](https://github.com/EvelynLimaB/Uma-Mod-Manager/actions/workflows/manager-checks.yml?query=branch%3Amain)
+- [Testing and feedback](docs/TESTING_AND_FEEDBACK.md)
+- [Alpha22 release notes](docs/releases/0.2.0-alpha.22.md)
 
 Technical package and command identifiers remain `umml-manager` for upgrade compatibility. See [Branding and compatibility](docs/BRANDING_AND_COMPATIBILITY.md).
 
 ### Windows portable
 
-Extract the portable archive and run:
+Download and extract:
+
+```text
+umml-manager_0.2.0-alpha.22_win64.zip
+```
+
+Then run:
 
 ```text
 Uma Mod Manager.cmd
@@ -126,15 +136,15 @@ A compatibility launcher named `UMML Manager.cmd` remains during the migration w
 ### Debian package
 
 ```bash
-sudo apt install ./umml-manager_0.2.0~alpha21_amd64.deb
+sudo apt install ./umml-manager_0.2.0~alpha22_amd64.deb
 /usr/bin/umml-manager
 ```
 
 ### AppImage
 
 ```bash
-chmod +x ./umml-manager_0.2.0-alpha.21_x86_64.AppImage
-./umml-manager_0.2.0-alpha.21_x86_64.AppImage
+chmod +x ./umml-manager_0.2.0-alpha.22_x86_64.AppImage
+./umml-manager_0.2.0-alpha.22_x86_64.AppImage
 ```
 
 Verify published artifacts using the accompanying checksum file:
@@ -142,6 +152,14 @@ Verify published artifacts using the accompanying checksum file:
 ```bash
 sha256sum -c SHA256SUMS
 ```
+
+## GameBanana download behavior in alpha22
+
+The Manager first attempts the API-supplied HTTPS file transfer. If GameBanana returns a browser-only HTML page instead of archive bytes, the Manager opens that selected file URL in the default browser and waits for the completed matching archive in the normal Downloads directory.
+
+The browser-assisted bridge rejects partial files, symlinks, unrelated archives, and mismatched size/MD5 data. It is an interim compatibility path. Official `uma-mod-manager:` protocol / Remote Install integration is planned as the long-term replacement.
+
+See [GameBanana provider](docs/GAMEBANANA_PROVIDER.md) for details and the `UMML_GAMEBANANA_DOWNLOAD_DIR` override.
 
 ## Player workflow
 
@@ -195,20 +213,9 @@ Windows contributors can use the equivalent PowerShell virtual-environment activ
 
 ## Contributing and testing
 
-Mod-manager improvements, creator tools, asset-analysis workflows, provider adapters, package manifests, UI/UX work, documentation, synthetic tests, and real-machine pass reports are welcome. Read [Contributing](CONTRIBUTING.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md).
+Read [Contributing](CONTRIBUTING.md) and [Testing and feedback](docs/TESTING_AND_FEEDBACK.md).
 
 Do not commit or attach copyrighted game assets, decrypted metadata, personal roster data, downloaded mods without redistribution permission, credentials, generated packages, or unreviewed support reports.
-
-Useful contributions include:
-
-- document a real package layout;
-- provide a redistributable synthetic fixture reproducing a failure;
-- report a successful exact-build test pass;
-- improve character/dress/part detection without inventing certainty;
-- remove an unexplained creator step;
-- replace a legacy editor with a tested native workflow;
-- add compatibility metadata to a mod;
-- improve an external-tool adapter while preserving provenance and licensing.
 
 ## Lineage and legal status
 
